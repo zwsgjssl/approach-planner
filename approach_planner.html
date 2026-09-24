@@ -257,7 +257,7 @@
 
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
-  <h1>APPROACH PLANNER <span style="color:var(--textdim); font-weight:400;">/ prototype</span> <span style="color:var(--amber); font-size:11px;">build 219</span></h1>
+  <h1>APPROACH PLANNER <span style="color:var(--textdim); font-weight:400;">/ prototype</span> <span style="color:var(--amber); font-size:11px;">build 222</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -322,7 +322,6 @@
         <button data-v="25">F25</button>
         <button data-v="30" class="active">F30</button>
       </div>
-      <div class="hint">F20はManeuver Speedそのまま(+5なし)。AbeamからTarget APP SPDまで0.7kt/secで減速する(Visualと同じ扱い)。</div>
     </div>
 
     <div class="field">
@@ -464,10 +463,6 @@
 
     <div id="ldaFields" class="grp" style="display:none;">
     <div class="sect">LDA</div>
-
-    <div class="field">
-      <div class="hint">羽田 LDA W RWY22/23専用。Missed Approach Point(MAP)手前の描画範囲端からMAPまではLDA Final Apch Crs(277°M、両滑走路共通)上を直進、MAP以降は指定したDME地点からBank角を計算した定常旋回でそれぞれのRWY Finalへ。1312ft Aiming Pointに向けて全区間3°一定でContinuous Descent(レベルフライトなし)。速度はFMS(型式/重量/Flap)のTarget App Spd(IAS)を使用。RWY22/23選択時のみ計算されます。</div>
-    </div>
 
     <div class="field">
       <label>Turn Start (MAPのDMEが上限, NM)</label>
@@ -2036,7 +2031,12 @@ function resetTo2DView(){
   document.querySelectorAll("#show3DToggle button").forEach(b=>b.classList.toggle("active", b.dataset.v==="off"));
   const mw = document.getElementById("mapwrap"); if(mw) mw.classList.remove("is3d");
 }
-airportSel.addEventListener("change", ()=>{ state.airportKey = airportSel.value; resetTo2DView(); setupAirport(); });
+// build222: 空港や滑走路を変えたら、風と温度(OAT)も既定値(無風・15℃)に戻す(ユーザー要望)。
+// 保存状態の復元(applySavedStateOverride)はこのハンドラを通らないので、再起動時は前回の値が残る。
+function resetWeatherInputs(){
+  ["oat","wind"].forEach(id=>{ const el = document.getElementById(id); if(el) el.value = el.defaultValue; });
+}
+airportSel.addEventListener("change", ()=>{ state.airportKey = airportSel.value; resetWeatherInputs(); resetTo2DView(); setupAirport(); });
 
 function setCutAngleUI(val){
   state.cutAngle = val;
@@ -2502,11 +2502,16 @@ document.getElementById("rwyEnd").addEventListener("change", ()=>{
   // 上書きしないため、offsetと速度だけVisualの値が residue として残ってしまう。
   // その結果「同じVOR方式を選んでいるのに、それまでの操作順で表示が変わる」事故になっていた。
   const selRwy = document.getElementById("rwyEnd").value;
+  resetWeatherInputs();   // build222
   resetTo2DView();   // build192: 滑走路を変えたら3D表示をOFFに戻す
   if(selRwy==="LDA22" || selRwy==="LDA23"){
     // build176: LDA 22/23はRWYドロップダウンから選ぶ専用の描画モード。
     // Approach Type/VOR方式などの通常滑走路向けデフォルト適用は不要なのでスキップする。
-    clearVorForcing();
+    // build221: ただしVOR方式から直接LDAへ来た場合は、VOR方式が書き換えた入力欄(Offset 1.5NM・
+    // Downwind高度730ft等)を既定値へ戻しておく。戻さないと、LDAの後に別の空港へ移ったとき
+    // (その時点ではもうVOR強制が解除済みなので空港切替側の復元も働かず)、
+    // 「伊丹のVisualなのにOffset 1.5NM」のようにVOR方式の値が残っていた(ユーザー指摘)。
+    if(clearVorForcing()) applyApproachDefaults();
     // build176: Turn Start DME入力欄は「未入力ならMAPのDMEで旋回する」既定値だが、
     // 別の滑走路(LDA22↔LDA23、MAPのDMEが1.1と4.9で大きく異なる)から切り替えたときに
     // 前の滑走路の値が残っていると、意図せず「MAPよりずっと手前(旋回が極端に遅れる)」
@@ -3138,6 +3143,28 @@ function el(tag, attrs){
   const e = document.createElementNS(svgNS, tag);
   for(const k in attrs) e.setAttribute(k, attrs[k]);
   return e;
+}
+// build222: 航跡の色分け(ユーザー指定): 直線飛行中=青(--cyan)、旋回中=緑(--green)。
+// 旋回の点列(arc.pts等)の「点オブジェクトそのもの」を登録しておき、経路上の隣り合う2点が
+// 同じ旋回に属していれば旋回区間と判定する(経路の点列は旋回の点列をそのまま連結して作っているため)。
+// 中国道(E2A)の目安線は、旋回(緑)と紛らわしくないよう薄紫にする(build222)
+const E2A_COLOR = "#c7a6ff";
+const ROUTE_STRAIGHT = "var(--cyan)", ROUTE_TURN = "var(--green)";
+function makeTurnSegTest(arcs){
+  const m = new Map();
+  arcs.forEach((a,id)=>{ if(a && a.length) a.forEach(p=>{ if(!m.has(p)) m.set(p, new Set()); m.get(p).add(id); }); });
+  return (p,q)=>{ const A=m.get(p), B=m.get(q); if(!A||!B) return false; for(const x of A){ if(B.has(x)) return true; } return false; };
+}
+// 点列を「直線/旋回」の連続区間ごとに分けて返す: [{pts:[...], turn:bool}, ...](境目の点は両側で共有)
+function splitByTurn(pts, isTurnSeg){
+  const out = [];
+  for(let i=1;i<pts.length;i++){
+    const t = isTurnSeg(pts[i-1], pts[i]);
+    const last = out[out.length-1];
+    if(last && last.turn===t) last.pts.push(pts[i]);
+    else out.push({ pts:[pts[i-1], pts[i]], turn:t });
+  }
+  return out;
 }
 function polylineFromXY(points, refLat, refLon, attrs){
   const svgPts = points.map(p=>{ const s=xyToSvg(p,refLat,refLon); return s.x+","+s.y; }).join(" ");
@@ -4294,14 +4321,14 @@ function renderDeparture(airport, rwyLabel){
       { stroke:"var(--cyan)", "stroke-width":"1.5", "stroke-dasharray":"6 5", opacity:"0.7" }));
   }
   svg.appendChild(polylineFromXY(circlePointsXY(iteXY, ITAMI_DEP_ITE_TARGET_NM*NM), refLat, refLon,
-    { stroke:"var(--amber)", "stroke-width":"1.5", "stroke-dasharray":"6 5", opacity:"0.7" }));
+    { stroke:"var(--text)", "stroke-width":"1.5", "stroke-dasharray":"6 5", opacity:"0.6" }));
   // Turn Start距離の円(ISK, 可変)も目安として表示
   svg.appendChild(polylineFromXY(circlePointsXY(iskXY, turnStartNM*NM), refLat, refLon,
     { stroke:"var(--green)", "stroke-width":"1.5", "stroke-dasharray":"3 4", opacity:"0.6" }));
 
   // --- 航法援助施設 ---
   svg.appendChild(markerXY(iskXY, refLat, refLon, {fill:"var(--cyan)", stroke:"var(--cyan)"}, "ISK", counterRot));
-  svg.appendChild(markerXY(iteXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "ITE", counterRot));
+  svg.appendChild(markerXY(iteXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "ITE", counterRot));
 
   // --- 中国自動車道(E2A)中国池田IC-宝塚IC間の目安ライン(build173、OSRM経路データによる形状近似。地上物の視覚参考でAIP実測値ではない) ---
   // build180: ユーザー要望によりラベル("E2A 中国道(目安)")は非表示にし(build196で重ならない位置に自動配置して復活)、代わりに線自体を
@@ -4309,7 +4336,7 @@ function renderDeparture(airport, rwyLabel){
   if(airport.chugokuExpwyE2A && airport.chugokuExpwyE2A.length>1){
     const e2aXY = airport.chugokuExpwyE2A.map(p=>toXY(p.lat, p.lon, refLat, refLon));
     svg.appendChild(polylineFromXY(e2aXY, refLat, refLon,
-      { stroke:"var(--green)", "stroke-width":"4", opacity:"0.85" }));
+      { stroke:E2A_COLOR, "stroke-width":"4", opacity:"0.85" }));
   }
   // build196: ラベルは他の線を全部描いた後で空いている場所に置く(下の placeE2ALabel)
 
@@ -4323,7 +4350,8 @@ function renderDeparture(airport, rwyLabel){
   // 赤で上書きする。隣接区間との境目が切れて見えないよう、色が変わる直前の点を
   // 次の区間の先頭にも複製して繋ぐ(既存のTraffic Pattern等と同じ手法)。
   if(sim.path.length>1){
-    const colorOf = (p)=> p.outOfIskBand ? "var(--red)" : (p.phase==="straight1" ? "var(--green)" : "var(--amber)");
+    // build222: 直線=青、旋回=緑、ISK帯からの逸脱=赤(ユーザー指定)
+    const colorOf = (p)=> p.outOfIskBand ? "var(--red)" : (p.phase==="turn" ? ROUTE_TURN : ROUTE_STRAIGHT);
     let runStart = 0;
     for(let i=1;i<=sim.path.length;i++){
       const changed = i===sim.path.length || colorOf(sim.path[i])!==colorOf(sim.path[runStart]);
@@ -4339,7 +4367,7 @@ function renderDeparture(airport, rwyLabel){
     }
   }
   if(sim.turnStartInfo){
-    svg.appendChild(markerXY(sim.turnStartInfo, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"},
+    svg.appendChild(markerXY(sim.turnStartInfo, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"},
       "Turn Start", counterRot));
   }
   if(sim.trkStopInfo){
@@ -4457,7 +4485,7 @@ function placeE2ALabel(o){
   drawE2ALabelAt(best.c, counterRot, text, FS);
 }
 function drawE2ALabelAt(c, counterRot, text, FS){
-  const t = el("text", { x:c.x, y:c.y, fill:"var(--green)", "font-size":String(FS), "font-family":"monospace",
+  const t = el("text", { x:c.x, y:c.y, fill:E2A_COLOR, "font-size":String(FS), "font-family":"monospace",
     "font-weight":"700", "text-anchor":"middle", "dominant-baseline":"central",
     stroke:"rgba(0,0,0,.75)", "stroke-width":"3", "paint-order":"stroke", "stroke-linejoin":"round",
     transform:"rotate("+counterRot+" "+c.x+" "+c.y+")" });
@@ -4697,7 +4725,7 @@ function renderLda(airport, rwyLabel){
 
   // --- 航法援助施設 ---
   svg.appendChild(markerXY(navXY, refLat, refLon, {fill:"var(--cyan)", stroke:"var(--cyan)"}, proc.navaid, counterRot));
-  svg.appendChild(markerXY(mapXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"},
+  svg.appendChild(markerXY(mapXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"},
     "MAP (D"+mapDmeNm.toFixed(1)+" "+proc.navaid+")", counterRot));
 
   // --- 滑走路 ---
@@ -4708,11 +4736,11 @@ function renderLda(airport, rwyLabel){
   // --- 経路(直進1=LDA Final Apch Crs / 旋回 / 直進2=RWY Final) ---
   svg.appendChild(polylineFromXY([drawStartXY, turnStartXY], refLat, refLon, {stroke:"var(--cyan)", "stroke-width":"3.5"}));
   if(turnPts.length>1){
-    svg.appendChild(polylineFromXY(turnPts, refLat, refLon, {stroke:"var(--amber)", "stroke-width":"3.5"}));
+    svg.appendChild(polylineFromXY(turnPts, refLat, refLon, {stroke:ROUTE_TURN, "stroke-width":"3.5"}));
   }
-  svg.appendChild(polylineFromXY([turnEndXY, aimingPointXY], refLat, refLon, {stroke:"var(--green)", "stroke-width":"3.5"}));
+  svg.appendChild(polylineFromXY([turnEndXY, aimingPointXY], refLat, refLon, {stroke:ROUTE_STRAIGHT, "stroke-width":"3.5"}));
 
-  svg.appendChild(markerXY(turnStartXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "Turn Start", counterRot));
+  svg.appendChild(markerXY(turnStartXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "Turn Start", counterRot));
   svg.appendChild(markerXY(turnEndXY, refLat, refLon, {fill:"var(--green)", stroke:"var(--green)"}, "on Final", counterRot));
 
   if(bankOutOfRange){
@@ -5508,29 +5536,14 @@ function renderMain(){
 
   // --- 描画 ---
   // 直線区間は、理想化したコーナー点ではなく実際の曲線の端点を使って繋ぐ(風でズレても隙間ができないように)
-  // 色分けは高度状態で行う: TOD以降(降下中)=緑、それ以前(Level flight)=青。
-  // 区間(Downwind/Base/Final)ではなくTODを境に分けるので、経路(nearToFarBase)を
-  // THRからの弧長がdescDistMを超えるところで切って描く。
+  // build222: 色分けは飛行状態で行う(ユーザー指定): 直線飛行中=青、旋回中=緑(Entryも同じ)。
   // 3D表示中は、地面に投射される線(影)は元の色を薄くするのではなく、単純な薄いグレーで描く。
-  {
-    const base = nearToFarBase; // THRに近い側から遠い側へ
-    let acc=0; const withArc=[];
-    for(let i=0;i<base.length;i++){
-      if(i>0) acc += Math.hypot(base[i].x-base[i-1].x, base[i].y-base[i-1].y);
-      withArc.push({ p:base[i], arc:acc });
-    }
-    let seg=[withArc[0]], isDesc = withArc[0].arc<=pat.descDistM;
-    const flush=()=>{
-      if(seg.length<2) return;
-      svg.appendChild(polylineFromXY(seg.map(q=>q.p), refLat, refLon,
-        Object.assign({"stroke-width":"2.5"}, groundLineAttrs(isDesc?"var(--green)":"var(--cyan)")))); // 3D時は地面側を薄いグレーの影として描く
-    };
-    for(let i=1;i<withArc.length;i++){
-      const d = withArc[i].arc<=pat.descDistM;
-      seg.push(withArc[i]);
-      if(d!==isDesc){ flush(); seg=[withArc[i]]; isDesc=d; }
-    }
-    flush();
+  const turnArcsForColor = [arc1 && arc1.pts, arc2 && arc2.pts, cont && cont.pts,
+    entry && entry.arc1 && entry.arc1.pts, entry && entry.arc2 && entry.arc2.pts];
+  const isTurnSeg = makeTurnSegTest(turnArcsForColor);
+  for(const run of splitByTurn(nearToFarBase, isTurnSeg)){
+    svg.appendChild(polylineFromXY(run.pts, refLat, refLon,
+      Object.assign({"stroke-width":"2.5"}, groundLineAttrs(run.turn ? ROUTE_TURN : ROUTE_STRAIGHT))));
   }
 
   // --- 進入(逆方向)～Downwindへの進入(Cut angle, S字旋回) ---
@@ -5552,12 +5565,12 @@ function renderMain(){
         // TTE VORからSULUL方向(R-094)への参考線を点線で引く
         svg.appendChild(polylineFromXY([tteXY, farXY], refLat, refLon,
           {stroke:"var(--textdim)", "stroke-width":"2", "stroke-dasharray":"3,4"}));
-        // inbound区間もEntryの一部なので、旋回(arc1)と同じアンバーで繋げて描く
+        // inbound区間(直線)
         svg.appendChild(polylineFromXY([farXY, entry.entryCrossXY], refLat, refLon,
-          Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--amber)"))));
+          Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_STRAIGHT))));
         svg.appendChild(markerXY(atDME(5.7), refLat, refLon, {fill:"var(--cyan)", stroke:"var(--cyan)"}, "SULUL D5.7", counterRot));
         const turnDME = Math.hypot(entry.entryCrossXY.x-tteXY.x, entry.entryCrossXY.y-tteXY.y)/NM;
-        svg.appendChild(markerXY(entry.entryCrossXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "Turn D"+turnDME.toFixed(1), counterRot));
+        svg.appendChild(markerXY(entry.entryCrossXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "Turn D"+turnDME.toFixed(1), counterRot));
       } else {
         // build210: VOR 34L→16R: 周回進入区域に入る前の333°Mのインバウンドコースを、画像の端からTTE VORを
         // 通って境界通過点(Entryの旋回開始点)まで、Entryと同じアンバーの実線で描く(以前はTTEからの点線のみ)
@@ -5568,7 +5581,7 @@ function renderMain(){
         const edgeD = 15*NM;
         const farIn = { x: entry.entryCrossXY.x+back.x*edgeD, y: entry.entryCrossXY.y+back.y*edgeD };
         svg.appendChild(polylineFromXY([farIn, entry.entryCrossXY], refLat, refLon,
-          Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--amber)"))));
+          Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_STRAIGHT))));
         // TTE VORから境界通過点までの参考線(点線)は従来どおり残す
         svg.appendChild(polylineFromXY([tteXY, entry.entryCrossXY], refLat, refLon,
           {stroke:"var(--textdim)", "stroke-width":"2", "stroke-dasharray":"3,4"}));
@@ -5576,10 +5589,10 @@ function renderMain(){
         {
           const hM = ((refElevFt + downwindAltAFE) - 101)*0.3048;
           const dNM = Math.sqrt(Math.pow(Math.hypot(entry.entryCrossXY.x-tteXY.x, entry.entryCrossXY.y-tteXY.y),2) + hM*hM)/NM;
-          svg.appendChild(markerXY(entry.entryCrossXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "A Break / TTE D"+dNM.toFixed(1), counterRot));
+          svg.appendChild(markerXY(entry.entryCrossXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "A Break / TTE D"+dNM.toFixed(1), counterRot));
         }
       }
-      svg.appendChild(markerXY(tteXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "TTE VOR", counterRot));
+      svg.appendChild(markerXY(tteXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "TTE VOR", counterRot));
     } else {
       svg.appendChild(polylineFromXY([pat.oppXY, entry.entryCrossXY], refLat, refLon,
         {stroke:"var(--textdim)", "stroke-width":"2", "stroke-dasharray":"3,4"}));
@@ -5587,23 +5600,23 @@ function renderMain(){
       const inEdge = 15*NM; // Break Pointが画像の外でも描けるよう十分長く引き、SVGの表示範囲で切る
       if(inEdge>0){
         svg.appendChild(polylineFromXY([{ x: entry.entryCrossXY.x+pat.ux*inEdge, y: entry.entryCrossXY.y+pat.uy*inEdge }, entry.entryCrossXY], refLat, refLon,
-          Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--amber)"))));
+          Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_STRAIGHT))));
       }
       if(breakDistNM!==null){
         const bDme = breakDmeOf(breakDistNM);
-        svg.appendChild(markerXY(entry.entryCrossXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"},
+        svg.appendChild(markerXY(entry.entryCrossXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"},
           "A Break "+breakDistNM.toFixed(1)+"NM"+(bDme!==null ? " / "+breakDmeIdent+" D"+bDme.toFixed(1) : ""), counterRot));
       }
     }
-    svg.appendChild(polylineFromXY(entry.arc1.pts, refLat, refLon, Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--amber)"))));
+    svg.appendChild(polylineFromXY(entry.arc1.pts, refLat, refLon, Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_TURN))));
     // build212: Cut Angle EntryのB(Turn1終了点)・C(Turn2開始点)。A(Turn1開始点)はBreakマーカーに併記
     if(!isVorA16L){
-      svg.appendChild(markerXY(entryArc1EndXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "B", counterRot));
-      svg.appendChild(markerXY(entry.arc2.pts[0], refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "C", counterRot));
+      svg.appendChild(markerXY(entryArc1EndXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "B", counterRot));
+      svg.appendChild(markerXY(entry.arc2.pts[0], refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "C", counterRot));
     }
-    svg.appendChild(polylineFromXY([entryArc1EndXY, entry.arc2.pts[0]], refLat, refLon, Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--amber)"))));
-    svg.appendChild(polylineFromXY(entry.arc2.pts, refLat, refLon, Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--amber)"))));
-    svg.appendChild(polylineFromXY([entryArc2EndXY, connectXY], refLat, refLon, Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--cyan)"))));
+    svg.appendChild(polylineFromXY([entryArc1EndXY, entry.arc2.pts[0]], refLat, refLon, Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_STRAIGHT))));
+    svg.appendChild(polylineFromXY(entry.arc2.pts, refLat, refLon, Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_TURN))));
+    svg.appendChild(polylineFromXY([entryArc2EndXY, connectXY], refLat, refLon, Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_STRAIGHT))));
   }
 
   // --- Visualのdownwind直線：Entry表示中はEntry接続点まで／Traffic Pattern中は離陸旋回の
@@ -5639,15 +5652,15 @@ function renderMain(){
   // 風がある時に線が切れて見える不具合があった)。
   if(departure){
     svg.appendChild(polylineFromXY([pat.thrXY, departure.pStart], refLat, refLon,
-      Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--amber)"))));
+      Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_STRAIGHT))));
     svg.appendChild(polylineFromXY(departure.turn.pts, refLat, refLon,
-      Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--amber)"))));
+      Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_TURN))));
     if(state.approach==="circling" && cont && cont.pts.length){
       svg.appendChild(polylineFromXY([departure.endXY, cont.pts[0]], refLat, refLon,
         Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--cyan)"))));
     }
-    svg.appendChild(markerXY(pat.thrXY, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "TKOF", counterRot));
-    svg.appendChild(markerXY(departure.pStart, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, PATTERN_STRAIGHT_OUT_NM.toFixed(1)+"NM ("+(PATTERN_TURN_ALT_AFE[state.approach])+"ft AFE目安)", counterRot));
+    svg.appendChild(markerXY(pat.thrXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "TKOF", counterRot));
+    svg.appendChild(markerXY(departure.pStart, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, PATTERN_STRAIGHT_OUT_NM.toFixed(1)+"NM ("+(PATTERN_TURN_ALT_AFE[state.approach])+"ft AFE目安)", counterRot));
   }
 
   // --- 経路まわりの最高標高（readout用）。地形データが無い空港では行ごと出さない ---
@@ -5751,20 +5764,15 @@ function renderMain(){
         next += 0.5*NM;
       }
     }
-    // 持ち上げた航跡(Final=緑、それ以外=シアン)
-    let seg=[lifted[0]], isF = lifted[0].arc<=pat.descDistM;
-    const flush=()=>{
-      if(seg.length<2) return;
-      svg.appendChild(el("polyline",{points:seg.map(q=>q.x+","+q.y).join(" "), fill:"none",
-        stroke:isF?"var(--green)":"var(--cyan)","stroke-width":"3",
-        "stroke-linecap":"round","stroke-linejoin":"round"}));
-    };
-    for(let i=1;i<lifted.length;i++){
-      const f = lifted[i].arc<=pat.descDistM;
-      seg.push(lifted[i]);
-      if(f!==isF){ flush(); seg=[lifted[i]]; isF=f; }
+    // 持ち上げた航跡(build222: 直線=青、旋回=緑。地面側と同じ判定)
+    {
+      const liftedOf = new Map(nearToFarFull.map((p,i)=>[p, lifted[i]]));
+      for(const run of splitByTurn(nearToFarFull, isTurnSeg)){
+        svg.appendChild(el("polyline",{points:run.pts.map(p=>{ const q=liftedOf.get(p); return q.x+","+q.y; }).join(" "), fill:"none",
+          stroke: run.turn ? ROUTE_TURN : ROUTE_STRAIGHT,"stroke-width":"3",
+          "stroke-linecap":"round","stroke-linejoin":"round"}));
+      }
     }
-    flush();
     // 主要ポイントを高度位置にも表示
     const liftMarkAt=(xy,altFt,color,label)=>{
       const g0 = xyToSvg(xy, refLat, refLon);
@@ -5819,8 +5827,14 @@ function renderMain(){
         const L = liftOf(depAltAt(dLens[i]));
         return { gx:g.x, gy:g.y, x:g.x+L.dx, y:g.y+L.dy };
       });
-      svg.appendChild(el("polyline",{points:dLifted.map(q=>q.x+","+q.y).join(" "), fill:"none",
-        stroke:"var(--amber)","stroke-width":"3","stroke-linecap":"round","stroke-linejoin":"round"}));
+      {
+        const depTurnSeg = makeTurnSegTest([[departure.pStart, ...departure.turn.pts]]);
+        const liftedOfD = new Map(depPath.map((p,i)=>[p, dLifted[i]]));
+        for(const run of splitByTurn(depPath, depTurnSeg)){
+          svg.appendChild(el("polyline",{points:run.pts.map(p=>{ const q=liftedOfD.get(p); return q.x+","+q.y; }).join(" "), fill:"none",
+            stroke: run.turn ? ROUTE_TURN : ROUTE_STRAIGHT,"stroke-width":"3","stroke-linecap":"round","stroke-linejoin":"round"}));
+        }
+      }
       // 高度を示す縦線(0.5NMごと、進入側の表現と統一)
       let dNext=0;
       for(let i=0;i<dLifted.length;i++){
@@ -5830,9 +5844,9 @@ function renderMain(){
           dNext += 0.5*NM;
         }
       }
-      svg.appendChild(liftMarkAt(pat.thrXY, 0, "var(--amber)", "TKOF"));
-      svg.appendChild(liftMarkAt(depClimbStartXY, 0, "var(--amber)", DEP_CLIMB_START_OFFSET_FT+"ft手前"));
-      svg.appendChild(liftMarkAt(departure.pStart, downwindAltAFE, "var(--amber)", PATTERN_STRAIGHT_OUT_NM.toFixed(1)+"NM"));
+      svg.appendChild(liftMarkAt(pat.thrXY, 0, "var(--text)", "TKOF"));
+      svg.appendChild(liftMarkAt(depClimbStartXY, 0, "var(--text)", DEP_CLIMB_START_OFFSET_FT+"ft手前"));
+      svg.appendChild(liftMarkAt(departure.pStart, downwindAltAFE, "var(--text)", PATTERN_STRAIGHT_OUT_NM.toFixed(1)+"NM"));
     }
   }
 
@@ -5843,7 +5857,7 @@ function renderMain(){
   const gl = (name)=> state.show3D ? null : name;
   svg.appendChild(markerXY(todXY, refLat, refLon, {fill:"var(--red)", stroke:"var(--red)"}, gl("TOD"), counterRot));
   svg.appendChild(markerXY(abeamXY, refLat, refLon, {fill:"var(--green)", stroke:"var(--green)"}, gl("Abeam"), counterRot));
-  if(entryMarker) svg.appendChild(markerXY(entryMarker, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"}, "DW Entry", counterRot));
+  if(entryMarker) svg.appendChild(markerXY(entryMarker, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "DW Entry", counterRot));
   svg.appendChild(markerXY(connectXY, refLat, refLon, {fill:"var(--yellow)", stroke:"var(--yellow)"}, gl("Turn"), counterRot));
 
   // --- 地図上に距離/高度ラベル：実際の経路(nearToFarFull)に沿って1NM刻みで表示 ---
