@@ -9,7 +9,7 @@
 //     保存は1ファイル単位で入れ替わるので、保存済みの版が壊れることはない。
 //   - 地図データ(map_data_<空港>.js)は保存済みを優先。新しく取るときも中身を確認してから保存する。
 //     地図データを作り直したときは MAP_CACHE の番号を上げること(古い保存分が消えて取り直される)。
-const APP_CACHE = "ap-app-v1";
+const APP_CACHE = "ap-app-v2";   // build223: アイコン差し替えで v2 に(静的ファイルは保存版優先のため、番号を上げないと古いアイコンが残る)
 const MAP_CACHE = "ap-map-v1";
 const HTML_FILES = ["./", "./approach_planner.html"];
 const STATIC_FILES = ["./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png"];
