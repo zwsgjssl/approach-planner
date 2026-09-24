@@ -3,14 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Approach Planner - prototype</title>
+<title>Approach Planner</title>
 <!-- build218: GitHub Pages版をiPadのホーム画面に追加すると、アドレスバー無しの全画面アプリとして開ける -->
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- build228: ブラウザのタブ用アイコン(favicon)。?v= を付けて、ブラウザに残っている古いアイコンを使わせない -->
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png?v=2">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Approach">
+<meta name="apple-mobile-web-app-title" content="ApproachPlanner">
 <meta name="theme-color" content="#121821">
 <style>
   :root{
@@ -258,7 +261,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 226</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 230</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -3147,12 +3150,12 @@ function el(tag, attrs){
   for(const k in attrs) e.setAttribute(k, attrs[k]);
   return e;
 }
-// build222: 航跡の色分け(ユーザー指定): 直線飛行中=青(--cyan)、旋回中=緑(--green)。
+// build222: 航跡の色分け(ユーザー指定): 直線飛行中=青(--cyan)、旋回中=緑(--green) → build230で旋回=オレンジ(--amber)。
 // 旋回の点列(arc.pts等)の「点オブジェクトそのもの」を登録しておき、経路上の隣り合う2点が
 // 同じ旋回に属していれば旋回区間と判定する(経路の点列は旋回の点列をそのまま連結して作っているため)。
 // 中国道(E2A)の目安線は、旋回(緑)と紛らわしくないよう薄紫にする(build222)
 const E2A_COLOR = "#c7a6ff";
-const ROUTE_STRAIGHT = "var(--cyan)", ROUTE_TURN = "var(--green)";
+const ROUTE_STRAIGHT = "var(--cyan)", ROUTE_TURN = "var(--amber)";   // build230: 旋回をオレンジ(アンバー)に変更(ユーザー要望。build222は緑)
 function makeTurnSegTest(arcs){
   const m = new Map();
   arcs.forEach((a,id)=>{ if(a && a.length) a.forEach(p=>{ if(!m.has(p)) m.set(p, new Set()); m.get(p).add(id); }); });
@@ -6379,6 +6382,23 @@ if(!applySavedStateIfAny()){
     ov.addEventListener("click", (e)=>{ if(e.target===ov) close(); });
     document.body.appendChild(ov);
     document.getElementById("installGuideClose").addEventListener("click", close);
+  }catch(e){}
+})();
+</script>
+<script>
+// build229: アクセス解析(GoatCounter、Cookieなし・個人を特定しない)。公開サイト(GitHub Pages /
+// 将来のCloudflare Pages)で開いたときだけ読み込む。file://・claude.aiのArtifact・テスト用サーバーでは送らない。
+// オフラインでは読み込みに失敗するだけで、アプリの動作には影響しない。
+(function(){
+  try{
+    if(location.protocol!=="https:") return;
+    if(!/\.github\.io$|\.pages\.dev$/.test(location.hostname)) return;
+    if(window.top !== window) return;
+    const sc = document.createElement("script");
+    sc.async = true;
+    sc.src = "https://gc.zgo.at/count.js";
+    sc.setAttribute("data-goatcounter", "https://approachplanner.goatcounter.com/count");
+    document.head.appendChild(sc);
   }catch(e){}
 })();
 </script>
