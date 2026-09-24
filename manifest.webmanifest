@@ -1,6 +1,6 @@
 {
   "name": "Approach Planner",
-  "short_name": "Approach",
+  "short_name": "ApproachPlanner",
   "description": "Visual / Circling / Traffic Pattern のパターン計画ツール(iPad向け)",
   "lang": "ja",
   "start_url": "./",

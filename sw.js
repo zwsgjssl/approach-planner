@@ -12,7 +12,7 @@
 const APP_CACHE = "ap-app-v2";   // build223: アイコン差し替えで v2 に(静的ファイルは保存版優先のため、番号を上げないと古いアイコンが残る)
 const MAP_CACHE = "ap-map-v1";
 const HTML_FILES = ["./", "./approach_planner.html"];
-const STATIC_FILES = ["./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png"];
+const STATIC_FILES = ["./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/favicon-32.png", "./icons/favicon-16.png"];
 const AIRPORT_KEYS = ["chitose","hakodate","haneda","itami","takamatsu","matsuyama","hiroshima","fukuoka","kumamoto"];
 const FIRST_LOAD_TIMEOUT_MS = 30000;   // 保存済みの版が無い(初回)ときだけ、ネットワークを待つ上限
 
