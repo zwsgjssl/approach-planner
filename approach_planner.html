@@ -257,7 +257,7 @@
 
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
-  <h1>APPROACH PLANNER <span style="color:var(--textdim); font-weight:400;">/ prototype</span> <span style="color:var(--amber); font-size:11px;">build 222</span></h1>
+  <h1>APPROACH PLANNER <span style="color:var(--textdim); font-weight:400;">/ prototype</span> <span style="color:var(--amber); font-size:11px;">build 224</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -419,11 +419,7 @@
     <div class="sect">Departure</div>
 
     <div class="field">
-      <div class="hint">伊丹 RWY32L 離陸時 騒音軽減経路 (Noise Preferential Route)。ISK(ILS-DME)から1.8NMで左旋回開始、ITE(VOR/DME)2.2NMまで。伊丹・RWY32L選択時のみ計算されます(AIPの騒音軽減経路は32R/32L共通ですが、本アプリは32Lからの離陸のみ計算します)。地図上の「E2A 中国道」は中国自動車道(中国池田IC～宝塚IC間)の経路形状の目安線(OSRM経路データによる近似)で、AIP実測値ではありません。</div>
-    </div>
-
-    <div class="field">
-      <label>Start Offset (滑走路終端手前, ft)</label>
+      <label>Rotation Point (滑走路終端手前, ft)</label>
       <input id="depStartOffsetFt" type="number" step="100" value="2000">
     </div>
 
@@ -4241,7 +4237,7 @@ function renderDeparture(airport, rwyLabel){
   const headingTrueDeg = ((Math.atan2(ux,uy)*R2D)+360)%360;
 
   // build198: 範囲チェック付きで読む(readNum)。範囲外なら計算を止めてエラー表示
-  const startOffsetFt = readNum("depStartOffsetFt", 2000, 0, Math.floor(rwyLenM/0.3048)-1000, "Start Offset", "ft");
+  const startOffsetFt = readNum("depStartOffsetFt", 2000, 0, Math.floor(rwyLenM/0.3048)-1000, "Rotation Point", "ft");
   const iasKt = readNum("depSpeedKt", 170, 120, 250, "Speed", "kt");
   const turnStartNM = readNum("depTurnStartNM", 1.8, 0.3, 5, "Turn Start", "NM");
   const bankDeg = state.depBank || 25;
@@ -6285,31 +6281,93 @@ if(!applySavedStateIfAny()){
     if(!("serviceWorker" in navigator)) return;
     if(!/^https?:$/.test(location.protocol)) return;
     if(window.top !== window) return;
-    // build219: 新しい版は裏で保存され、次に開いたときに反映される(遅い回線でも起動を待たせないため)。
-    // 保存できたら小さく知らせる。
+    // build224: 新しい版を裏で保存できたら「今すぐ更新しますか？ はい/いいえ」を出す(ユーザー要望)。
+    //  はい  → その場で再読み込み(保存済みの新しい版で開き直す)
+    //  いいえ → 閉じるだけ。新しい版は保存済みなので、次にアプリを起動したときに反映される
+    // 起動時と、アプリが裏から表に戻ったときに、SWへ更新確認(check-update)を頼む。
+    // SWは裏でGitHubを確認したうえで、保存済みの版の番号(app-version)を返す。起動は待たせない。
+    const curBuild = +((document.querySelector("header h1")||{}).textContent||"").replace(/[\s\S]*build (\d+)[\s\S]*/, "$1");
+    let declinedBuild = null;   // 「いいえ」を選んだ版(同じ版では、このページを開いている間は聞き直さない)
+    function showUpdatePrompt(build){
+      if(!build || !(build > curBuild) || build===declinedBuild) return;
+      let t = document.getElementById("swUpdatePrompt");
+      if(!t){
+        t = document.createElement("div"); t.id = "swUpdatePrompt"; t.setAttribute("role","dialog");
+        t.style.cssText = "position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:70;"
+          + "background:var(--panel2);color:var(--text);border:1px solid var(--cyan);border-radius:10px;padding:12px 14px;font-size:14px;"
+          + "box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:calc(100vw - 32px);width:380px;";
+        t.innerHTML = '<div id="swUpdateMsg" style="margin-bottom:10px;line-height:1.5;"></div>'
+          + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
+          + '<button type="button" id="swUpdateNo" class="resetBtn" style="min-width:88px;">いいえ</button>'
+          + '<button type="button" id="swUpdateYes" class="resetBtn" style="min-width:88px;background:var(--cyan);border-color:var(--cyan);color:#061018;font-weight:600;">はい</button></div>';
+        document.body.appendChild(t);
+        t.querySelector("#swUpdateYes").addEventListener("click", ()=>{ try{ flushSaveState(); }catch(err){} location.reload(); });
+        t.querySelector("#swUpdateNo").addEventListener("click", ()=>{ declinedBuild = +t.dataset.build; t.remove(); });
+      }
+      t.dataset.build = String(build);
+      t.querySelector("#swUpdateMsg").textContent = "新しい版(build "+build+")があります。今すぐ更新しますか？（「いいえ」の場合は次回起動時に更新されます）";
+    }
     navigator.serviceWorker.addEventListener("message", (e)=>{
       const d = e.data || {};
-      if(d.type!=="app-updated") return;
-      const cur = +((document.querySelector("header h1")||{}).textContent||"").replace(/[\s\S]*build (\d+)[\s\S]*/, "$1");
-      if(!d.build || d.build===cur) return;
-      let t = document.getElementById("swUpdateToast");
-      if(!t){
-        t = document.createElement("div"); t.id = "swUpdateToast";
-        t.style.cssText = "position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:70;"
-          + "background:var(--panel2);color:var(--text);border:1px solid var(--amber);border-radius:8px;padding:10px 14px;font-size:13px;"
-          + "box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:calc(100vw - 32px);";
-        t.addEventListener("click", ()=>t.remove());
-        document.body.appendChild(t);
-      }
-      t.textContent = "新しい版(build "+d.build+")を保存しました。アプリを開き直すと反映されます。";
-      setTimeout(()=>{ if(t.parentNode) t.remove(); }, 12000);
+      if(d.type==="app-updated" || d.type==="app-version") showUpdatePrompt(d.build);
     });
+    function requestUpdateCheck(){
+      navigator.serviceWorker.ready.then(r=>{
+        try{ const u = r.update(); if(u && u.catch) u.catch(()=>{}); }catch(err){}   // sw.js自体の更新確認
+        if(r.active) r.active.postMessage({type:"check-update"});
+      }).catch(()=>{});
+    }
+    document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") requestUpdateCheck(); });
     window.addEventListener("load", ()=>{
       navigator.serviceWorker.register("sw.js").then(()=>{
         // 起動が落ち着いてから、全空港の地図データを裏で保存しておく(保存済みの空港は取り直さない)
         setTimeout(()=>{ navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:"precache-maps"}); }); }, 5000);
+        requestUpdateCheck();   // build224
       }).catch(()=>{});
     });
+  }catch(e){}
+})();
+</script>
+<script>
+// build224: 初回起動時に「ホーム画面に追加(アプリ化)」の方法を案内する(ユーザー要望)。
+// ブラウザのタブで開いているときだけ出す(ホーム画面から開いた全画面アプリ・file://・Artifact内では出さない)。
+// 「次から表示しない」にチェックして閉じると、この端末のこのブラウザでは以後出さない。
+(function(){
+  try{
+    if(!/^https?:$/.test(location.protocol)) return;
+    if(window.top !== window) return;
+    const standalone = (window.navigator.standalone === true) || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    if(standalone) return;
+    const KEY = "approachPlannerInstallGuideHidden_v1";
+    let hidden = false; try{ hidden = localStorage.getItem(KEY)==="1"; }catch(e){}
+    if(hidden) return;
+    const ov = document.createElement("div");
+    ov.id = "installGuide"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true");
+    ov.style.cssText = "position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;";
+    ov.innerHTML = '<div style="background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;max-width:440px;width:100%;'
+      + 'max-height:calc(100vh - 32px);overflow-y:auto;padding:18px 18px 14px;box-shadow:0 8px 30px rgba(0,0,0,.6);font-size:14px;line-height:1.6;">'
+      + '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">ホーム画面に追加して使う</div>'
+      + '<div style="color:var(--textdim);font-size:13px;margin-bottom:10px;">アプリとして追加すると、全画面で開けて、オフライン(機内モード)でも使えます。</div>'
+      + '<ol style="margin:0 0 12px;padding-left:20px;">'
+      + '<li>ブラウザ(Safari / Chrome)の<b>共有ボタン</b>(□に↑)を押す</li>'
+      + '<li>「<b>ホーム画面に追加</b>」を選ぶ</li>'
+      + '<li>「<b>Webアプリとして開く</b>」をオンにして「追加」</li>'
+      + '<li>ホーム画面のアイコンから開き、<b>Wi-Fiにつないだまま15秒ほど待つ</b>(全空港の地図を保存します)</li>'
+      + '<li>機内モードで開き直して地図が出れば完了</li>'
+      + '</ol>'
+      + '<div style="color:var(--textdim);font-size:12px;margin-bottom:12px;">以後はホーム画面のアイコンから開いてください。新しい版があると「今すぐ更新しますか？」と表示されます。</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">'
+      + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;min-height:44px;cursor:pointer;">'
+      + '<input type="checkbox" id="installGuideHide" style="width:20px;height:20px;"> 次から表示しない</label>'
+      + '<button type="button" id="installGuideClose" class="resetBtn" style="min-width:96px;">閉じる</button></div></div>';
+    const close = ()=>{
+      const cb = document.getElementById("installGuideHide");
+      if(cb && cb.checked){ try{ localStorage.setItem(KEY, "1"); }catch(e){} }
+      ov.remove();
+    };
+    ov.addEventListener("click", (e)=>{ if(e.target===ov) close(); });
+    document.body.appendChild(ov);
+    document.getElementById("installGuideClose").addEventListener("click", close);
   }catch(e){}
 })();
 </script>

@@ -141,6 +141,20 @@ self.addEventListener("fetch", (e)=>{
   else e.respondWith(serveStatic(req));
 });
 
+// build224: ページから {type:"check-update"} が来たら、裏でGitHubの最新版を確認・保存したうえで、
+// 保存済みの版の番号を {type:"app-version", build} で返す(ページ側が「今すぐ更新しますか？」を出す)。
+self.addEventListener("message", (e)=>{
+  if(!e.data || e.data.type!=="check-update") return;
+  const src = e.source;
+  e.waitUntil((async ()=>{
+    await revalidateHtml("./");
+    const c = await caches.open(APP_CACHE);
+    const hit = await c.match("./");
+    const build = hit ? appBuildOf(await hit.text()) : null;
+    if(build && src) src.postMessage({ type:"app-version", build });
+  })());
+});
+
 // ページから {type:"precache-maps"} が来たら、まだ保存していない空港の地図データを1つずつ保存する。
 // 途中で回線が切れても、確認に通った空港の分だけが残る(次回起動時に残りを再試行)。
 self.addEventListener("message", (e)=>{
