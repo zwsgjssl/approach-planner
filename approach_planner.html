@@ -261,7 +261,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 230</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 231</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -6303,9 +6303,9 @@ if(!applySavedStateIfAny()){
       let t = document.getElementById("swUpdatePrompt");
       if(!t){
         t = document.createElement("div"); t.id = "swUpdatePrompt"; t.setAttribute("role","dialog");
-        t.style.cssText = "position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:70;"
-          + "background:var(--panel2);color:var(--text);border:1px solid var(--cyan);border-radius:10px;padding:12px 14px;font-size:14px;"
-          + "box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:calc(100vw - 32px);width:380px;";
+        t.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:85;"   // build231: 画面の真ん中に表示(ユーザー要望)
+          + "background:var(--panel2);color:var(--text);border:1px solid var(--cyan);border-radius:10px;padding:14px 16px;font-size:14px;"
+          + "box-shadow:0 8px 30px rgba(0,0,0,.65);max-width:calc(100vw - 32px);width:380px;";
         t.innerHTML = '<div id="swUpdateMsg" style="margin-bottom:10px;line-height:1.5;"></div>'
           + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
           + '<button type="button" id="swUpdateNo" class="resetBtn" style="min-width:88px;">いいえ</button>'
@@ -6315,7 +6315,7 @@ if(!applySavedStateIfAny()){
         t.querySelector("#swUpdateNo").addEventListener("click", ()=>{ declinedBuild = +t.dataset.build; t.remove(); });
       }
       t.dataset.build = String(build);
-      t.querySelector("#swUpdateMsg").textContent = "新しい版があります。今すぐ更新しますか？（「いいえ」の場合は次回起動時に更新されます）";
+      t.querySelector("#swUpdateMsg").textContent = "新しいVerがあります。今すぐ更新しますか？（「いいえ」の場合は次回起動時に更新されます）";
     }
     navigator.serviceWorker.addEventListener("message", (e)=>{
       const d = e.data || {};
