@@ -31,6 +31,9 @@
     --groundline: #b7c0c9;
   }
   *{box-sizing:border-box;}
+  /* build232: 画面(UI)のピンチ拡大・ダブルタップ拡大を止める(ユーザー要望。iPadのSafariは user-scalable=no を無視する)。
+     スクロール(縦横の移動)だけ許可する。地図(.mapwrap)は自前でピンチ拡大するので none のまま(下で指定)。 */
+  html, body, body *{ touch-action: pan-x pan-y; }
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
@@ -159,6 +162,7 @@
   .mapwrap{ position:relative; width:min(100%,78vh); max-width:100%; aspect-ratio:1/1; max-height:78vh; margin:0 auto; background:#05070a; overflow:hidden; touch-action:none;
     user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none;
   }
+  .mapwrap, .mapwrap *{ touch-action:none; }
   .mapwrap *{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   .dlBtn{
     position:absolute; top:8px; right:8px; z-index:5; height:44px; min-width:44px; padding:0 12px; border-radius:8px;
@@ -261,7 +265,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 231</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 235</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -2894,6 +2898,26 @@ mapwrap.addEventListener("dblclick", zpReset);
 // (地図の拡大は地図自身のピンチ処理で行う)。
 document.addEventListener("gesturestart", (e)=>e.preventDefault(), {passive:false});
 document.addEventListener("gesturechange", (e)=>e.preventDefault(), {passive:false});
+// build232: それでも拡大されることがあったため(ユーザー報告)、地図の外での2本指の操作は既定動作(拡大)を止める。
+document.addEventListener("touchmove", (e)=>{
+  if(e.touches && e.touches.length>1 && !(e.target && e.target.closest && e.target.closest("#mapwrap"))) e.preventDefault();
+}, {passive:false});
+// build232: 何かの拍子に画面が拡大されたままになったら、等倍に戻す(viewportの指定を一度書き換えるとiOSは等倍に戻る)
+(function(){
+  const vv = window.visualViewport, meta = document.querySelector('meta[name="viewport"]');
+  if(!vv || !meta) return;
+  const base = meta.getAttribute("content");
+  let busy = false;
+  function resetZoomIfNeeded(){
+    if(busy || !(vv.scale > 1.01)) return;
+    busy = true;
+    meta.setAttribute("content", base + ", minimum-scale=1.0");
+    setTimeout(()=>{ meta.setAttribute("content", base); busy = false; }, 300);
+  }
+  vv.addEventListener("resize", ()=>setTimeout(resetZoomIfNeeded, 400));
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") resetZoomIfNeeded(); });
+  window.addEventListener("orientationchange", ()=>setTimeout(resetZoomIfNeeded, 500));
+})();
 // build198: ズーム・移動・3Dの向き/傾きを一度に戻すボタン(ダブルタップ以外の手段が無く、案内も無かった)
 document.getElementById("viewResetBtn").addEventListener("click", (e)=>{
   e.stopPropagation();
@@ -3153,8 +3177,9 @@ function el(tag, attrs){
 // build222: 航跡の色分け(ユーザー指定): 直線飛行中=青(--cyan)、旋回中=緑(--green) → build230で旋回=オレンジ(--amber)。
 // 旋回の点列(arc.pts等)の「点オブジェクトそのもの」を登録しておき、経路上の隣り合う2点が
 // 同じ旋回に属していれば旋回区間と判定する(経路の点列は旋回の点列をそのまま連結して作っているため)。
-// 中国道(E2A)の目安線は、旋回(緑)と紛らわしくないよう薄紫にする(build222)
-const E2A_COLOR = "#c7a6ff";
+// 中国道(E2A)の目安線の色。build222で旋回(当時は緑)と紛らわしくないよう薄紫にしたが、
+// build230で旋回がオレンジになったので、build233で元の緑に戻した(ユーザー要望)。
+const E2A_COLOR = "var(--green)";
 const ROUTE_STRAIGHT = "var(--cyan)", ROUTE_TURN = "var(--amber)";   // build230: 旋回をオレンジ(アンバー)に変更(ユーザー要望。build222は緑)
 function makeTurnSegTest(arcs){
   const m = new Map();
@@ -3218,6 +3243,27 @@ function ensureProtectionArea(airport, refLat, refLon){
 // 置き直す。すべての線を描き終えた後に1回だけ実行する。各ラベルは自分のマーカー点を中心に画面上で正立
 // (rotate(rot))しているので、回転を打ち消した座標系に線の点列を変換すれば、ラベルの候補位置は軸に平行な
 // 矩形で判定できる。候補は右上(従来の位置)・右・右下・左上・左・左下・上・下の8か所。
+// build235: 3D表示では、持ち上げた航跡が衛星画像の枠(SVGのviewBox)の外にはみ出すことがある。
+// 以前はSVG全体をoverflow:hiddenにしていたため、はみ出した部分が消えていた(ユーザー報告)。
+// 3Dのときだけ SVG を overflow:visible にし、地面側の要素(data-lift の無いもの)だけを
+// clipPath で画像の枠(0..1000)に切る(build193の「画像の外の黒い部分に線を伸ばさない」を保つため)。
+function applyGroundClip3D(){
+  if(!svg) return;
+  if(!state.show3D){ svg.style.overflow = "hidden"; return; }
+  svg.style.overflow = "visible";
+  let defs = svg.querySelector("defs#groundClipDefs");
+  if(!defs){
+    defs = el("defs", { id:"groundClipDefs" });
+    const cp = el("clipPath", { id:"groundClip3D" });
+    cp.appendChild(el("rect", { x:0, y:0, width:1000, height:1000 }));
+    defs.appendChild(cp);
+    svg.insertBefore(defs, svg.firstChild);
+  }
+  for(const n of [...svg.children]){
+    if(n===defs || n.getAttribute("data-lift")==="1") continue;
+    n.setAttribute("clip-path", "url(#groundClip3D)");
+  }
+}
 function placeMapLabels(){
   if(!svg) return;
   const texts = [...svg.querySelectorAll("text[data-lbl]")];
@@ -4381,7 +4427,7 @@ function renderDeparture(airport, rwyLabel){
       "TRK"+trkStopDeg+"°M", counterRot));
   }
   if(sim.iteCrossInfo){
-    svg.appendChild(markerXY(sim.iteCrossInfo, refLat, refLon, {fill:"var(--red)", stroke:"var(--red)"},
+    svg.appendChild(markerXY(sim.iteCrossInfo, refLat, refLon, {fill:"var(--cyan)", stroke:"var(--cyan)"},   // build234: 他の点と同じ水色に
       "ITE "+ITAMI_DEP_ITE_TARGET_NM+"NM", counterRot));
   }
 
@@ -4850,7 +4896,7 @@ function stopIfInputErrors(){
 function render(){
   resetInputCheck();
   npSummaryText = "";
-  try{ renderMain(); try{ placeMapLabels(); }catch(e){ console.error(e); } }
+  try{ renderMain(); try{ applyGroundClip3D(); }catch(e){ console.error(e); } try{ placeMapLabels(); }catch(e){ console.error(e); } }
   finally{
     scheduleSaveState();
     const nps = document.getElementById("npSummary");
@@ -5666,7 +5712,7 @@ function renderMain(){
         Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--cyan)"))));
     }
     svg.appendChild(markerXY(pat.thrXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "TKOF", counterRot));
-    svg.appendChild(markerXY(departure.pStart, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, PATTERN_STRAIGHT_OUT_NM.toFixed(1)+"NM ("+(PATTERN_TURN_ALT_AFE[state.approach])+"ft AFE目安)", counterRot));
+    svg.appendChild(markerXY(departure.pStart, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, null, counterRot)); // build234: ラベル不要(ユーザー要望)
   }
 
   // --- 経路まわりの最高標高（readout用）。地形データが無い空港では行ごと出さない ---
@@ -5741,6 +5787,7 @@ function renderMain(){
   // SVGはrotwrap内(=地面の平面)にあるので、そのズレを rotate(θ) の逆回転で
   // ローカル座標に直してから適用する。地面に残る元の線はそのまま影として機能する。
   if(state.show3D){
+    const liftStartIdx = svg.childNodes.length;   // build235
     const theta = (currentRotationDeg + state.headingOffsetDeg)*D2R;
     // メートル → SVG単位 の換算(実際の投影から計測する)
     const o0 = xyToSvg({x:0,y:0}, refLat, refLon), o1 = xyToSvg({x:1000,y:0}, refLat, refLon);
@@ -5753,11 +5800,15 @@ function renderMain(){
       return { dx: -H*Math.sin(theta), dy: -H*Math.cos(theta) };
     };
     // 経路上の各点の高度を求める
+    // build235: Traffic Patternでは、Downwindを離陸側の旋回の終了点(departure.endXY)までつなぐ。
+    // (nearToFarFullはDownwindを「旋回開始点からAbeam+2NM」まで延ばしただけなので、3Dで離陸側の
+    //  旋回の終わりとの間が途切れていた。2Dは別途 departure.endXY まで線を引いているので繋がって見えていた)
+    const liftPath = departure ? nearToFarBase.concat([departure.endXY]) : nearToFarFull;
     let acc=0; const lifted=[];
-    for(let i=0;i<nearToFarFull.length;i++){
-      if(i>0) acc += Math.hypot(nearToFarFull[i].x-nearToFarFull[i-1].x, nearToFarFull[i].y-nearToFarFull[i-1].y);
+    for(let i=0;i<liftPath.length;i++){
+      if(i>0) acc += Math.hypot(liftPath[i].x-liftPath[i-1].x, liftPath[i].y-liftPath[i-1].y);
       const altFt = pat.altAtDist(acc);
-      const g = xyToSvg(nearToFarFull[i], refLat, refLon);
+      const g = xyToSvg(liftPath[i], refLat, refLon);
       const L = liftOf(altFt);
       lifted.push({ gx:g.x, gy:g.y, x:g.x+L.dx, y:g.y+L.dy, arc:acc, altFt });
     }
@@ -5772,8 +5823,8 @@ function renderMain(){
     }
     // 持ち上げた航跡(build222: 直線=青、旋回=緑。地面側と同じ判定)
     {
-      const liftedOf = new Map(nearToFarFull.map((p,i)=>[p, lifted[i]]));
-      for(const run of splitByTurn(nearToFarFull, isTurnSeg)){
+      const liftedOf = new Map(liftPath.map((p,i)=>[p, lifted[i]]));
+      for(const run of splitByTurn(liftPath, isTurnSeg)){
         svg.appendChild(el("polyline",{points:run.pts.map(p=>{ const q=liftedOf.get(p); return q.x+","+q.y; }).join(" "), fill:"none",
           stroke: run.turn ? ROUTE_TURN : ROUTE_STRAIGHT,"stroke-width":"3",
           "stroke-linecap":"round","stroke-linejoin":"round"}));
@@ -5789,7 +5840,7 @@ function renderMain(){
       const t = el("text",Object.assign({x:g0.x+L.dx+9*k, y:g0.y+L.dy-6*k, fill:color, "font-size":fs.toFixed(1),"font-family":"monospace",
         transform:"rotate("+counterRot+" "+(g0.x+L.dx)+" "+(g0.y+L.dy)+")"}, LABEL_HALO));
       t.dataset.lbl = "1"; t.dataset.ax = g0.x+L.dx; t.dataset.ay = g0.y+L.dy; t.dataset.rot = counterRot; t.dataset.fs = fs; // build213
-      t.textContent=label; grp.appendChild(t);
+      t.textContent=label; if(label) grp.appendChild(t);   // build234: ラベル無しの点も描けるように
       return grp;
     };
     const liftMark=(xy,color,label)=>liftMarkAt(xy, pat.altAtDist(closestPointArcLength(nearToFarFull, xy)), color, label);
@@ -5852,8 +5903,11 @@ function renderMain(){
       }
       svg.appendChild(liftMarkAt(pat.thrXY, 0, "var(--text)", "TKOF"));
       svg.appendChild(liftMarkAt(depClimbStartXY, 0, "var(--text)", DEP_CLIMB_START_OFFSET_FT+"ft手前"));
-      svg.appendChild(liftMarkAt(departure.pStart, downwindAltAFE, "var(--text)", PATTERN_STRAIGHT_OUT_NM.toFixed(1)+"NM"));
+      svg.appendChild(liftMarkAt(departure.pStart, downwindAltAFE, "var(--text)", null)); // build234: ラベル不要
     }
+      // build235: ここまでに描いた「持ち上げた」要素(航跡・高度の縦線・持ち上げたマーカー)に印を付ける。
+    // 3Dでは画像の枠の外にはみ出しても表示し、地面側の線だけを画像の枠で切る(applyGroundClip3D)。
+    for(let ci=liftStartIdx; ci<svg.childNodes.length; ci++){ const n = svg.childNodes[ci]; if(n.setAttribute) n.setAttribute("data-lift","1"); }
   }
 
   svg.appendChild(markerXY(pat.thrXY, refLat, refLon, {fill:"#fff", stroke:"#fff"}, "THR "+rwyLabel, counterRot));
