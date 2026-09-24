@@ -257,7 +257,8 @@
 
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
-  <h1>APPROACH PLANNER <span style="color:var(--textdim); font-weight:400;">/ prototype</span> <span style="color:var(--amber); font-size:11px;">build 224</span></h1>
+  <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 226</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -539,6 +540,7 @@
       <button type="button" id="resetBtn" class="resetBtn">入力値を既定値に戻す</button>
       <div class="hint">空港・滑走路・Mode・表示設定(3D/衛星画像など)はそのまま、数値や機体・進入の設定を既定値に戻します。</div>
     </div>
+    <div class="hint" id="appVerInfo" style="text-align:center;margin-top:6px;"></div>
   </div>
 
 <div class="mainArea">
@@ -2540,6 +2542,11 @@ document.getElementById("rwyEnd").addEventListener("change", ()=>{
   render();
 });
 
+// build226: 設定パネルの一番下に「Ver 1.0 (build 226)」を出す(見出しにはVerだけを表示)
+{
+  const vi = document.getElementById("appVerInfo");
+  if(vi) vi.textContent = "Approach Planner " + document.getElementById("appVer").textContent + " (" + document.getElementById("appBuild").textContent + ")";
+}
 // --- 設定パネル(引き出し)の開閉 ---
 (function(){
   const ctl = document.getElementById("controls");
@@ -3933,6 +3940,9 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
 
   let connectXY=null, visualDownwindNearXY=null, nearToFarBase=null, turnInfo={label:"",value:""};
   let arc1=null, arc2=null, cont=null;
+  // build225: VisualでBank25°だとBase turnとFinal turnが重なる(Base legが負になる)場合は、
+  // エラーにせずCirclingと同じContinuous turn(Base legなし・Bankを計算)に切り替える(ユーザー要望)。
+  let visualContinuous = false;
   // 幾何的に成立しないパターン(旋回同士が重なる等)を検出したらここに入れる。
   // render()側はこれがセットされていたらパターンを一切描かず、エラー表示に切り替える。
   let geomError=null;
@@ -4026,22 +4036,16 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
       const a1End = arc1.pts[arc1.pts.length-1], a2Start = arc2.pts[0];
       const baseLegLenM = (a2Start.x-a1End.x)*h1vec.x + (a2Start.y-a1End.y)*h1vec.y;
       if(baseLegLenM < 0){
-        // 必要なoffset = 現在のoffset + 不足分
-        const neededNM = (downwindOffsetNM*NM - baseLegLenM)/NM;
-        geomError = {
-          title: "このDownwind幅ではパターンが成立しません",
-          detail: "Base turnとFinal turnが重なり、経路が折り返してしまいます"
-                + "（Base legの長さが "+Math.round(baseLegLenM)+" m）。",
-          fix: "Downwind Offsetを約 "+(Math.ceil(neededNM*20)/20).toFixed(2)+" NM 以上にするか、"
-             + "着陸重量・Flap(Downwind IAS / Target APP SPDの元)を見直して旋回半径を小さくしてください。"
-        };
+        // build225: 以前はここでエラー(「このDownwind幅ではパターンが成立しません」)にしていた。
+        // 今はBase legなしのContinuous turn(Bankを計算)に切り替える(下のCircling共通処理)。
+        visualContinuous = true;
       }
     }
 
     // build199: Final turnのRoll outがTHR付近(またはTHRを越えた滑走路上空)になる形は飛べない。
     // 旧版はBase legの長さしか見ておらず、Base 0.5NM等でRoll outがTHRを越えても成立扱いで、
     // 距離も符号なしのため「THR手前0.44NM」のように表示されていた。最低0.3NMのFinal直線を要求する。
-    if(!geomError){
+    if(!geomError && !visualContinuous){
       const e2 = arc2.pts[arc2.pts.length-1];
       const rollOutAlongM = -((e2.x-pat.thrXY.x)*pat.ux + (e2.y-pat.thrXY.y)*pat.uy); // THR手前を正
       const MIN_FINAL_M = 0.3*NM;
@@ -4061,7 +4065,9 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
     connectXY = arc1.arcStart;
     visualDownwindNearXY = arc1.arcStart;
     nearToFarBase = [...[...arc1.pts, ...arc2.pts, pat.thrXY]].reverse();
-  } else {
+  }
+  if(approach!=="visual" || visualContinuous){
+    if(visualContinuous){ arc1 = null; arc2 = null; geomError = null; }
     // Circlingも同様に、Bank25°固定・Base(baseFinalXY)固定のまま、旋回開始点(Downwind上のどこで
     // 連続旋回を始めるか)を風・減速プロファイルに応じて逆算する。減速だけでも旋回の形が
     // 左右非対称になり得るため、無風でも着地位置がズレることがあり、その補正にもなる。
@@ -4093,14 +4099,15 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
     // 旧版は56〜69°のような運用上ありえないBankも「解」として表示していた。
     if(cont.bankSolvedDeg > BANK_ERROR_DEG){
       geomError = {
-        title: "このDownwind幅ではCirclingの180°旋回が回りきれません",
+        title: visualContinuous ? "このDownwind幅ではVisualの旋回が回りきれません" : "このDownwind幅ではCirclingの180°旋回が回りきれません",
         detail: "offsetに収めるのに必要なBank角が "+cont.bankSolvedDeg.toFixed(1)+"° で、上限 "+BANK_ERROR_DEG+"° を超えています。",
         fix: "Downwind Offsetを広げるか、着陸重量・Flap(Downwind IAS / Target APP SPDの元)を見直してください。"
       };
     }
-    turnInfo = { label:"必要バンク角 (Continuous turn, Roll+風込み)", value: cont.bankSolvedDeg.toFixed(1)+"°"
+    turnInfo = { label: visualContinuous ? "必要バンク角 (Base legなし Continuous turn, Roll+風込み)" : "必要バンク角 (Continuous turn, Roll+風込み)", value: cont.bankSolvedDeg.toFixed(1)+"°"
       + (windSpeedKt>0 ? " ／ 風ドリフト "+(cont.driftM/NM).toFixed(2)+"NM" : ""), danger: cont.bankSolvedDeg>BANK_WARN_DEG };
     connectXY = final_.startXY;
+    if(visualContinuous) visualDownwindNearXY = connectXY;   // Visualのdownwind直線はここまで描く
     nearToFarBase = [...[...cont.pts, pat.thrXY]].reverse();
   }
 
@@ -4174,7 +4181,7 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
     }
   }
 
-  return { arc1, arc2, cont, entry, connectXY, visualDownwindNearXY, nearToFarBase, nearToFarFull, turnInfo, entryMarker, entryLegSecDisplay, entryLegBCSec, geomError };
+  return { arc1, arc2, cont, entry, connectXY, visualDownwindNearXY, nearToFarBase, nearToFarFull, turnInfo, entryMarker, entryLegSecDisplay, entryLegBCSec, geomError, visualContinuous };
 }
 
 // ============================================================
@@ -6305,7 +6312,7 @@ if(!applySavedStateIfAny()){
         t.querySelector("#swUpdateNo").addEventListener("click", ()=>{ declinedBuild = +t.dataset.build; t.remove(); });
       }
       t.dataset.build = String(build);
-      t.querySelector("#swUpdateMsg").textContent = "新しい版(build "+build+")があります。今すぐ更新しますか？（「いいえ」の場合は次回起動時に更新されます）";
+      t.querySelector("#swUpdateMsg").textContent = "新しい版があります。今すぐ更新しますか？（「いいえ」の場合は次回起動時に更新されます）";
     }
     navigator.serviceWorker.addEventListener("message", (e)=>{
       const d = e.data || {};
@@ -6341,6 +6348,10 @@ if(!applySavedStateIfAny()){
     const KEY = "approachPlannerInstallGuideHidden_v1";
     let hidden = false; try{ hidden = localStorage.getItem(KEY)==="1"; }catch(e){}
     if(hidden) return;
+    // iOSの共有ボタンと同じ形(上が開いた四角＋上向き矢印)のアイコン
+    const SHARE_ICON = '<svg width="18" height="20" viewBox="0 0 18 20" style="vertical-align:-4px;" aria-label="共有ボタン" role="img">'
+      + '<path d="M6 7H3.5A1.5 1.5 0 0 0 2 8.5v9A1.5 1.5 0 0 0 3.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 7H12" fill="none" stroke="var(--cyan)" stroke-width="1.6" stroke-linecap="round"/>'
+      + '<path d="M9 13V1.5M5.5 5 9 1.5 12.5 5" fill="none" stroke="var(--cyan)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const ov = document.createElement("div");
     ov.id = "installGuide"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true");
     ov.style.cssText = "position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;";
@@ -6349,10 +6360,10 @@ if(!applySavedStateIfAny()){
       + '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">ホーム画面に追加して使う</div>'
       + '<div style="color:var(--textdim);font-size:13px;margin-bottom:10px;">アプリとして追加すると、全画面で開けて、オフライン(機内モード)でも使えます。</div>'
       + '<ol style="margin:0 0 12px;padding-left:20px;">'
-      + '<li>ブラウザ(Safari / Chrome)の<b>共有ボタン</b>(□に↑)を押す</li>'
+      + '<li>ブラウザ(Safari / Chrome)の<b>共有ボタン</b> ' + SHARE_ICON + ' を押す</li>'
       + '<li>「<b>ホーム画面に追加</b>」を選ぶ</li>'
       + '<li>「<b>Webアプリとして開く</b>」をオンにして「追加」</li>'
-      + '<li>ホーム画面のアイコンから開き、<b>Wi-Fiにつないだまま15秒ほど待つ</b>(全空港の地図を保存します)</li>'
+      + '<li>ホーム画面のアイコンから開き、<b>ネットにつないだまま15秒ほど待つ</b>(全空港の地図 約33MBを保存します。Wi-Fi・モバイル通信どちらでも可)</li>'
       + '<li>機内モードで開き直して地図が出れば完了</li>'
       + '</ol>'
       + '<div style="color:var(--textdim);font-size:12px;margin-bottom:12px;">以後はホーム画面のアイコンから開いてください。新しい版があると「今すぐ更新しますか？」と表示されます。</div>'
