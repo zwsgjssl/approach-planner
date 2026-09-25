@@ -265,7 +265,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 235</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 237</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -295,7 +295,7 @@
     <div class="sect">気象</div>
 
     <div class="field">
-      <label>OAT (℃) - at pattern altitude</label>
+      <label id="oatLabel">OAT (℃) - at pattern altitude</label>
       <input id="oat" type="number" step="1" value="15">
     </div>
 
@@ -407,8 +407,8 @@
     <div class="field" id="baseModeField">
       <label>Base Turn 基準 (Visual)</label>
       <div class="seg" id="baseMode">
-        <button data-v="dist" class="active">距離固定</button>
-        <button data-v="time">時間 (Abeam+35s)</button>
+        <button data-v="time" class="active">時間 (Abeam+35s)</button>
+        <button data-v="dist">距離固定</button>
       </div>
     </div>
 
@@ -548,6 +548,7 @@
       <div class="hint">空港・滑走路・Mode・表示設定(3D/衛星画像など)はそのまま、数値や機体・進入の設定を既定値に戻します。</div>
     </div>
     <div class="hint" id="appVerInfo" style="text-align:center;margin-top:6px;"></div>
+    <div class="hint" id="mapsStatus" style="text-align:center;margin-top:0;"></div>
   </div>
 
 <div class="mainArea">
@@ -1183,9 +1184,10 @@ function computeVariableBankTurnLocal(tasSpec, bankMaxDeg, totalAngleDeg, turnSi
   const windVx = windSpeedKt*0.514444*Math.sin(windRad);
   const windVy = windSpeedKt*0.514444*Math.cos(windRad);
 
-  let x=0,y=0,heading=startHeadingDeg,distTraveled=0;
+  let x=0,y=0,heading=startHeadingDeg,distTraveled=0,elapsedSec=0;   // build236: elapsedSec=旋回の所要時間
   const pts=[{x,y}];
   function step(bankDeg, dt){
+    elapsedSec += dt;
     const V_ms = getTAS(distTraveled)*0.514444; // 現在位置(走行距離)における実際のTAS
     const rate = turnSign*(G*Math.tan(bankDeg*D2R)*R2D)/V_ms; // deg/s (瞬間TASベースの旋回角速度)
     const headingMid = heading + rate*dt/2; // 中点法
@@ -1230,7 +1232,7 @@ function computeVariableBankTurnLocal(tasSpec, bankMaxDeg, totalAngleDeg, turnSi
     step(bankMaxDeg*(1-(t+dt/2)/rollTimeSec), dt);
     t+=dt; pts.push({x,y});
   }
-  return { pts, Dx:x, Dy:y, finalHeadingDeg:heading, rollPsiDeg, steadyAngleDeg, clamped };
+  return { pts, Dx:x, Dy:y, finalHeadingDeg:heading, rollPsiDeg, steadyAngleDeg, clamped, elapsedSec };
 }
 
 // dirInBrgDeg から turnSign 方向へ turnAngleDeg 分旋回する、Roll-in/out込みの
@@ -1518,7 +1520,7 @@ function simulateItamiDeparture(opts){
   const path = [];
   const snap = (t)=>{
     const pressureAltFt = elevationFt+altFt;
-    const tasKt = oatValid ? iasToTas(iasNow, pressureAltFt, oatC) : iasNow;
+    const tasKt = oatValid ? iasToTas(iasNow, pressureAltFt, oatC - 2*altFt/1000) : iasNow;   // build236: OATは地上の気温として、上昇に応じ標準減率(2℃/1000ft)で下げる
     const tg = trackOf(headingDeg, tasKt*0.514444);
     const distToISK_NM = Math.hypot(pos.x-iskXY.x, pos.y-iskXY.y)/NM;
     if(distToISK_NM>=ITAMI_DEP_ISK_BAND_MIN_NM && distToISK_NM<=ITAMI_DEP_ISK_BAND_MAX_NM) hasEnteredIskBand = true;
@@ -1529,7 +1531,7 @@ function simulateItamiDeparture(opts){
 
   for(let t=dt; t<=maxT; t+=dt){
     const pressureAltFt = elevationFt+altFt;
-    const tasKt = oatValid ? iasToTas(iasNow, pressureAltFt, oatC) : iasNow;
+    const tasKt = oatValid ? iasToTas(iasNow, pressureAltFt, oatC - 2*altFt/1000) : iasNow;   // build236: OATは地上の気温として、上昇に応じ標準減率(2℃/1000ft)で下げる
     const tasMs = tasKt*0.514444;
 
     if(phase==="straight1"){
@@ -1618,7 +1620,7 @@ function computeTurnArcNatural(startXY, dirInBrgDeg, turnAngleDeg, turnSign, tas
   const actualAngleDeg = turnAngleDeg + turnSign*(endWCA-startWCA);
   const local = computeVariableBankTurnLocal(tasFn, 25, actualAngleDeg, turnSign, 0.15, windSpeedKt, windFromTrueDeg, startHeadingDeg);
   const pts = local.pts.map(p=>({ x: startXY.x+p.x, y: startXY.y+p.y }));
-  return { pts, dirOutBrgDeg, endXY: pts[pts.length-1] };
+  return { pts, dirOutBrgDeg, endXY: pts[pts.length-1], timeSec: local.elapsedSec };
 }
 
 // VOR 34L→16R 進入方式 (羽田専用): TOKYO VOR/DME(TTE)の153°/333°ラジアルを利用した特殊な
@@ -1807,7 +1809,9 @@ function computeCutAngleEntryFrom(entryCrossXY, dirIn, pat, turnSign, downwindTA
   const gsLeg = groundSpeedOnTrack(legAvgTAS, windSpeedKt, windFromTrueDeg, h1);
   const legTimeSec = (sLeg/NM)/gsLeg*3600;
   // Turn1の所要時間: 実際の(自然シミュレートされた)arc1の点列に沿って ds/TAS を積算する。
-  const turn1TimeSec = pathTimeSec(arc1.pts, tasFn1);
+  // build236: 旋回の所要時間はシミュレーションの経過時間をそのまま使う。以前は「地面上の弧の長さ÷TAS」で、
+  // 風で弧が伸び縮みする分だけ時間がずれていた(向かい風30ktで約-25%、追い風で約+25%)。
+  const turn1TimeSec = (typeof arc1.timeSec==="number") ? arc1.timeSec : pathTimeSec(arc1.pts, tasFn1);
   const turn1ToTurn2Sec = turn1TimeSec + legTimeSec;
   // build212: B(Turn1終了)→C(Turn2開始)＝直進レグの秒数も返す
   return { entryCrossXY, arc1, arc2, h1, turn1ToTurn2Sec, legTimeSec };
@@ -1962,7 +1966,7 @@ function unionStadiumOutline(runwayPairs, R, centerXY, angleStepDeg=3){
 /* ============================================================
    5. UI state / setup
    ============================================================ */
-const state = { acModel:"787-9", appFlap:25, circDwFlap:30, approach:"visual", side:"right", airportKey:"haneda", cutAngle:0, baseMode:"dist", vorAltMSL:1800, showImage:true, show3D:false, showTerrain:true, tiltDeg:0, headingOffsetDeg:0, showAltLabels:false, mode:"approach", depBank:25, nightMode:false };
+const state = { acModel:"787-9", appFlap:25, circDwFlap:30, approach:"visual", side:"right", airportKey:"haneda", cutAngle:0, baseMode:"time", vorAltMSL:1800, showImage:true, show3D:false, showTerrain:true, tiltDeg:0, headingOffsetDeg:0, showAltLabels:false, mode:"approach", depBank:25, nightMode:false };
 
 // VOR方式(VOR 34L→16R / VOR A→16L)はApproach TypeとDownwind側をCircling/Leftに強制し、
 // Downwind Altitude等の入力欄もその方式の値で上書きする。
@@ -1974,7 +1978,9 @@ function saveBeforeVorForcing(){
   // build198: Cut Angleも退避する(VOR 34L→16RはCutを45°に、VOR A→16LはNILに書き換えるため、
   // 戻さないと通常滑走路や他空港にそのまま残っていた)。Downwind Offsetは滑走路/空港の切替時に
   // 既定値(applyApproachDefaults)へ戻る仕様なので退避しない(build199でbuild198の復元処理を削除)。
-  if(vorSavedState === null) vorSavedState = { approach: state.approach, side: state.side, cutAngle: state.cutAngle };
+  // build236: Traffic Pattern中(CutがNILに強制されている)なら、Pattern前のCutを退避する
+  const cutToSave = (state.mode==="pattern" && typeof cutBeforePattern==="number") ? cutBeforePattern : state.cutAngle;
+  if(vorSavedState === null) vorSavedState = { approach: state.approach, side: state.side, cutAngle: cutToSave };
 }
 // 強制を解除して元の選択に戻す。戻すものがあった場合だけ true を返す。
 function clearVorForcing(){
@@ -2041,8 +2047,22 @@ function resetTo2DView(){
 function resetWeatherInputs(){
   ["oat","wind"].forEach(id=>{ const el = document.getElementById(id); if(el) el.value = el.defaultValue; });
 }
-airportSel.addEventListener("change", ()=>{ state.airportKey = airportSel.value; resetWeatherInputs(); resetTo2DView(); setupAirport(); });
+function resetBreakPointInput(){
+  // build236: Break Pointは滑走路・空港ごとの値(反対側THRからの距離/そのILSのDME)なので、空港を変えたら空欄(既定)に戻す
+  const bd = document.getElementById("breakDist"); if(bd) bd.value = "";
+  if(typeof lastGoodNum!=="undefined") delete lastGoodNum.breakDist;
+}
+airportSel.addEventListener("change", ()=>{ state.airportKey = airportSel.value; resetWeatherInputs(); resetBreakPointInput(); resetTo2DView(); setupAirport(); });
 
+// build236: 見た目だけ操作不可(pointer-events:none)にしているボタンは、外付けキーボード(Tab/Enter)では
+// 押せてしまうので、disabled もそろえる。グループ全体が不可か、ボタン個別に不可なら disabled。
+function syncLockedButtons(){
+  ["approachType","patternSide","cutAngle"].forEach(id=>{
+    const seg = document.getElementById(id); if(!seg) return;
+    const segLocked = seg.style.pointerEvents==="none";
+    seg.querySelectorAll("button").forEach(b=>{ b.disabled = segLocked || b.style.pointerEvents==="none"; });
+  });
+}
 function setCutAngleUI(val){
   state.cutAngle = val;
   document.querySelectorAll("#cutAngle button").forEach(b=>{
@@ -2243,6 +2263,7 @@ function applyApproachDefaults(){
   document.getElementById("baseDist").value = "2.5";
   document.getElementById("baseTime").value = "35";
   document.getElementById("breakDist").value = ""; // build208: Break Pointは既定値(空欄)に戻す
+  if(typeof lastGoodNum!=="undefined") delete lastGoodNum.breakDist;   // build236
   document.getElementById("glideAngle").value = "3.0";
   // 重量が入っていれば、速度2欄だけは表由来の自動値で上書きする(B3の「都度既定値に」の既定が
   // 固定値182/147から重量ベースに変わるだけで、挙動そのものは従来どおり)。
@@ -2258,6 +2279,11 @@ function restoreCircDwFlapAfterPattern(){
   if(state.mode==="pattern" || circDwFlapBeforePattern===null) return;
   state.circDwFlap = circDwFlapBeforePattern;
   circDwFlapBeforePattern = null;
+  // build236: DW FlapがF25/F30ならLanding Flapも同じにそろえる(build202の連動ルール)
+  if(state.circDwFlap===25 || state.circDwFlap===30){
+    state.appFlap = state.circDwFlap;
+    document.querySelectorAll("#appFlap button").forEach(b=>b.classList.toggle("active", parseInt(b.dataset.v,10)===state.appFlap));
+  }
   document.querySelectorAll("#circDwFlap button").forEach(b=>{
     b.classList.toggle("active", parseInt(b.dataset.v,10)===state.circDwFlap);
   });
@@ -2307,6 +2333,9 @@ function updateModeFieldsVisibility(){
     if(typeof applyPatternCircDwFlapDefaultIfNeeded==="function") applyPatternCircDwFlapDefaultIfNeeded();
   }
   document.getElementById("opModeHint").style.display = isLda ? "" : "none";
+  // build236: OAT欄が「どの高さの気温か」はモードで違うので、ラベルで明示する
+  { const ol = document.getElementById("oatLabel");
+    if(ol) ol.textContent = state.mode==="departure" ? "OAT (℃) - 地上(空港)" : (isLda ? "OAT (℃) - 約1200ft AFE" : "OAT (℃) - at pattern altitude"); }
   document.getElementById("ldaFields").style.display = isLda ? "" : "none";
   document.getElementById("departureFields").style.display = (!isLda && state.mode==="departure") ? "" : "none";
   document.getElementById("approachPatternFields").style.display = (isLda || state.mode==="departure") ? "none" : "";
@@ -2325,10 +2354,12 @@ function updateModeFieldsVisibility(){
   document.querySelectorAll("#show3DToggle button").forEach(b=>{ b.disabled = no3D; });
   document.getElementById("show3DToggle").classList.toggle("locked", no3D);
 }
+let rwyBeforeDeparture = null;   // build236
 document.querySelectorAll("#opMode button").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     document.querySelectorAll("#opMode button").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
+    const prevMode = state.mode;
     state.mode = btn.dataset.v;
     // build176: LDAはもう独立したモードボタンではなく、RWYドロップダウンの
     // 「LDA 22」「LDA 23」選択で切り替える方式にした(state.modeとは独立)。
@@ -2343,7 +2374,20 @@ document.querySelectorAll("#opMode button").forEach(btn=>{
       // build170: Departureモードは伊丹RWY32L専用のため、選択時にRWYをRWY32Lへ強制変更する
       // (ユーザー指定「Departureを選んだときは32Lに強制変更」)。空港側は変更しない
       // (伊丹以外を選んでいる場合はそのまま「対応滑走路を選択してください」の案内になる)。
-      if(Array.from(rwySel.options).some(o=>o.value==="32L")) rwySel.value = "32L";
+      // build236: 滑走路の変更は、手で選んだときと同じ処理(風・気温・Break Point等の初期化)を通す。
+      // 戻ったときのために、Departure前の滑走路を覚えておく。
+      if(Array.from(rwySel.options).some(o=>o.value==="32L") && rwySel.value!=="32L"){
+        rwyBeforeDeparture = rwySel.value;
+        rwySel.value = "32L";
+        rwySel.dispatchEvent(new Event("change"));
+      }
+    } else if(prevMode==="departure" && rwyBeforeDeparture){
+      // build236: Departureから戻ったら、Departure前の滑走路に戻す
+      if(Array.from(rwySel.options).some(o=>o.value===rwyBeforeDeparture) && rwySel.value!==rwyBeforeDeparture){
+        rwySel.value = rwyBeforeDeparture;
+        rwySel.dispatchEvent(new Event("change"));
+      }
+      rwyBeforeDeparture = null;
     }
     updateModeFieldsVisibility();
     applyPatternCircDwFlapDefaultIfNeeded();
@@ -2470,6 +2514,9 @@ document.querySelectorAll("#circDwFlap button").forEach(btn=>{
     document.querySelectorAll("#circDwFlap button").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     state.circDwFlap = parseInt(btn.dataset.v, 10);
+    // build236: Traffic Pattern中にユーザーが自分で選んだDW Flapは、Approachへ戻ってもそのまま使う
+    // (以前はPattern前のFlapに戻していたため、Landing Flapとの連動がずれていた)
+    if(state.mode==="pattern") circDwFlapBeforePattern = null;
     // build202: CirclingでDownwind FlapをF25/F30にしたら、Landing Flapも同じFlapにそろえる
     // (ユーザー要望。F20のときはLanding Flapを変えない)
     if(state.circDwFlap===25 || state.circDwFlap===30){
@@ -2517,6 +2564,13 @@ document.getElementById("rwyEnd").addEventListener("change", ()=>{
     // (その時点ではもうVOR強制が解除済みなので空港切替側の復元も働かず)、
     // 「伊丹のVisualなのにOffset 1.5NM」のようにVOR方式の値が残っていた(ユーザー指摘)。
     if(clearVorForcing()) applyApproachDefaults();
+    // build236: VOR方式で操作不可・強制表示にしていたボタンを、LDAへ直接来た場合も元に戻す
+    // (LDAの描画はrenderMainの途中で分岐するため、通常ここで行う同期処理を通らない)
+    document.querySelectorAll("#approachType button").forEach(b=>b.classList.toggle("active", b.dataset.v===state.approach));
+    document.querySelectorAll("#patternSide button").forEach(b=>b.classList.toggle("active", b.dataset.v===state.side));
+    ["approachType","patternSide","cutAngle","downwindAlt","downwindOffset"].forEach(id=>{ const e=document.getElementById(id); if(e){ e.style.opacity=""; e.style.pointerEvents=""; } });
+    { const nb = document.querySelector('#cutAngle button[data-v="0"]'); if(nb){ nb.style.opacity=""; nb.style.pointerEvents=""; } }
+    syncLockedButtons();
     // build176: Turn Start DME入力欄は「未入力ならMAPのDMEで旋回する」既定値だが、
     // 別の滑走路(LDA22↔LDA23、MAPのDMEが1.1と4.9で大きく異なる)から切り替えたときに
     // 前の滑走路の値が残っていると、意図せず「MAPよりずっと手前(旋回が極端に遅れる)」
@@ -4087,7 +4141,10 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
       if(baseLegLenM < 0){
         // build225: 以前はここでエラー(「このDownwind幅ではパターンが成立しません」)にしていた。
         // 今はBase legなしのContinuous turn(Bankを計算)に切り替える(下のCircling共通処理)。
-        visualContinuous = true;
+        // build236: ただしPass1(一定速度でAbeamの位置を概算するだけのパス、tasProfileFn無し)では切り替えない。
+        // 減速前の大きな旋回半径だと既定条件でも重なるため、Pass1だけ連続旋回の長い経路になって
+        // Abeamの位置がずれていた。Pass1は重なった2つの旋回のままAbeamの概算に使う。
+        if(tasProfileFn) visualContinuous = true;
       }
     }
 
@@ -4121,25 +4178,51 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
     // 連続旋回を始めるか)を風・減速プロファイルに応じて逆算する。減速だけでも旋回の形が
     // 左右非対称になり得るため、無風でも着地位置がズレることがあり、その補正にもなる。
     const downDir = vecFromBearing(pat.downwindHeadingTrueDeg, 1);
-    let corrC = 0; // build198: L字距離→実経路距離の補正(Visualのcorrと同じ考え方)
-    function contFrom(shiftT){
-      const startXY = { x: pat.baseTurnXY.x+downDir.x*shiftT, y: pat.baseTurnXY.y+downDir.y*shiftT };
-      const distFromThr = pat.baseTurnDistNM*NM + shiftT + corrC;
-      return { c: computeRealisticContinuousTurn(startXY, pat.baseFinalXY, turnSign, tasFnFrom(distFromThr), pat.downwindHeadingTrueDeg, windSpeedKt, windFromTrueDeg), startXY };
+    // build236: Roll out地点(Final上のTHRからの距離E)を引数にして連続旋回を解けるようにした。
+    //  Circling          : E = Base距離(従来どおり、Roll outがBase距離の位置)
+    //  Visualの連続旋回  : 旋回の「THRから最も遠くなる点」がBase距離になるようEを逆算する(ユーザー指定)。
+    //                      2つの旋回のときのBase legの位置(=経路の最遠点)と揃うので、切り替わっても形が跳ばない。
+    const finUnit = { x:(pat.baseFinalXY.x-pat.thrXY.x)/baseDistM_, y:(pat.baseFinalXY.y-pat.thrXY.y)/baseDistM_ };
+    const turnOff = { x: pat.baseTurnXY.x-pat.baseFinalXY.x, y: pat.baseTurnXY.y-pat.baseFinalXY.y };
+    const lShapeExtraM = pat.baseTurnDistNM*NM - baseDistM_;
+    const alongOf = (p)=> -((p.x-pat.thrXY.x)*pat.ux + (p.y-pat.thrXY.y)*pat.uy);   // THR手前を正
+    function solveContForEnd(E){
+      const bF = { x: pat.thrXY.x+finUnit.x*E, y: pat.thrXY.y+finUnit.y*E };
+      const bT = { x: bF.x+turnOff.x, y: bF.y+turnOff.y };
+      let corrC = 0; // build198: L字距離→実経路距離の補正(Visualのcorrと同じ考え方)
+      const contFrom = (shiftT)=>{
+        const startXY = { x: bT.x+downDir.x*shiftT, y: bT.y+downDir.y*shiftT };
+        const distFromThr = E + lShapeExtraM + shiftT + corrC;
+        return { c: computeRealisticContinuousTurn(startXY, bF, turnSign, tasFnFrom(distFromThr), pat.downwindHeadingTrueDeg, windSpeedKt, windFromTrueDeg), startXY };
+      };
+      const solveCont = ()=>{
+        const trial = contFrom(0);
+        const trialEnd = trial.c.pts[trial.c.pts.length-1];
+        const shiftT = E - alongOf(trialEnd);   // Roll outがちょうどEに来るよう、旋回開始点をDownwind方向にずらす
+        return { shiftT, fin: contFrom(shiftT) };
+      };
+      let r = solveCont();
+      if(tasProfileFn){
+        // 旋回開始点の実経路距離 = Roll out点(Final上E) + 旋回の弧長
+        corrC = (E + pathLenOf(r.fin.c.pts)) - (E + lShapeExtraM + r.shiftT);
+        r = solveCont();
+      }
+      return r;
     }
-    const projTarget = -baseDistM_;
-    const solveCont = ()=>{
-      const trial = contFrom(0);
-      const trialEnd = trial.c.pts[trial.c.pts.length-1];
-      const proj0 = (trialEnd.x-pat.thrXY.x)*pat.ux + (trialEnd.y-pat.thrXY.y)*pat.uy;
-      const shiftT = proj0-projTarget;
-      return { shiftT, fin: contFrom(shiftT) };
-    };
-    let sc = solveCont();
-    if(tasProfileFn){
-      // 旋回開始点の実経路距離 = Roll out点(Final上baseDist) + 旋回の弧長
-      corrC = (baseDistM_ + pathLenOf(sc.fin.c.pts)) - (pat.baseTurnDistNM*NM + sc.shiftT);
-      sc = solveCont();
+    let sc, rollOutE = baseDistM_;
+    if(visualContinuous){
+      const farOf = (r)=>{ let m=-Infinity; for(const p of r.fin.c.pts){ const a=alongOf(p); if(a>m) m=a; } return m; };
+      let E = Math.max(baseDistM_ - downwindOffsetNM*NM*0.5, 0.1*NM);
+      sc = solveContForEnd(E);
+      for(let it=0; it<6; it++){
+        const err = farOf(sc) - baseDistM_;
+        if(Math.abs(err) < 3) break;
+        E = Math.max(E - err, 0.05*NM);   // 最遠点はEとほぼ1:1で動く
+        sc = solveContForEnd(E);
+      }
+      rollOutE = E;
+    } else {
+      sc = solveContForEnd(baseDistM_);
     }
     const final_ = sc.fin;
     cont = final_.c;
@@ -4152,6 +4235,20 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
         detail: "offsetに収めるのに必要なBank角が "+cont.bankSolvedDeg.toFixed(1)+"° で、上限 "+BANK_ERROR_DEG+"° を超えています。",
         fix: "Downwind Offsetを広げるか、着陸重量・Flap(Downwind IAS / Target APP SPDの元)を見直してください。"
       };
+    }
+    // build236: Circling・Visualの連続旋回にも「Final直線0.3NM以上」のチェックを入れる(以前はVisualの2旋回だけだった)
+    if(!geomError){
+      const eC = cont.pts[cont.pts.length-1];
+      const rollOutAlongC = alongOf(eC);
+      if(rollOutAlongC < 0.3*NM){
+        geomError = {
+          title: "Final turnがTHRの手前で終わりません",
+          detail: "Roll out地点がTHR"+(rollOutAlongC<0?"を "+(-rollOutAlongC/NM).toFixed(2)+" NM 越えた滑走路上空":"の手前 "+(rollOutAlongC/NM).toFixed(2)+" NM")
+                + "になります(最低 0.3 NM のFinal直線が必要)。",
+          fix: visualContinuous ? "Base Leg Distanceを大きくする(時間基準なら秒数を増やす)か、Downwind Offsetを見直してください。"
+                                : "風が強い場合は、Downwind Offsetを見直してください。"
+        };
+      }
     }
     turnInfo = { label: visualContinuous ? "必要バンク角 (Base legなし Continuous turn, Roll+風込み)" : "必要バンク角 (Continuous turn, Roll+風込み)", value: cont.bankSolvedDeg.toFixed(1)+"°"
       + (windSpeedKt>0 ? " ／ 風ドリフト "+(cont.driftM/NM).toFixed(2)+"NM" : ""), danger: cont.bankSolvedDeg>BANK_WARN_DEG };
@@ -4358,7 +4455,7 @@ function renderDeparture(airport, rwyLabel){
   rotwrap.style.transformOrigin = (centerF.fx*100) + "% " + (centerF.fy*100) + "%";
   currentRotationDeg = rotationDeg;
   rotwrap.style.transform = "rotate("+(rotationDeg+state.headingOffsetDeg)+"deg)"; // Departureは3D非対応(tiltは常に0)
-  const counterRot = headingTrueDeg;
+  const counterRot = headingTrueDeg - state.headingOffsetDeg;   // build236
   updateWindIndicator(windSpeedKt, windFromTrueDeg, rotationDeg+state.headingOffsetDeg, depMagVar); // build198: ドラッグ回転分も反映
   document.getElementById("compassLabel").textContent =
     "RWY "+rwyLabel+" (Departure) ↑ "+screenUpMagText(getRunwayMagHeading(airport,rwyLabel));
@@ -4806,6 +4903,13 @@ function renderLda(airport, rwyLabel){
   }
 
   // --- 読み出しパネル ---
+  // build236: Bankの解が無いときは、探索範囲の端の値(75°など)を結果として出さない
+  if(bankOutOfRange){
+    npSummaryText = "";
+    document.getElementById("readout").innerHTML = `
+      <div class="item danger"><div class="k">LDA計算エラー</div><div class="v">Finalにのる Bank角が見つかりません（Turn Start DMEを見直してください）</div></div>`;
+    return;
+  }
   npSummaryText = "必要Bank "+bankSolvedDeg.toFixed(1)+"°";
   // build209: LDAの結果ボードはMAP通過高度・必要Bank角・on Finalだけ(ユーザー指定)
   document.getElementById("readout").innerHTML = `
@@ -5045,6 +5149,7 @@ function renderMain(){
     document.getElementById("downwindOffset").style.opacity = "";
     document.getElementById("downwindOffset").style.pointerEvents = "";
   }
+  syncLockedButtons();   // build236
 
   // Base Turn基準の切り替えUI: Circlingでは常に時間(20s)基準なので選択欄ごと隠す。
   // Visualのときだけ「距離固定 / 時間」を選べるようにし、選択に応じて入力欄を出し分ける。
@@ -5277,6 +5382,66 @@ function renderMain(){
       return (v2>vTarget*vTarget ? Math.sqrt(v2) : vTarget)/0.514444;
     };
   }
+  // build236: 0.7kt/secを「時間あたり」で正しく守る減速プロファイル。
+  // makeDecelProfileは V²=V0²-2as の s に「地面上の経路距離」を使っていたため、風があると
+  // 1秒あたりの減速量が変わっていた(追い風30ktで約0.82kt/s、向かい風で約0.58kt/s)。
+  // こちらは直前のパスで求めた経路(THR→遠方の点列)を Abeam から THR 方向へ小刻みにたどり、
+  // 各区間の対地速度(その区間のTrackと風から)で経過時間を積算して、時間あたり0.7kt/sで速度を変える。
+  const DECEL_STEP_M = 20;
+  function makeDecelProfileTimed(pathPts, abeamArcM){
+    if(!pathPts || pathPts.length<2) return makeDecelProfile(abeamArcM);
+    const cum=[0];
+    for(let i=1;i<pathPts.length;i++) cum.push(cum[i-1]+Math.hypot(pathPts[i].x-pathPts[i-1].x, pathPts[i].y-pathPts[i-1].y));
+    const total = cum[cum.length-1];
+    // 距離d(THRから)の位置で、THRへ向かって進むときのTrack
+    let seg = pathPts.length-1;
+    const trackAt = (d)=>{
+      const dd = Math.min(Math.max(d, 0), total);
+      while(seg>1 && cum[seg-1]>dd) seg--;
+      while(seg<pathPts.length-1 && cum[seg]<dd) seg++;
+      return bearingBetween(pathPts[seg], pathPts[seg-1]);
+    };
+    const a = DECEL_KT_PER_SEC, vT = targetAppTAS;
+    const table = [downwindTAS];
+    let v = downwindTAS;
+    const nSteps = Math.ceil(abeamArcM/DECEL_STEP_M)+1;
+    for(let k=1;k<=nSteps;k++){
+      const dMid = abeamArcM - (k-0.5)*DECEL_STEP_M;
+      if(v!==vT){
+        const gs = Math.max(groundSpeedOnTrack(v, windSpeedKt, windFromTrueDeg, trackAt(dMid)), 30);
+        const dt = DECEL_STEP_M/(gs*0.514444);
+        v = (v>vT) ? Math.max(vT, v - a*dt) : Math.min(vT, v + a*dt);
+      }
+      table.push(v);
+    }
+    return function(distM){
+      if(distM>=abeamArcM) return downwindTAS;
+      const f = (abeamArcM-distM)/DECEL_STEP_M;
+      const i = Math.floor(f);
+      if(i>=table.length-1) return table[table.length-1];
+      return table[i] + (table[i+1]-table[i])*(f-i);
+    };
+  }
+  // build236: 経路計算を3パスで行う(本描画と時間基準の探索で共通)。
+  //  Pass1: 一定速度(Downwind TAS)で経路を作り、Abeamの位置(THRからの経路距離)を概算
+  //  Pass2: Pass1のAbeamと経路で減速プロファイルを作って経路を作り直す
+  //  Pass3: Pass2の経路でAbeamと減速プロファイルを作り直し、最終の経路にする
+  // 以前は2パスで、Pass1の形(一定速度の大きな旋回)と実際の形が大きく違うとAbeamの位置がずれていた
+  // (build225でPass1がContinuous turnに切り替わり、減速開始が約2.5NM早くなっていた)。
+  function runGeoPasses(patX, ts, blb, bdM, abX, vorBuilder){
+    const g1 = computeFullPatternGeometry(patX, ts, blb, state.approach, downwindTAS, bdM, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, null, vorBuilder ? vorBuilder(null, null) : null);
+    const prof1 = makeDecelProfileTimed(g1.nearToFarFull, abeamArcLengthOf(g1, patX, abX));
+    const vor2 = vorBuilder ? vorBuilder(prof1, makeDownwindPathDistFn(patX, g1.connectXY, pathLenOf(g1.nearToFarBase))) : null;
+    const g2 = computeFullPatternGeometry(patX, ts, blb, state.approach, downwindTAS, bdM, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, prof1, vor2);
+    const ab1 = abeamArcLengthOf(g1, patX, abX), ab2 = abeamArcLengthOf(g2, patX, abX);
+    // Pass1とPass2でAbeamの位置がほぼ同じ(20m未満)で、形の種類(2旋回/連続旋回)も同じなら、
+    // Pass3をしても結果はほぼ変わらないので省略する(時間基準の探索で何十回も呼ばれるため)
+    if(Math.abs(ab2-ab1)<20 && !!g1.visualContinuous===!!g2.visualContinuous) return { geo: g2, prof: prof1, vorData: vor2 };
+    const prof2 = makeDecelProfileTimed(g2.nearToFarFull, ab2);
+    const vor3 = vorBuilder ? vorBuilder(prof2, makeDownwindPathDistFn(patX, g2.connectXY, pathLenOf(g2.nearToFarBase))) : null;
+    const g3 = computeFullPatternGeometry(patX, ts, blb, state.approach, downwindTAS, bdM, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, prof2, vor3);
+    return { geo: g3, prof: prof2, vorData: vor3 };
+  }
   let timeBaseUnreachable = false;
   if(useTimeBase){
     // build197: Abeam→旋回開始点の所要時間を、**本描画と全く同じ手順**(Pass1で概算Abeam弧長→
@@ -5291,9 +5456,8 @@ function renderMain(){
       const tsTry = -patTry.side;
       const blbTry = bearingBetween(patTry.baseTurnXY, patTry.baseFinalXY);
       const abeamXYTry = { x: patTry.thrXY.x+patTry.nx*downwindOffsetNM*NM, y: patTry.thrXY.y+patTry.ny*downwindOffsetNM*NM };
-      const g1 = computeFullPatternGeometry(patTry, tsTry, blbTry, state.approach, downwindTAS, bdNM*NM, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, null, null);
-      const prof = makeDecelProfile(abeamArcLengthOf(g1, patTry, abeamXYTry));
-      const g2 = computeFullPatternGeometry(patTry, tsTry, blbTry, state.approach, downwindTAS, bdNM*NM, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, prof, null);
+      const rp = runGeoPasses(patTry, tsTry, blbTry, bdNM*NM, abeamXYTry, null);   // build236: 本描画と同じ3パス
+      const g2 = rp.geo, prof = rp.prof;
       const aArc = abeamArcLengthOf(g2, patTry, abeamXYTry);
       const tArc = closestPointArcLength(g2.nearToFarFull, g2.connectXY);
       return signedTimeAlongPath(g2.nearToFarFull, prof, windSpeedKt, windFromTrueDeg, aArc, tArc);
@@ -5371,7 +5535,7 @@ function renderMain(){
     ? "rotateX("+state.tiltDeg+"deg) rotate("+(rotationDeg+state.headingOffsetDeg)+"deg)"
     : "rotate("+(rotationDeg+state.headingOffsetDeg)+"deg)";
   mapwrap.classList.toggle("is3d", !!state.show3D);
-  const counterRot = pat.finalCourseTrueDeg; // ラベルの向きを打ち消す（回転と同じ基準）
+  const counterRot = pat.finalCourseTrueDeg - state.headingOffsetDeg; // ラベルの向きを打ち消す（回転と同じ基準）。build236: 3Dでドラッグ回転した分も打ち消す(逆さまになっていた)
   // 方位は3桁ゼロ埋め(航空の作法)。滑走路プルダウンの "RWY 01R (003°M)" と表記を揃える。
   // getRunwayMagHeading()は既に整数を返すのでMath.roundは不要。
   document.getElementById("compassLabel").textContent =
@@ -5507,26 +5671,20 @@ function renderMain(){
         : computeVOR3416RProcedure(pat, airport.navaids.TTE, getRunwayMagVar(airport, rwyLabel), protectionOutline, turnSign, downwindTAS, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, null))
     : null;
 
-  // --- Pass 1: 一定速度(Downwind IAS)でAbeam位置の概算を出す(速度プロファイルの基準点として必要) ---
-  const pass1 = computeFullPatternGeometry(pat, turnSign, baseLegBearing, state.approach, downwindTAS, baseDistM_, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, null, vorProcedureData);
+  // --- 経路の計算(build236: 3パス。runGeoPasses参照) ---
+  // 速度プロファイル：Abeamを過ぎたら0.7kt/secの一定減速率(時間あたり、風込み)でTarget APP SPDまで減速し、
+  // 到達後はTarget APP SPD一定。VOR方式の進入部分も、各パスの速度プロファイル・経路距離で作り直す。
   const abeamXY = { x: pat.thrXY.x+pat.nx*downwindOffsetNM*NM, y: pat.thrXY.y+pat.ny*downwindOffsetNM*NM };
-  const abeamArcLenM_approx = abeamArcLengthOf(pass1, pat, abeamXY); // build199
-
-  // --- 速度プロファイル：Abeamを過ぎたら0.7kt/secの一定減速率でTarget APP SPDまで減速し、
-  // 到達後はTarget APP SPD一定。一定減速率(dV/dt)を距離の関数に変換するため、
-  // 等加速度運動の関係 V² = V0² - 2*a*s (a=減速度[kt/s]をkt/m換算) を使う。
-  // (従来は「AbeamからTODまでの区間で線形補間」だったが、実際の減速は距離ではなく
-  // 時間あたり一定なので、TODの位置に依存しないこちらの方が実機に近い)
-  const tasAtDistFromThr = makeDecelProfile(abeamArcLenM_approx); // build197: 探索と共通のプロファイル
-
-  // --- Pass 2: 減速プロファイルを反映し、旋回半径・軌跡を精密に再計算 ---
-  const vorDistFn = makeDownwindPathDistFn(pat, pass1.connectXY, pathLenOf(pass1.nearToFarBase)); // build197
-  const vorProcedureData2 = isVorProcedure
-    ? (isVorA16L
-        ? computeVORA16LProcedure(pat, airport.navaids.TTE, getRunwayMagVar(airport, rwyLabel), protectionOutline, downwindTAS, downwindOffsetNM, windSpeedKt, windFromTrueDeg, tasAtDistFromThr, vorDistFn)
-        : computeVOR3416RProcedure(pat, airport.navaids.TTE, getRunwayMagVar(airport, rwyLabel), protectionOutline, turnSign, downwindTAS, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, tasAtDistFromThr, vorDistFn))
-    : null;
-  const geo = computeFullPatternGeometry(pat, turnSign, baseLegBearing, state.approach, downwindTAS, baseDistM_, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, tasAtDistFromThr, vorProcedureData2);
+  const vorBuilder = isVorProcedure ? ((prof, distFn)=>{
+    if(!prof) return vorProcedureData;
+    return isVorA16L
+      ? computeVORA16LProcedure(pat, airport.navaids.TTE, getRunwayMagVar(airport, rwyLabel), protectionOutline, downwindTAS, downwindOffsetNM, windSpeedKt, windFromTrueDeg, prof, distFn)
+      : computeVOR3416RProcedure(pat, airport.navaids.TTE, getRunwayMagVar(airport, rwyLabel), protectionOutline, turnSign, downwindTAS, downwindOffsetNM, state.cutAngle, windSpeedKt, windFromTrueDeg, prof, distFn);
+  }) : null;
+  const passes = runGeoPasses(pat, turnSign, baseLegBearing, baseDistM_, abeamXY, vorBuilder);
+  const tasAtDistFromThr = passes.prof;
+  const vorProcedureData2 = passes.vorData;
+  const geo = passes.geo;
   const { arc1, arc2, cont, entry, connectXY, visualDownwindNearXY, nearToFarFull, nearToFarBase, turnInfo, entryMarker, entryLegSecDisplay, entryLegBCSec } = geo;
 
   // --- パターンが幾何的に成立しない場合は、経路を一切描かずエラー表示にする ---
@@ -6020,6 +6178,10 @@ function saveState(){
     // と判断してApproach/Side/Downwind諸元をCircling/VOR方式のまま残してしまう
     // (build 155で発見・修正)。
     snapshot.vorSavedState = vorSavedState;
+    snapshot.bm237 = true;   // build237: Base Turn基準の既定変更(時間式)を適用済みの印
+    // build236: Traffic Pattern中に強制したCut(NIL)・DW Flap(F20)の「元の値」も保存する。
+    // 保存しないと、Pattern中にアプリが再起動されたとき、Approachへ戻っても元に戻らなかった。
+    snapshot.patternSaved = { cut: cutBeforePattern, flap: circDwFlapBeforePattern };
     localStorage.setItem(PERSIST_KEY, JSON.stringify(snapshot));
   }catch(e){
     // localStorageが使えない環境(プライベートブラウズ等)では永続化を諦めるだけにして、
@@ -6094,6 +6256,9 @@ function applySavedStateOverride(saved){
     const ok = STATE_VALID[k] ? STATE_VALID[k](saved.state[k]) : false;
     if(ok) state[k] = saved.state[k];
   });
+  // build237: VisualのBase Turn基準の既定を「時間(Abeam+35s)」に変更(ユーザー要望)。
+  // それ以前に保存された状態(既定の「距離固定」のまま)は、一度だけ時間基準に切り替える。
+  if(!saved.bm237) state.baseMode = "time";
   // 3D ONなのに傾斜が0(または範囲外で既定値のまま)なら、3Dの既定傾斜にそろえる
   if(state.show3D && !(state.tiltDeg>=TILT_MIN_DEG && state.tiltDeg<=TILT_MAX_DEG)) state.tiltDeg = TILT_3D_DEG;
   if(!state.show3D){ state.tiltDeg = 0; }
@@ -6121,10 +6286,17 @@ function applySavedStateOverride(saved){
   // 内部で毎回clearVorForcing()を呼んでvorSavedStateをnullに戻すため、先に代入すると
   // 意味がなくなる。ここで代入しておけば、復元後にVOR方式から通常滑走路/別空港へ
   // 移ったときも、退避されていた本来のApproach/Sideへ正しく戻る(build 155)。
-  vorSavedState = (saved.vorSavedState && typeof saved.vorSavedState==="object")
+  // build236: 退避値も検証してから使う(古い/壊れたデータで不正な値が入らないように)
+  vorSavedState = (saved.vorSavedState && typeof saved.vorSavedState==="object"
+                   && STATE_VALID.approach(saved.vorSavedState.approach) && STATE_VALID.side(saved.vorSavedState.side))
     ? { approach: saved.vorSavedState.approach, side: saved.vorSavedState.side,
-        cutAngle: saved.vorSavedState.cutAngle }
+        cutAngle: STATE_VALID.cutAngle(saved.vorSavedState.cutAngle) ? saved.vorSavedState.cutAngle : 0 }
     : null;
+  {
+    const ps = saved.patternSaved || {};
+    cutBeforePattern = (state.mode==="pattern" && STATE_VALID.cutAngle(ps.cut)) ? ps.cut : null;
+    circDwFlapBeforePattern = (state.mode==="pattern" && STATE_VALID.circDwFlap(ps.flap)) ? ps.flap : null;
+  }
 
   syncButtonsFromState();
   fmsApplySpeeds();
@@ -6260,7 +6432,7 @@ window.addEventListener("pagehide", flushSaveState);
       else if(!v.split("/").pop().includes(".")) v = (v===""||v==="-"||v.endsWith("/")) ? v+"0." : v+".";
     }
     else if(k==="/" && cur.id==="breakDist"){ v = fresh ? "D" : (v.startsWith("D") ? v.slice(1) : "D"+v); } // build211: 先頭のDを付け外し
-    else if(k==="/"){ if(!v.includes("/")) v = v+"/"; }
+    else if(k==="/"){ if(!fresh && v.length && !v.includes("/")) v = v+"/"; }   // build236: 先頭に「/」は入れない
     else { v = fresh ? k : v+k; }
     fresh = false;
     cur.value = v;
@@ -6374,6 +6546,11 @@ if(!applySavedStateIfAny()){
     navigator.serviceWorker.addEventListener("message", (e)=>{
       const d = e.data || {};
       if(d.type==="app-updated" || d.type==="app-version") showUpdatePrompt(d.build);
+      // build236: オフライン用の地図の保存状況を、設定パネルの一番下に表示する
+      if(d.type==="maps-status"){
+        const el = document.getElementById("mapsStatus");
+        if(el) el.textContent = "オフライン用の地図: " + d.saved + " / " + d.total + " 空港 保存済み" + (d.saved<d.total ? "（ネットにつながると続きを保存します）" : "");
+      }
     });
     function requestUpdateCheck(){
       navigator.serviceWorker.ready.then(r=>{
@@ -6382,13 +6559,22 @@ if(!applySavedStateIfAny()){
       }).catch(()=>{});
     }
     document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") requestUpdateCheck(); });
-    window.addEventListener("load", ()=>{
-      navigator.serviceWorker.register("sw.js").then(()=>{
-        // 起動が落ち着いてから、全空港の地図データを裏で保存しておく(保存済みの空港は取り直さない)
-        setTimeout(()=>{ navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:"precache-maps"}); }); }, 5000);
-        requestUpdateCheck();   // build224
-      }).catch(()=>{});
-    });
+    { const mb = document.getElementById("menuBtn");
+      if(mb) mb.addEventListener("click", ()=>{ navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:"maps-status"}); }).catch(()=>{}); }); }
+    // build236: 登録はページ読み込み完了(load)を待たずにすぐ行う。loadは地図データ(数MB)の読み込みが
+    // 終わるまで来ないため、遅い回線では更新の仕組み自体がなかなか動き出さなかった。
+    const precacheMaps = ()=>{ navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:"precache-maps"}); }).catch(()=>{}); };
+    navigator.serviceWorker.register("sw.js").then(()=>{
+      // 起動が落ち着いてから、全空港の地図データを裏で保存しておく(保存済みの空港は取り直さない)
+      setTimeout(precacheMaps, 5000);
+      requestUpdateCheck();   // build224
+    }).catch(()=>{});
+    // build236: 回線が戻ったら、保存しきれていない地図の保存を再開する
+    window.addEventListener("online", ()=>setTimeout(precacheMaps, 2000));
+    // build236: 新しい sw.js に切り替わったとき(地図の保存番号が上がった場合など)も、地図の保存を始める
+    navigator.serviceWorker.addEventListener("controllerchange", ()=>setTimeout(precacheMaps, 2000));
+    // build236: 保存データを消されにくくする(対応ブラウザのみ)
+    try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(err){}
   }catch(e){}
 })();
 </script>
@@ -6402,6 +6588,8 @@ if(!applySavedStateIfAny()){
     if(window.top !== window) return;
     const standalone = (window.navigator.standalone === true) || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
     if(standalone) return;
+    // build236: 手順はiPad/iPhone向けなので、タッチ操作の端末でだけ出す(PCのブラウザでは出さない)
+    if(!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)) return;
     const KEY = "approachPlannerInstallGuideHidden_v1";
     let hidden = false; try{ hidden = localStorage.getItem(KEY)==="1"; }catch(e){}
     if(hidden) return;
@@ -6420,7 +6608,7 @@ if(!applySavedStateIfAny()){
       + '<li>ブラウザ(Safari / Chrome)の<b>共有ボタン</b> ' + SHARE_ICON + ' を押す</li>'
       + '<li>「<b>ホーム画面に追加</b>」を選ぶ</li>'
       + '<li>「<b>Webアプリとして開く</b>」をオンにして「追加」</li>'
-      + '<li>ホーム画面のアイコンから開き、<b>ネットにつないだまま15秒ほど待つ</b>(全空港の地図 約33MBを保存します。Wi-Fi・モバイル通信どちらでも可)</li>'
+      + '<li>ホーム画面のアイコンから開き、<b>ネットにつないだまま15秒ほど待つ</b>(全空港の地図 約33MBを保存します。Wi-Fi・モバイル通信どちらでも可。回線が遅いともう少しかかります。保存状況は設定パネルの一番下で確認できます)</li>'
       + '<li>機内モードで開き直して地図が出れば完了</li>'
       + '</ol>'
       + '<div style="color:var(--textdim);font-size:12px;margin-bottom:12px;">以後はホーム画面のアイコンから開いてください。新しい版があると「今すぐ更新しますか？」と表示されます。</div>'
