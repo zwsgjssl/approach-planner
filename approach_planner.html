@@ -273,7 +273,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 239</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 241</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -5002,6 +5002,29 @@ function stopIfInputErrors(){
        <div class="v" style="font-size:13px; line-height:1.7;">${inputCheck.errors.map(e=>e.replace(/</g,"&lt;")).join("<br>")}</div></div>`;
   return true;
 }
+// build241: VisualがContinuous Turn(Base legなし)に切り替わったとき、OKで確認するダイアログを
+// 出す(ユーザー要望。地図下の帯表示だと気づきにくいとのことで変更)。wasVisualContinuousで
+// 「直前の状態」を覚えておき、falseからtrueに変わった瞬間だけ出す(毎回のrender()で出すと
+// 数値入力中に何度も出てしまう)。
+let wasVisualContinuous = false;
+function resetContTurnNotice(){
+  wasVisualContinuous = false;
+  const t = document.getElementById("contTurnDialog");
+  if(t) t.remove();
+}
+function showContTurnDialog(){
+  if(document.getElementById("contTurnDialog")) return;
+  const t = document.createElement("div"); t.id = "contTurnDialog"; t.setAttribute("role","dialog");
+  t.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;"
+    + "background:var(--panel2);color:var(--text);border:1px solid var(--amber);border-radius:10px;padding:14px 16px;font-size:14px;"
+    + "box-shadow:0 8px 30px rgba(0,0,0,.65);max-width:calc(100vw - 32px);width:340px;";
+  t.innerHTML = '<div style="margin-bottom:10px;line-height:1.5;color:var(--amber);font-weight:600;">⚠ Continuous Turnで計算します</div>'
+    + '<div style="margin-bottom:12px;line-height:1.6;font-size:12.5px;">Base legなしの連続旋回に切り替わりました。Bank角は25°固定ではなく、成立するよう解いた値になります。</div>'
+    + '<div style="display:flex;justify-content:flex-end;">'
+    + '<button type="button" id="contTurnOk" class="resetBtn" style="min-width:88px;background:var(--amber);border-color:var(--amber);color:#1a1300;font-weight:600;">OK</button></div>';
+  document.body.appendChild(t);
+  t.querySelector("#contTurnOk").addEventListener("click", ()=>{ t.remove(); });
+}
 // build198: render本体(renderMain)はLDA/Departure/計算エラー時に途中でreturnするため、
 // 末尾の自動保存(scheduleSaveState)が呼ばれず、その間の入力が保存されていなかった。
 // 外側でどの経路を通っても必ず保存を予約する。
@@ -5704,6 +5727,7 @@ function renderMain(){
     document.getElementById("geomErrorDetail").textContent = geo.geomError.detail;
     document.getElementById("geomErrorFix").textContent = geo.geomError.fix;
     ge.classList.add("show");
+    resetContTurnNotice(); // build241
     document.getElementById("readout").innerHTML =
       `<div class="item danger" style="grid-column:1/-1;">
          <div class="k">パターン計算エラー</div>
@@ -5714,6 +5738,15 @@ function renderMain(){
     return;
   }
   document.getElementById("geomError").classList.remove("show");
+  // build241: VisualがBase legなしのContinuous turnに切り替わった「瞬間」だけ、OKで確認する
+  // ダイアログを出す(ユーザー要望。build240の地図下の帯表示から変更)。毎回のrender()で出すと
+  // 数値入力中に何度も出てしまうため、直前の状態から新たに切り替わったときだけ表示する。
+  if(geo.visualContinuous){
+    if(!wasVisualContinuous) showContTurnDialog();
+    wasVisualContinuous = true;
+  } else {
+    resetContTurnNotice();
+  }
 
   // --- Traffic Pattern(離陸→Downwind進入)：state.mode==="pattern"のときだけ計算・描画する ---
   // 速度は離陸直後からDownwind IAS一定(既存のdownwindTASをそのまま使う。減速プロファイルは
@@ -5727,6 +5760,7 @@ function renderMain(){
       document.getElementById("geomErrorDetail").textContent = "offsetに収めるのに必要なBank角が "+departure.turn.bankSolvedDeg.toFixed(1)+"° で、上限 "+BANK_ERROR_DEG+"° を超えています。";
       document.getElementById("geomErrorFix").textContent = "Downwind Offsetを広げるか、Downwind IASを下げてください。";
       ge.classList.add("show");
+      resetContTurnNotice(); // build241
       document.getElementById("readout").innerHTML =
         `<div class="item danger" style="grid-column:1/-1;">
            <div class="k">Traffic Pattern計算エラー</div>
