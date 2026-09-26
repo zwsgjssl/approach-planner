@@ -294,7 +294,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 263</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 264</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -1618,7 +1618,8 @@ function simulateItamiDeparture(opts){
           iasKt, turnStartNM, bankDeg, trkStopDeg, accelHeightFt, climbLowFpm, climbHighFpm,
           accelRateKtSec, oatC, oatValid, windSpeedKt=0, windFromTrueDeg=0 } = opts;
   // build196: 風(高度によらず一定)。離陸開始点(t=0)から地上軌跡に風ベクトルを加算する。
-  // 直進1(straight1)は滑走路方位のHDGを維持(クラブ補正しない＝横風で流される)、旋回は
+  // 直進1(straight1)は滑走路のTRKを維持するようWCAを取ったHDGで直進(build264、ユーザー指摘。以前はHDGを
+  // 滑走路方位のまま維持して横風で流されていた)、旋回は
   // 対気の旋回率(bank/TAS)でHDGを回し、「旋回終了TRK」は地上軌跡(TRK)で判定する。
   // 旋回終了後(straight2)はそのTRKを維持するようWCAを取ったHDGで直進する。
   const windToRad = (windFromTrueDeg+180)*D2R;
@@ -1668,6 +1669,10 @@ function simulateItamiDeparture(opts){
         turnStartTime = t;
         turnStartInfo = Object.assign(snap(t), { distFromStartM: Math.hypot(pos.x-startXY.x, pos.y-startXY.y) });
       }
+    }
+    if(phase==="straight1"){
+      // build264: 旋回開始までは滑走路のTRKを維持する(加速・上昇でTASが変わるとWCAも変わるので毎ステップ取り直す)
+      headingDeg = windSpeedKt>0 ? wcaHeadingForTrack(headingTrueDeg, tasKt, windSpeedKt, windFromTrueDeg) : headingTrueDeg;
     }
     if(phase==="turn"){
       const bankRampSec = bankDeg/ROLL_RATE_DEG_PER_SEC;
