@@ -289,7 +289,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 254</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 256</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -5267,9 +5267,11 @@ function renderVProfile(r, info){
     parts.push(`<line x1="${ml}" y1="${f1(sy(h))}" x2="${ml+pw}" y2="${f1(sy(h))}" stroke="var(--line)" stroke-width="0.6"/>`);
     parts.push(`<text x="${ml-5}" y="${f1(sy(h)+4)}" text-anchor="end" font-size="${FSs}" fill="var(--textdim)">${h}</text>`);
   }
-  for(let x=Math.ceil(xR/500)*500; x<=xL; x+=500){
+  // build255: 横軸の距離はNMで表示(ユーザー要望)。0.1NMごとに目盛りと数字(滑走路側は目盛りだけ)。
+  for(let k=Math.ceil(xR/FT_PER_NM*10); k*FT_PER_NM/10<=xL+1; k++){
+    const x = k*FT_PER_NM/10;
     parts.push(`<line x1="${f1(sx(x))}" y1="${mt+ph}" x2="${f1(sx(x))}" y2="${mt+ph+4}" stroke="var(--textdim)" stroke-width="0.8"/>`);
-    if(x%1000===0 && x>=0) parts.push(`<text x="${f1(sx(x))}" y="${mt+ph+FSs+5}" text-anchor="middle" font-size="${FSs}" fill="var(--textdim)">${x===0?"THR":x.toLocaleString()+"ft"}</text>`);
+    if(k>=0) parts.push(`<text x="${f1(sx(x))}" y="${mt+ph+FSs+5}" text-anchor="middle" font-size="${FSs}" fill="var(--textdim)">${k===0?"THR":(k/10).toFixed(1)+"NM"}</text>`);
   }
   parts.push(`<text x="${ml+pw-4}" y="${mt+FSs+2}" text-anchor="end" font-size="${FSs}" fill="var(--textdim)">← 進入側 ／ 滑走路 →</text>`);
   parts.push(`<text x="2" y="${mt+4}" font-size="${FSs}" fill="var(--textdim)">ft</text>`);
@@ -5367,7 +5369,7 @@ function renderVProfile(r, info){
     if(Math.abs(p.angle-3.25)<1e-9) rowsP.push(crossRow("4R", 0));
     papiHtml = `<div class="vpSub">PAPI（Eye、${r.ilsOnPath ? "On Glideslopeで" : "このAiming Point・降下角で"}飛んだとき。高度は高度計の値＝Gear基準）</div>
       <table class="vpTbl">${rowsP.join("")}</table>
-      <div class="hint">PAPI: THRから${p.distM}m(${p.side==="R"?"右":"左"})・MEHT ${p.mehtFt}ft ／ ${Math.abs(p.angle-3)>1e-9 ? p.angle+"° PAPI" : (p.ilsType?"ILSあり":"ILSなし")}の設定角 ${p.units.map(a=>a.toFixed(2)).join("/")}° ／ MEHTから逆算した実効位置 THRから${Math.round(p.effFt).toLocaleString()}ft${p.note?` ／ ${p.note}`:""}</div>`;
+      <div class="hint">PAPI: THRから${p.distM}m（${Math.round(p.distM/0.3048).toLocaleString()}ft）・${p.side==="R"?"右":"左"}・MEHT ${p.mehtFt}ft ／ ${Math.abs(p.angle-3)>1e-9 ? p.angle+"° PAPI" : (p.ilsType?"ILSあり":"ILSなし")}の設定角 ${p.units.map(a=>a.toFixed(2)).join("/")}° ／ MEHTから逆算した実効位置 THRから${Math.round(p.effFt).toLocaleString()}ft${p.note?` ／ ${p.note}`:""}</div>`;
   } else {
     papiHtml = `<div class="hint">この滑走路のPAPIデータなし</div>`;
   }
@@ -5376,7 +5378,7 @@ function renderVProfile(r, info){
   if(r.geom.flapPitchDeg){ const dE = r.geom.eyePerDeg*r.geom.flapPitchDeg;
     notes.push(`Flaps 25：表(Flaps 30)より姿勢 ${r.geom.flapPitchDeg>0?"+":"−"}${Math.abs(r.geom.flapPitchDeg).toFixed(1)}° として計算（Eye−Gear ${dE>=0?"+":"−"}${Math.abs(dE).toFixed(1)}ft）`); }
   notes.push("Eye height・GSアンテナ・主脚の高さ・姿勢は、B787 TRAINING MANUAL 8-1-5「ILS Approach - Landing Geometry」内の表から計算");
-  if(r.ils) notes.push(`ILS: GP角 ${r.ils.angle.toFixed(1)}° ／ GPアンテナ THRから${r.ils.distM}m ／ RDH ${r.ils.rdhFt}ft`);
+  if(r.ils) notes.push(`ILS: GP角 ${r.ils.angle.toFixed(1)}° ／ GPアンテナ THRから${r.ils.distM}m（${Math.round(r.ils.distM/0.3048).toLocaleString()}ft） ／ RDH ${r.ils.rdhFt}ft`);
   notes.push("滑走路・進入側の勾配は無視(THR標高の水平面で計算)。TOD/高度の計算はAiming Point(Eye)から求めたGear(高度計)基準のTHR通過高度を使用。");
 
   // build245: 断面図の基準の切り替え(ILSオンパスはGPのある滑走路だけ)
