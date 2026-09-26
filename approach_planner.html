@@ -255,6 +255,20 @@
   .readout .item .v{ font-size:15px; font-weight:600; }
   .readout .item.warn .v{ color:var(--amber); }
   .readout .item.danger .v{ color:var(--red); font-weight:600; }
+  /* build243: Final断面(Eye/Gear/ILS/PAPI) */
+  .vprofile{ background:var(--panel); border-top:1px solid var(--line); padding:10px 14px 14px; font-size:12px; }
+  .vprofile .vpTitle{ font-size:11px; color:var(--amber); letter-spacing:.6px; text-transform:uppercase; margin-bottom:6px; }
+  .vprofile .vpSeg{ margin:2px 0 8px; max-width:360px; }
+  .vprofile .vpSeg button{ min-height:36px; font-size:12.5px; }
+  .vprofile .vpTitle span{ color:var(--textdim); text-transform:none; letter-spacing:0; margin-left:4px; }
+  .vprofile svg{ display:block; max-width:520px; }
+  .vprofile .vpLegend{ font-size:10.5px; color:var(--textdim); display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; margin:4px 0 8px; }
+  .vprofile .vpBand{ display:inline-block; width:14px; height:8px; background:var(--green); opacity:.35; vertical-align:middle; }
+  .vprofile .vpSub{ font-size:10.5px; color:var(--textdim); text-transform:uppercase; letter-spacing:.4px; margin:10px 0 4px; }
+  .vprofile .vpTbl{ width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  .vprofile .vpTbl th{ font-size:10px; color:var(--textdim); font-weight:500; text-align:left; padding:2px 6px 2px 0; }
+  .vprofile .vpTbl td{ padding:3px 6px 3px 0; border-top:1px solid var(--line); vertical-align:top; }
+  .vprofile .vpTbl td:nth-child(2){ font-weight:600; white-space:nowrap; }
   /* build198: 夜間モード(減光) */
   body.night{ --text:#9aa6b0; --textdim:#5d6a76; --amber:#b98400; --cyan:#3a9dbb; --green:#27b873; --yellow:#b8a338; }
   body.night .rotwrap img{ filter:brightness(.45); }
@@ -273,7 +287,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 241</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 253</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -535,13 +549,14 @@
       <summary>詳細設定 (Aiming Point・降下角)</summary>
       <div class="grp" style="padding-top:10px;">
     <div class="field">
-      <label>Aiming Point (ft from THR) - 既定1312</label>
+      <label>Aiming Point (Eye, ft from THR) - 既定1312</label>
       <input id="aimingPoint" type="number" step="1" value="1312">
     </div>
 
     <div class="field">
-      <label>Threshold Crossing (ft AFE) - 自動計算</label>
-      <input id="thrCross" type="number" step="1" value="69" disabled>
+      <label>Threshold Crossing (Gear, ft) - 自動計算</label>
+      <input id="thrCross" type="number" step="1" value="46" disabled>
+      <div class="hint" id="thrCrossHint"></div>
     </div>
 
     <div class="field" id="glideAngleField">
@@ -594,6 +609,7 @@
      縦長(ポートレート)時はこれまでどおり地図の下に続く(build 153)。 -->
 <div class="sideCol">
 <div class="readout" id="readout"></div>
+<div class="vprofile" id="vprofile" style="display:none;"></div>
   <!-- build194: iPad(タッチ端末)用の数字キーパッド。build195: 設定パネルに重ねるのをやめ、
        計算結果ボードの場所(readoutの代わり)に表示する -->
   <div class="numpad" id="numpad" aria-hidden="true">
@@ -945,6 +961,84 @@ const ILS_DME = {
   fukuoka: { "16L":{ident:"IFO", lat:33.5937694, lon:130.4438778, elevFt:31}, "34R":{ident:"IFF", lat:33.5781444, lon:130.4575611, elevFt:44}, "16R":{ident:"IFN", lat:33.5730861, lon:130.4558889, elevFt:46}, "34L":{ident:"IFW", lat:33.5974472, lon:130.4392278, elevFt:28} },
   kumamoto: { "07":{ident:"IKU", lat:32.83345, lon:130.8426778, elevFt:620} },
 };
+
+// build243: 各着陸滑走路のPAPIとILSグライドパス(GP)。AIP AD2.14(PAPI: 設定角/設置側/DIST FM THR/MEHT)と
+// AD2.19(GP: THRからの距離・ILS Ref datum高さ(RDH)・GP角)より(9空港、2026年8〜10月版)。
+// gp:null はGPなし(福岡16R/34LはLOCのみなのでGPなし扱い)。PAPIの各灯の設定角はGPの有無で変わる(PAPI_UNIT_OFFSETS)。
+const RWY_VISUAL_AIDS = {
+  chitose: {
+    "01L":{ papi:{angle:3.0, side:"L", distM:402, mehtFt:66, note:"01R/19L指定時は通常消灯"}, gp:{distM:303, rdhFt:55, angle:3.0} },
+    "19R":{ papi:{angle:3.0, side:"L", distM:422, mehtFt:65, note:"01R/19L指定時は通常消灯"}, gp:{distM:327, rdhFt:54, angle:3.0} },
+    "01R":{ papi:{angle:3.0, side:"L", distM:401, mehtFt:66}, gp:{distM:303, rdhFt:54, angle:3.0} },
+    "19L":{ papi:{angle:3.0, side:"L", distM:441, mehtFt:67}, gp:{distM:327, rdhFt:54, angle:3.0} } },
+  hakodate: {
+    "12":{ papi:{angle:3.0, side:"L", distM:384, mehtFt:65}, gp:{distM:290, rdhFt:51, angle:3.0} },
+    "30":{ papi:{angle:3.0, side:"L", distM:538, mehtFt:74}, gp:null } },
+  haneda: {
+    "16L":{ papi:{angle:3.0, side:"L", distM:412, mehtFt:65, note:"RNP RWY16L運用時は3.25° PAPI(378m)に切替"}, gp:{distM:312, rdhFt:53, angle:3.0},
+            papiAlt:{angle:3.25, side:"L", distM:378, mehtFt:65, note:"RNP RWY16L運用時のみ点灯(3.0° PAPIは消灯)"} },
+    "34R":{ papi:{angle:3.0, side:"R", distM:416, mehtFt:66}, gp:{distM:316, rdhFt:54, angle:3.0} },
+    "16R":{ papi:{angle:3.0, side:"L", distM:434, mehtFt:65, note:"RNP RWY16R運用時は3.25° PAPI(397m)に切替"}, gp:{distM:326, rdhFt:53, angle:3.0},
+            papiAlt:{angle:3.25, side:"L", distM:397, mehtFt:65, note:"RNP RWY16R運用時のみ点灯(3.0° PAPIは消灯)"} },
+    "34L":{ papi:{angle:3.0, side:"L", distM:449, mehtFt:66}, gp:{distM:338, rdhFt:54, angle:3.0} },
+    "04": { papi:{angle:3.0, side:"L", distM:369, mehtFt:61, note:"PAPIの有効範囲はTHRから2.4NM以内"}, gp:null },
+    "22": { papi:{angle:3.0, side:"L", distM:438, mehtFt:63}, gp:{distM:339, rdhFt:54, angle:3.0} },
+    "23": { papi:{angle:3.0, side:"L", distM:452, mehtFt:66}, gp:{distM:336, rdhFt:55, angle:3.0} } },
+  itami: {
+    "14R":{ papi:{angle:3.0, side:"L", distM:482, mehtFt:74, note:"PAPIの有効範囲はTHRから約2.6NM以内(山)"}, gp:null },
+    "32L":{ papi:{angle:3.0, side:"L", distM:422, mehtFt:64}, gp:{distM:333, rdhFt:54, angle:3.0} },
+    "14L":{ papi:{angle:3.0, side:"L", distM:383, mehtFt:61, note:"PAPIの有効範囲はTHRから約2.4NM以内(山)"}, gp:null },
+    "32R":{ papi:{angle:3.0, side:"L", distM:309, mehtFt:52}, gp:null } },
+  hiroshima: {
+    "10":{ papi:{angle:3.0, side:"L", distM:397, mehtFt:66}, gp:{distM:324, rdhFt:54, angle:3.0} },
+    "28":{ papi:{angle:3.0, side:"L", distM:416.3, mehtFt:73.8}, gp:null } },
+  takamatsu: {
+    "08":{ papi:{angle:3.0, side:"L", distM:403, mehtFt:74, note:"PAPIの有効範囲はTHRから約3.0NM以内"}, gp:null },
+    "26":{ papi:{angle:3.0, side:"L", distM:363, mehtFt:65.6}, gp:{distM:278, rdhFt:53, angle:3.0} } },
+  matsuyama: {
+    "14":{ papi:{angle:3.0, side:"L", distM:415, mehtFt:66}, gp:{distM:317, rdhFt:55, angle:3.0} },
+    "32":{ papi:{angle:3.0, side:"L", distM:461.3, mehtFt:74, note:"PAPIの有効範囲はTHRから3.5NM以内"}, gp:null } },
+  fukuoka: {
+    "16L":{ papi:{angle:3.0, side:"L", distM:436, mehtFt:70}, gp:{distM:325, rdhFt:58, angle:3.0} },
+    "34R":{ papi:{angle:3.0, side:"L", distM:435.3, mehtFt:66}, gp:{distM:330, rdhFt:54, angle:3.0} },
+    "16R":{ papi:{angle:3.0, side:"L", distM:443.5, mehtFt:75, note:"16L指定時は通常消灯"}, gp:null },
+    "34L":{ papi:{angle:3.0, side:"L", distM:487.7, mehtFt:75, note:"34R指定時は通常消灯"}, gp:null } },
+  kumamoto: {
+    "07":{ papi:{angle:3.0, side:"L", distM:349, mehtFt:64}, gp:{distM:269, rdhFt:54, angle:3.0} },
+    "25":{ papi:{angle:3.0, side:"L", distM:464, mehtFt:74}, gp:null } },
+};
+// PAPI 4灯の設定角(公称角からの差、度)。低い灯→高い灯の順。
+// ILSあり: 2°25'/2°45'/3°15'/3°35'(オンパス2W2Rは±15')、ILSなし: 2°30'/2°50'/3°10'/3°30'(±10')。
+const PAPI_UNIT_OFFSETS = { ils:[-35/60, -15/60, 15/60, 35/60], nonIls:[-30/60, -10/60, 10/60, 30/60] };
+
+// build243: 787の進入時の機体姿勢データ(B787 TRAINING MANUAL 8-1-5「ILS Approach - Landing Geometry」内の表、Flaps 30・No Flare)。
+// 表の値: GP角ごとの姿勢角、THR上のEye高さ・主脚高さ、THRから主脚接地点(フレアなし)までの距離。
+// 図の条件はILSのGS送信機がTHRから954ft(3°)/1145ft(2.5°)＝ILSパスはTHR上50ftを通過。
+const AC_APPROACH_GEOM = {
+  "787-8":  [{gp:2.5, att:1.8, eyeFt:55, gearFt:31, tdFt:701}, {gp:3.0, att:1.3, eyeFt:54, gearFt:31, tdFt:584}],
+  "787-9":  [{gp:2.5, att:1.5, eyeFt:54, gearFt:30, tdFt:692}, {gp:3.0, att:1.0, eyeFt:53, gearFt:30, tdFt:576}],
+  "787-10": [{gp:2.5, att:1.6, eyeFt:54, gearFt:29, tdFt:661}, {gp:3.0, att:1.1, eyeFt:53, gearFt:29, tdFt:550}],
+};
+const AC_GEOM_GS_XMTR_FT = { "2.5":1145, "3":954 };
+// 主脚高さは整数に丸められているので、接地距離×tan(GP角)から小数まで出す(表の整数値と四捨五入で一致)。
+// Eye−主脚 と ILS(GSアンテナ)−主脚 の高さの差を求め、GP角について直線補間(2.5〜3.0°の外は直線外挿)。
+function acApproachGeom(model, glideDeg, flap){
+  const rows = AC_APPROACH_GEOM[model] || AC_APPROACH_GEOM["787-9"];
+  const d = rows.map(r=>{
+    const t = Math.tan(r.gp*D2R);
+    const gear = r.tdFt*t;
+    const ils = AC_GEOM_GS_XMTR_FT[String(r.gp)]*t;
+    return { gp:r.gp, att:r.att, eyeGear:r.eyeFt-gear, antGear:ils-gear };
+  });
+  const f = (glideDeg-d[0].gp)/(d[1].gp-d[0].gp);
+  const lerp = (k)=> d[0][k] + (d[1][k]-d[0][k])*f;
+  // build251/253: 表はFlaps 30。Flaps 25は姿勢を−0.2°(ユーザー指定、build253で+0.2°から訂正)。Eye−Gearは表の
+  // 「姿勢1°あたりの変化」(2.5°と3.0°の行の差、約2ft/°)で変える。ILS(GSアンテナ)−Gearは表では姿勢によらず一定なので変えない。
+  const flapPitchDeg = flap===25 ? -0.2 : 0;   // build253: 訂正(ユーザー指定)。F25はF30より姿勢-0.2°
+  const eyePerDeg = (d[0].eyeGear-d[1].eyeGear)/(d[0].att-d[1].att);
+  return { att:lerp("att")+flapPitchDeg, eyeGear:lerp("eyeGear")+eyePerDeg*flapPitchDeg, antGear:lerp("antGear"),
+           flapPitchDeg, eyePerDeg, extrapolated: glideDeg < 2.5-1e-9 || glideDeg > 3.0+1e-9 };
+}
 /* headingTrueDegAtoB: 滑走路番号A→Bの真方位（整数、四捨五入）。
    magVarDeg: 西偏の大きさ（正の数）。磁方位 = 真方位 + magVarDeg（西偏は"West, Best"で加算）。
    9空港ともAIP実測の閾値座標(thresholds)を持つので、headingTrueDegAtoB/lengthMは閾値位置の
@@ -1032,17 +1126,21 @@ function computePattern(opts){
   const downwindFarXY = { x: baseTurnXY.x+ux*downwindExtraM, y: baseTurnXY.y+uy*downwindExtraM };
 
   // 降下計算: V/Sは瞬時に目標値になるのではなく、Bank角のRoll-inと同様に
-  // 5秒かけて直線的に目標V/Sまで立ち上がるとみなす（その間は降下率が浅い＝
+  // 直線的に目標V/Sまで立ち上がるとみなす（その間は降下率が浅い＝
   // その分だけTODを手前ではなく遠く/早めに取る必要がある）。
+  // build242: 立ち上がりの「時間」を固定(旧: 5秒固定)ではなく、V/Sの「増加率」を
+  // 150ft/min/secで固定するよう変更(ユーザー指定)。目標V/Sが大きいほど確立に時間がかかる
+  // 方が実態に近い。標準的な設定(目標V/S 700〜800ft/min程度)では従来どおり概ね5秒になる。
   // WCA(風修正角)によりTrackはFinalコースのまま変わらないので、降下率・進む距離は
   // TASではなくG/S(TAS+Final track方向への風の追い風/向かい風成分)を使う。
   const deltaAltFt = downwindAltAFE-thrCrossAFE;
   const glideRad = glideAngleDeg*D2R;
-  const VS_RAMP_SEC = 5;
+  const VS_RAMP_RATE_FPM_PER_SEC = 150;
   const windAlongFinalKt = windSpeedKt*Math.cos(((windFromTrueDeg+180)-finalCourseTrueDeg)*D2R);
   const finalGSKt = groundSpeedOnTrack(downwindTAS, windSpeedKt, windFromTrueDeg, finalCourseTrueDeg); // build198: 横風のWCA分を含む
   const targetVSftPerMin = finalGSKt*101.27*Math.tan(glideRad);
   const targetVSftPerSec = targetVSftPerMin/60;
+  const VS_RAMP_SEC = targetVSftPerMin/VS_RAMP_RATE_FPM_PER_SEC; // build242: 目標V/Sに応じた可変のランプ時間
   const GSftPerSec = finalGSKt*1.68781; // 1kt = 1.68781 ft/s
   const distRampFt = GSftPerSec*VS_RAMP_SEC;
   const altLostDuringRampFt = Math.min(targetVSftPerSec*VS_RAMP_SEC/2, deltaAltFt);
@@ -1974,7 +2072,7 @@ function unionStadiumOutline(runwayPairs, R, centerXY, angleStepDeg=3){
 /* ============================================================
    5. UI state / setup
    ============================================================ */
-const state = { acModel:"787-9", appFlap:25, circDwFlap:30, approach:"visual", side:"right", airportKey:"haneda", cutAngle:0, baseMode:"time", vorAltMSL:1800, showImage:true, show3D:false, showTerrain:true, tiltDeg:0, headingOffsetDeg:0, showAltLabels:false, mode:"approach", depBank:25, nightMode:false };
+const state = { acModel:"787-9", appFlap:25, circDwFlap:30, approach:"visual", side:"right", airportKey:"haneda", cutAngle:0, baseMode:"time", vorAltMSL:1800, showImage:true, show3D:false, showTerrain:true, tiltDeg:0, headingOffsetDeg:0, showAltLabels:false, mode:"approach", depBank:25, nightMode:false, pathRef:"aim", papi16:"3.0" };
 
 // VOR方式(VOR 34L→16R / VOR A→16L)はApproach TypeとDownwind側をCircling/Leftに強制し、
 // Downwind Altitude等の入力欄もその方式の値で上書きする。
@@ -2516,6 +2614,19 @@ document.querySelectorAll("#acModel button").forEach(btn=>{
     fmsApplySpeeds();
     render();
   });
+});
+// build245: Final断面の「Aiming Point / On Glideslope(build252で名称変更、旧ILSオンパス)」切り替え(断面図の表示だけ。経路・TOD計算には影響しない)
+document.getElementById("vprofile").addEventListener("click", (e)=>{
+  const b = e.target.closest && e.target.closest("button[data-vp],button[data-papi]");
+  if(!b || b.disabled) return;
+  if(b.dataset.vp) state.pathRef = b.dataset.vp;
+  if(b.dataset.papi) state.papi16 = b.dataset.papi;   // build246: 羽田16L/16RのPAPI 3.0°/3.25°
+  // build247: 描き直しでスクロール位置が動かないよう、ページと右カラムの位置を保って戻す
+  const sc = document.querySelector(".sideCol");
+  const winY = window.scrollY, colY = sc ? sc.scrollTop : 0;
+  render();
+  if(sc) sc.scrollTop = colY;
+  window.scrollTo(window.scrollX, winY);
 });
 document.querySelectorAll("#circDwFlap button").forEach(btn=>{
   btn.addEventListener("click", ()=>{
@@ -4848,13 +4959,15 @@ function renderLda(airport, rwyLabel){
   // 高度がすべて実際の値の約1/3.28(≒メートルとフィートの比)になってしまっていた
   // 不具合を修正(ユーザー報告「LDAの高度計算おかしくない？？」)。
   // 例: LDA22既定値でMAP通過高度が修正前412ft AFE→修正後1353ft AFE程度になる。
-  const mapCrossAFE = (distMapToAiming/0.3048)*tanDesc;
+  // build243: Aiming PointはEye(目)の狙い点。高度計(表示するft MSL)はGear基準なので、Eyeの高さから機体のEye−Gearを引く
+  const ldaEyeGearFt = acApproachGeom(state.acModel, LDA_DESCENT_ANGLE_DEG, state.appFlap).eyeGear;
+  const mapCrossAFE = (distMapToAiming/0.3048)*tanDesc - ldaEyeGearFt;
   // Turn Start以降の残距離(旋回弧長+旋回後の直進区間)だけを使ってAFEを求める
   // (Turn StartはMAPと同じかMAP通過後=Aiming Point側にあるため、MAPからの距離を
   //  そのまま加えると二重計上になる)。
   const turnStartRemainM = turnArcLenM+distTurnEndToAiming;
-  const rollOutAFE = (distTurnEndToAiming/0.3048)*tanDesc;
-  const drawStartAFE = ((distDrawStartToMap+distMapToAiming)/0.3048)*tanDesc;
+  const rollOutAFE = (distTurnEndToAiming/0.3048)*tanDesc - ldaEyeGearFt;
+  const drawStartAFE = ((distDrawStartToMap+distMapToAiming)/0.3048)*tanDesc - ldaEyeGearFt;
 
   // --- 画面のパン/回転設定 ---
   // build176: ユーザー指定によりLDAモードは常にNorth up固定(着陸滑走方向を上にする回転はしない)。
@@ -4925,6 +5038,19 @@ function renderLda(airport, rwyLabel){
     <div class="item key${bankSolvedDeg>30?" danger":(bankSolvedDeg>25?" warn":"")}"><div class="k">Finalにのるための必要Bank角</div><div class="v">${bankSolvedDeg.toFixed(1)}° (${turnSign<0?"左":"右"}旋回 ${turnAngleDeg.toFixed(1)}°)</div></div>
     <div class="item key"><div class="k">on Final (旋回終了点)</div><div class="v">${afeToDisplayMSL10(rollOutAFE, ldaRefElevFt).toLocaleString()} ft MSL</div></div>
   `;
+  // build250: LDAでもFinal断面を出す(ユーザー要望)。LDAは3°一定でAiming Point(Eye)へ降下するモデル。
+  // Aiming Point / ILSオンパスの切り替え(表示だけ)もApproachと同じ。
+  {
+    const aidsRaw = (RWY_VISUAL_AIDS[airport.key]||{})[rwyLabel] || null;
+    const altOn = !!(aidsRaw && aidsRaw.papiAlt && state.papi16==="3.25");
+    const aids = altOn ? Object.assign({}, aidsRaw, { papi: aidsRaw.papiAlt }) : aidsRaw;
+    const showIls = state.pathRef==="ils" && !!(aids && aids.gp);
+    const res = showIls
+      ? computeVProfile({ model:state.acModel, glideDeg:aids.gp.angle, aimEyeFt:AIMING_POINT_FT, aids, ilsOnPath:true })
+      : computeVProfile({ model:state.acModel, glideDeg:LDA_DESCENT_ANGLE_DEG, aimEyeFt:AIMING_POINT_FT, aids });
+    renderVProfile(res, { model:state.acModel, rwyLabel: rwyLabel+" (LDA)", appFlap:state.appFlap, hasGp: !!(aids && aids.gp),
+      refElevFt: ldaRefElevFt, hasPapiAlt: !!(aidsRaw && aidsRaw.papiAlt), papiAltOn: altOn });
+  }
 }
 
 // build198: 数値入力欄の検証。旧版は parseFloat(...)||既定値 だけだったため、
@@ -5006,6 +5132,231 @@ function stopIfInputErrors(){
 // 出す(ユーザー要望。地図下の帯表示だと気づきにくいとのことで変更)。wasVisualContinuousで
 // 「直前の状態」を覚えておき、falseからtrueに変わった瞬間だけ出す(毎回のrender()で出すと
 // 数値入力中に何度も出てしまう)。
+// ============================================================
+// build243: Final断面(Eye基準のAiming Point・機体の姿勢データ・AIPのPAPI/ILS位置)
+// 座標: x = THRからの手前方向の距離(ft、進入側が正・滑走路側が負)、h = THR標高からの高さ(ft)。
+// 滑走路・進入側の勾配は無視する(THR標高の水平面で考える)。
+// ILSパス: THR上でRDH、GP角で直線。PAPI: 実際の設置位置と標高の差を含めるため、
+// 「オンパス帯の下側の灯(ILSあり2°45'/なし2°50')がTHR上でMEHTを通る」ように実効位置を逆算する。
+// ============================================================
+const FT_PER_NM = NM/0.3048;
+const PAPI_STATE_LABEL = ["4R 低すぎ","1W3R やや低","2W2R オンパス","3W1R やや高","4W 高すぎ"];
+function computeVProfile(o){
+  const tg = Math.tan(o.glideDeg*D2R);
+  const g = acApproachGeom(o.model, o.glideDeg, (o.flap!==undefined ? o.flap : state.appFlap));
+  const aids = o.aids;
+  // build244: ILSオンパス＝GSアンテナがTHR上でRDHを通る(GP角で降下)。Eye/Gearはそこから機体の差で求める。
+  const ilsOnPath = !!(o.ilsOnPath && aids && aids.gp);
+  let eyeThr, gearThr, antThr;
+  if(ilsOnPath){
+    antThr = aids.gp.rdhFt;
+    gearThr = antThr - g.antGear;
+    eyeThr = gearThr + g.eyeGear;
+  } else {
+    eyeThr = o.aimEyeFt*tg;
+    gearThr = eyeThr - g.eyeGear;
+    antThr = gearThr + g.antGear;
+  }
+  const aimEyeFt = eyeThr/tg;   // Eyeの狙い点(ILSオンパスのときは等価な値)
+  const res = { tg, geom:g, glideDeg:o.glideDeg, aimEyeFt, aimEyeFtInput:o.aimEyeFt, ilsOnPath, eyeThr, gearThr, antThr,
+    gearTdFt: gearThr/tg, eyeAt:(x)=>eyeThr+x*tg, gearAt:(x)=>gearThr+x*tg, antAt:(x)=>antThr+x*tg, ils:null, papi:null };
+  if(aids && aids.gp){
+    const ta = Math.tan(aids.gp.angle*D2R);
+    const at = (x)=>aids.gp.rdhFt + x*ta;
+    res.ils = { rdhFt:aids.gp.rdhFt, angle:aids.gp.angle, distM:aids.gp.distM, originFt:aids.gp.rdhFt/ta, at,
+      devThr: antThr - aids.gp.rdhFt, dev1nm: res.antAt(FT_PER_NM) - at(FT_PER_NM) };
+  }
+  if(aids && aids.papi){
+    const ilsType = !!aids.gp;
+    const units = PAPI_UNIT_OFFSETS[ilsType?"ils":"nonIls"].map(d=>aids.papi.angle+d);
+    const effFt = aids.papi.mehtFt/Math.tan(units[1]*D2R);
+    const whitesAt = (x,h)=>{ const e = Math.atan2(h, x+effFt)*R2D; return units.filter(a=>e>a).length; };
+    const X_FAR = 5*FT_PER_NM;
+    const bps = [];
+    for(const a of units){
+      const ta = Math.tan(a*D2R);
+      if(Math.abs(tg-ta) < 1e-9) continue;
+      const x = (effFt*ta - aimEyeFt*tg)/(tg-ta);   // Eyeの線と灯の境界線の交点
+      if(x > 1 && x < X_FAR) bps.push(x);
+    }
+    bps.sort((a,b)=>b-a);
+    const pts = [X_FAR, ...bps, 0];
+    const segs = [];
+    for(let i=0;i<pts.length-1;i++){
+      const mid = (pts[i]+pts[i+1])/2;
+      const w = whitesAt(mid, res.eyeAt(mid));
+      if(segs.length && segs[segs.length-1].whites===w){ segs[segs.length-1].toX = pts[i+1]; continue; }
+      segs.push({ fromX:pts[i], toX:pts[i+1], whites:w });
+    }
+    // build251: 境界線上(PAPIの赤白の切替幅＝ICAOの最大3′以内)を飛ぶ区間。units[1]=2W2R/3R1W、units[0]=3R1W/4R。
+    const TOL_DEG = 3/60;
+    const nearOf = (alpha)=>{
+      let from=null, to=null;
+      for(let i=0;i<=400;i++){
+        const x = X_FAR*(1-i/400);
+        const e = Math.atan2(res.eyeAt(x), x+effFt)*R2D;
+        if(Math.abs(e-alpha) < TOL_DEG){ if(from===null) from = x; to = x; }
+      }
+      return from===null ? null : { from, to };
+    };
+    const near = { onslopeLow: nearOf(units[1]), lowest: nearOf(units[0]) };
+    res.papi = { ilsType, angle:aids.papi.angle, units, effFt, near, distM:aids.papi.distM, side:aids.papi.side, mehtFt:aids.papi.mehtFt,
+      note:aids.papi.note||null, segs, thrWhites: whitesAt(0, eyeThr) };
+  }
+  return res;
+}
+function vpFmtNM(xFt){ return (xFt/FT_PER_NM).toFixed(2)+"NM"; }
+// build247: renderの最初に断面図を消すと、いったんページ(右カラム)の高さが縮んでスクロール位置が
+// 先頭に戻ってしまっていた(断面図のボタンを押すとページトップへ飛ぶ)。最初は「今回まだ描いていない」
+// 印を付けるだけにして、render()の最後まで描かれなかったときだけ消す。
+let vpShownThisRender = false;
+function hideVProfile(){ vpShownThisRender = false; }
+function finishVProfile(){
+  if(vpShownThisRender) return;
+  const vp = document.getElementById("vprofile");
+  if(vp && vp.style.display!=="none"){ vp.style.display = "none"; vp.innerHTML = ""; }
+}
+function renderVProfile(r, info){
+  const vp = document.getElementById("vprofile");
+  if(!vp) return;
+  const W=360, H=224, ml=30, mr=8, mt=10, mb=20, pw=W-ml-mr, ph=H-mt-mb;
+  const xL = 3000, xR = -1800, yMax = 180;
+  const sx = (x)=> ml + (xL-x)/(xL-xR)*pw;
+  const sy = (h)=> mt + ph - h/yMax*ph;
+  const f1 = (v)=> v.toFixed(1);
+  const parts = [];
+  parts.push(`<defs><clipPath id="vpClip"><rect x="${ml}" y="${mt}" width="${pw}" height="${ph}"/></clipPath></defs>`);
+  // 目盛り
+  for(let h=50; h<=yMax; h+=50){
+    parts.push(`<line x1="${ml}" y1="${f1(sy(h))}" x2="${ml+pw}" y2="${f1(sy(h))}" stroke="var(--line)" stroke-width="0.6"/>`);
+    parts.push(`<text x="${ml-4}" y="${f1(sy(h)+3)}" text-anchor="end" font-size="8.5" fill="var(--textdim)">${h}</text>`);
+  }
+  for(let x=-1500; x<=3000; x+=500){
+    parts.push(`<line x1="${f1(sx(x))}" y1="${mt+ph}" x2="${f1(sx(x))}" y2="${mt+ph+3}" stroke="var(--textdim)" stroke-width="0.8"/>`);
+    if(x%1000===0 && x>=0) parts.push(`<text x="${f1(sx(x))}" y="${mt+ph+12}" text-anchor="middle" font-size="8.5" fill="var(--textdim)">${x===0?"THR":x+"ft"}</text>`);
+  }
+  parts.push(`<text x="${ml+pw-2}" y="${mt+9}" text-anchor="end" font-size="8" fill="var(--textdim)">← 進入側 ／ 滑走路 →</text>`);
+  parts.push(`<text x="2" y="${mt+4}" font-size="8" fill="var(--textdim)">ft</text>`);
+  const g = [];
+  // PAPIの表示帯(Eyeで見たとき)
+  if(r.papi){
+    const ox = -r.papi.effFt;
+    const hAt = (a)=> (xL-ox)*Math.tan(a*D2R);
+    const band = (a1,a2,color,op)=> g.push(`<polygon points="${f1(sx(ox))},${f1(sy(0))} ${f1(sx(xL))},${f1(sy(hAt(a1)))} ${f1(sx(xL))},${f1(sy(hAt(a2)))}" fill="${color}" fill-opacity="${op}" stroke="none"/>`);
+    const u = r.papi.units;
+    band(u[0],u[1],"var(--amber)",0.10);
+    band(u[1],u[2],"var(--green)",0.16);
+    band(u[2],u[3],"var(--amber)",0.10);
+    for(const a of u) g.push(`<line x1="${f1(sx(ox))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(hAt(a)))}" stroke="var(--textdim)" stroke-width="0.5" stroke-opacity="0.6"/>`);
+    // build251: 目の線が境界の光に沿って飛ぶ(差3′以内)ときは、その境界線を強調して名前を付ける
+    const emph = [[r.papi.near.onslopeLow, u[1], "2W2R／3R1W 境界"], [r.papi.near.lowest, u[0], "3R1W／4R 境界"]];
+    for(const [rg, a, name] of emph){
+      if(!rg) continue;
+      const kk = a===u[1] ? 1 : 0, ci = r.papi.segs.findIndex(sg=>sg.whites<=kk);
+      if(!(ci<=0 || rg.from-rg.to >= FT_PER_NM)) continue;
+      g.push(`<line x1="${f1(sx(ox))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(hAt(a)))}" stroke="var(--red)" stroke-width="1.4" stroke-dasharray="5 3"/>`);
+      const lx = Math.min(xL-200, (yMax-30)/Math.tan(a*D2R) + ox), ly = (lx-ox)*Math.tan(a*D2R);   // 図の中に収まる位置
+      g.push(`<text x="${f1(sx(lx)+4)}" y="${f1(sy(ly)+12)}" font-size="8.5" fill="var(--red)" stroke="var(--panel)" stroke-width="2.5" paint-order="stroke">${name}</text>`);
+    }
+  }
+  // 滑走路と地面
+  g.push(`<line x1="${ml}" y1="${f1(sy(0))}" x2="${f1(sx(0))}" y2="${f1(sy(0))}" stroke="var(--groundline)" stroke-width="1"/>`);
+  g.push(`<rect x="${f1(sx(0))}" y="${f1(sy(0))}" width="${f1(sx(xR)-sx(0))}" height="4" fill="var(--textdim)"/>`);
+  g.push(`<line x1="${f1(sx(0))}" y1="${mt}" x2="${f1(sx(0))}" y2="${f1(sy(0))}" stroke="var(--textdim)" stroke-width="0.6" stroke-dasharray="2 3"/>`);
+  // ILSパスとGSアンテナの通り道
+  if(r.ils){
+    const o = -r.ils.originFt;
+    g.push(`<line x1="${f1(sx(o))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(r.ils.at(xL)))}" stroke="var(--amber)" stroke-width="1.6" stroke-dasharray="6 4"/>`);
+    g.push(`<line x1="${f1(sx(-r.antThr/r.tg))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(r.antAt(xL)))}" stroke="var(--amber)" stroke-width="1" stroke-dasharray="1.5 2.5"/>`);
+    g.push(`<rect x="${f1(sx(-r.ils.distM/0.3048)-2.5)}" y="${f1(sy(0)-7)}" width="5" height="7" fill="var(--amber)"/>`);
+  }
+  // 主脚とEyeの通り道
+  g.push(`<line x1="${f1(sx(-r.gearTdFt))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(r.gearAt(xL)))}" stroke="var(--green)" stroke-width="2"/>`);
+  g.push(`<line x1="${f1(sx(-r.aimEyeFt))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(r.eyeAt(xL)))}" stroke="var(--cyan)" stroke-width="2"/>`);
+  g.push(`<circle cx="${f1(sx(-r.gearTdFt))}" cy="${f1(sy(0))}" r="3" fill="var(--green)"/>`);
+  g.push(`<circle cx="${f1(sx(-r.aimEyeFt))}" cy="${f1(sy(0))}" r="3" fill="var(--cyan)"/>`);
+  if(r.papi){
+    const px = sx(-r.papi.effFt);
+    g.push(`<rect x="${f1(px-6)}" y="${f1(sy(0)-5)}" width="5" height="5" fill="#fff"/><rect x="${f1(px+1)}" y="${f1(sy(0)-5)}" width="5" height="5" fill="var(--red)"/>`);
+    g.push(`<text x="${f1(px)}" y="${f1(sy(0)-8)}" text-anchor="middle" font-size="8" fill="var(--text)">PAPI</text>`);
+  }
+  parts.push(`<g clip-path="url(#vpClip)">${g.join("")}</g>`);
+  if(r.ils) parts.push(`<text x="${f1(sx(-r.ils.distM/0.3048))}" y="${f1(sy(0)+12)}" text-anchor="middle" font-size="8" fill="var(--amber)">GP</text>`);
+  // THR上の高さ
+  parts.push(`<text x="${f1(sx(0)+3)}" y="${f1(sy(r.eyeThr)-3)}" font-size="8.5" fill="var(--cyan)">${r.eyeThr.toFixed(0)}</text>`);
+  parts.push(`<text x="${f1(sx(0)+3)}" y="${f1(sy(r.gearThr)+9)}" font-size="8.5" fill="var(--green)">${r.gearThr.toFixed(0)}</text>`);
+  const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Final断面図">${parts.join("")}</svg>`;
+
+  const sw = (color, dash)=> `<svg width="18" height="6" style="vertical-align:middle"><line x1="0" y1="3" x2="18" y2="3" stroke="${color}" stroke-width="2" ${dash?`stroke-dasharray="${dash}"`:""}/></svg>`;
+  const legend = `<div class="vpLegend">${sw("var(--cyan)")}Eye ${sw("var(--green)")}Gear`
+    + (r.ils ? ` ${sw("var(--amber)","6 4")}ILS ${sw("var(--amber)","1.5 2.5")}GSアンテナ` : "")
+    + (r.papi ? ` <span style="white-space:nowrap"><span class="vpBand"></span> PAPI 2W2R帯</span>` : "") + `</div>`;
+
+  const sgn = (v)=> (v>=0?"+":"") + v.toFixed(1);
+  const rows = [];
+  rows.push(`<tr><td style="color:var(--cyan)">Eye</td><td>${r.eyeThr.toFixed(1)} ft</td><td>${r.ilsOnPath ? `Eyeの狙い点 ${Math.round(r.aimEyeFt).toLocaleString()}ft相当` : `Aiming Point ${Math.round(r.aimEyeFt).toLocaleString()}ft`}</td></tr>`);
+  rows.push(`<tr><td style="color:var(--amber)">GSアンテナ</td><td>${r.antThr.toFixed(1)} ft</td><td>${r.ilsOnPath ? `ILSパス上(RDH ${r.ils.rdhFt}ft)` : r.ils ? `ILS(RDH ${r.ils.rdhFt}ft)より ${sgn(r.ils.devThr)}ft` + (Math.abs(r.ils.dev1nm-r.ils.devThr)>=0.5 ? `（1NMで ${sgn(r.ils.dev1nm)}ft）` : "") : "この滑走路はILS(GP)なし"}</td></tr>`);
+  rows.push(`<tr><td style="color:var(--green)">Gear</td><td>${r.gearThr.toFixed(1)} ft</td><td>${r.gearThr>0 ? `接地(No Flare) THRから${Math.round(r.gearTdFt).toLocaleString()}ft` : `<span style="color:var(--red)">THR手前で接地する高さ</span>`}</td></tr>`);
+  if(r.papi) rows.push(`<tr><td>PAPI</td><td>${PAPI_STATE_LABEL[r.papi.thrWhites].split(" ")[0]}</td><td>THR上でEyeから見た表示</td></tr>`);
+  const tbl = `<table class="vpTbl"><tr><th></th><th>THR上</th><th></th></tr>${rows.join("")}</table>`;
+
+  let papiHtml = "";
+  if(r.papi){
+    const p = r.papi;
+    // build249: 区間の一覧はやめ、「3R1W(1W3R)になる高度」だけを出す(3.25° PAPIは「4Rになる高度」も)。
+    // Eyeの線に沿って遠方(5NM)からTHRへ進み、白の数がk以下になる最初の地点を探す(segsを利用)。
+    const elevFt = info.refElevFt||0;
+    const nearTxt = (rg, bLabel)=>{
+      if(!rg) return "";
+      const alt = (x)=> Math.round(r.gearAt(x)+elevFt).toLocaleString();
+      const toTxt = rg.to < 50 ? "THR" : "THR手前 "+vpFmtNM(rg.to);
+      const fromTxt = rg.from >= 5*FT_PER_NM-1 ? "5NM以遠" : "THR手前 "+vpFmtNM(rg.from);
+      return `<br><span style="color:var(--amber);font-weight:600">${bLabel}の境界線上を飛行</span> <span style="color:var(--textdim);font-weight:400">（差3′以内：${fromTxt}〜${toTxt}／${alt(rg.from)}〜${alt(rg.to)}ft MSL）</span>`;
+    };
+    const crossRow = (label, k)=>{
+      const i = p.segs.findIndex(sg=>sg.whites<=k);
+      let v;
+      if(i<0) v = `THRまでならない <span style="color:var(--textdim);font-weight:400">（THR上 ${PAPI_STATE_LABEL[p.thrWhites].split(" ")[0]}）</span>`;
+      else if(i===0) v = `5NM以遠からすでに${label}以下`;
+      else {
+        const x = p.segs[i].fromX, gH = r.gearAt(x);
+        v = `${Math.round(gH+elevFt).toLocaleString()}ft MSL <span style="color:var(--textdim);font-weight:400">（THR上 ${Math.round(gH)}ft ／ THR手前 ${vpFmtNM(x)}）</span>`;
+      }
+      // 境界を横切るだけ(近くを短く通過)なら出さない。切り替わりが無い/5NM以遠から、または3′以内が1NM以上続くときだけ
+      const rg = k===1 ? p.near.onslopeLow : p.near.lowest;
+      if(rg && (i<=0 || rg.from-rg.to >= FT_PER_NM)) v += nearTxt(rg, k===1 ? "2W2R／3R1W" : "3R1W／4R");
+      return `<tr><td style="white-space:nowrap">${label} になる高度</td><td style="white-space:normal">${v}</td></tr>`;
+    };
+    const rowsP = [crossRow("3R1W", 1)];
+    if(Math.abs(p.angle-3.25)<1e-9) rowsP.push(crossRow("4R", 0));
+    papiHtml = `<div class="vpSub">PAPI（Eye、${r.ilsOnPath ? "On Glideslopeで" : "このAiming Point・降下角で"}飛んだとき。高度は高度計の値＝Gear基準）</div>
+      <table class="vpTbl">${rowsP.join("")}</table>
+      <div class="hint">PAPI: THRから${p.distM}m(${p.side==="R"?"右":"左"})・MEHT ${p.mehtFt}ft ／ ${Math.abs(p.angle-3)>1e-9 ? p.angle+"° PAPI" : (p.ilsType?"ILSあり":"ILSなし")}の設定角 ${p.units.map(a=>a.toFixed(2)).join("/")}° ／ MEHTから逆算した実効位置 THRから${Math.round(p.effFt).toLocaleString()}ft${p.note?` ／ ${p.note}`:""}</div>`;
+  } else {
+    papiHtml = `<div class="hint">この滑走路のPAPIデータなし</div>`;
+  }
+  const notes = [];
+  notes.push(`姿勢 ${r.geom.att.toFixed(1)}° ／ Eye−Gear ${r.geom.eyeGear.toFixed(1)}ft ／ GSアンテナ−Gear ${r.geom.antGear.toFixed(1)}ft（Flaps 30の表から${r.geom.extrapolated?"<span style=\"color:var(--amber)\">直線外挿(表は2.5°/3.0°のみ)</span>":"補間"}）`);
+  if(r.geom.flapPitchDeg){ const dE = r.geom.eyePerDeg*r.geom.flapPitchDeg;
+    notes.push(`Flaps 25：表(Flaps 30)より姿勢 ${r.geom.flapPitchDeg>0?"+":"−"}${Math.abs(r.geom.flapPitchDeg).toFixed(1)}° として計算（Eye−Gear ${dE>=0?"+":"−"}${Math.abs(dE).toFixed(1)}ft）`); }
+  notes.push("Eye height・GSアンテナ・主脚の高さ・姿勢は、B787 TRAINING MANUAL 8-1-5「ILS Approach - Landing Geometry」内の表から計算");
+  if(r.ils) notes.push(`ILS: GP角 ${r.ils.angle.toFixed(1)}° ／ GPアンテナ THRから${r.ils.distM}m ／ RDH ${r.ils.rdhFt}ft`);
+  notes.push("滑走路・進入側の勾配は無視(THR標高の水平面で計算)。TOD/高度の計算はAiming Point(Eye)から求めたGear(高度計)基準のTHR通過高度を使用。");
+
+  // build245: 断面図の基準の切り替え(ILSオンパスはGPのある滑走路だけ)
+  const segHtml = `<div class="seg vpSeg" role="group" aria-label="断面図の基準">`
+    + `<button type="button" data-vp="aim" class="${r.ilsOnPath?"":"active"}">Aiming Point</button>`
+    + `<button type="button" data-vp="ils" class="${r.ilsOnPath?"active":""}" ${info.hasGp?"":"disabled"}>On Glideslope${info.hasGp?"":"（GPなし）"}</button></div>`
+    + (info.hasPapiAlt ? `<div class="seg vpSeg" role="group" aria-label="PAPIの角度">`
+        + `<button type="button" data-papi="3.0" class="${info.papiAltOn?"":"active"}">PAPI 3.0°</button>`
+        + `<button type="button" data-papi="3.25" class="${info.papiAltOn?"active":""}">PAPI 3.25°（RNP時）</button></div>` : "")
+    + (r.ilsOnPath ? `<div class="hint">断面図だけの表示です。経路・TODの計算はAiming Point ${Math.round(r.aimEyeFtInput).toLocaleString()}ft のままです。</div>` : "");
+  vp.innerHTML = `<div class="vpTitle">Final断面 <span>${info.model} ／ ${r.glideDeg.toFixed(1)}° ／ ${r.ilsOnPath ? "On Glideslope" : "Aiming Point(Eye) "+Math.round(r.aimEyeFt).toLocaleString()+"ft"} ／ RWY${info.rwyLabel}</span></div>
+    ${segHtml}${svg}${legend}${tbl}${papiHtml}<div class="hint">${notes.join("<br>")}</div>`;
+  vp.style.display = "";
+  vpShownThisRender = true;
+}
+
 let wasVisualContinuous = false;
 function resetContTurnNotice(){
   wasVisualContinuous = false;
@@ -5033,6 +5384,7 @@ function render(){
   npSummaryText = "";
   try{ renderMain(); try{ applyGroundClip3D(); }catch(e){ console.error(e); } try{ placeMapLabels(); }catch(e){ console.error(e); } }
   finally{
+    try{ finishVProfile(); }catch(e){}   // build247
     scheduleSaveState();
     const nps = document.getElementById("npSummary");
     if(nps) nps.textContent = inputCheck.errors.length ? "⚠ 入力値が範囲外" : npSummaryText;
@@ -5049,6 +5401,7 @@ function render(){
 }
 function renderMain(){
   _labelFSCache = null; // build205
+  hideVProfile(); // build243: 通常の進入の計算結果を出せたときだけ最後に表示する
   showTerrLegend(false); // build201: 地形を描いたときだけ再表示
   // 3D表示中はCanvasで再現できない(rotateXの3D変換)ため、保存ボタンごと隠す
   { const b=document.getElementById("dlBtn"); if(b) b.style.display = state.show3D ? "none" : ""; }
@@ -5233,10 +5586,21 @@ function renderMain(){
   // 検証していたため、見えない欄の値で計算が止まったり注意が出続けたりしていた。
   const baseDistNM_input = (!isVorProcedure && state.approach!=="circling" && state.baseMode!=="time")
     ? readNum("baseDist", 2.5, 0.5, 8, "Base Leg Distance", "NM") : 2.5;
+  // build243: Aiming PointはEye(パイロットの目)の狙い点として扱う。高度計(＝パターン高度・TOD計算)は
+  // Gear基準なので、THR通過高度はEyeの高さから機体の「Eye−Gear」の差を引いたGearの高さを使う。
+  // build246: 羽田16L/16Rは3.0° PAPIと3.25° PAPI(RNP運用時)を断面図で選べる。3.25°は4灯とも+0.25°(AIP RJTT AD2.20 1.9)。
+  const vpAidsRaw = (RWY_VISUAL_AIDS[airport.key]||{})[rwyLabel] || null;
+  const vpPapiAltOn = !!(vpAidsRaw && vpAidsRaw.papiAlt && state.papi16==="3.25");
+  const vpAids = vpPapiAltOn ? Object.assign({}, vpAidsRaw, { papi: vpAidsRaw.papiAlt }) : vpAidsRaw;
   const glideAngleDeg = readNum("glideAngle", 3.0, 2.0, 4.5, "Descent Angle", "°");
   const AIMING_POINT_FT = readNum("aimingPoint", 1312, 0, 3000, "Aiming Point", "ft");
-  const thrCrossAFE = AIMING_POINT_FT*Math.tan(glideAngleDeg*D2R); // Aiming Pointからの逆算(TCH)
+  const vpRes = computeVProfile({ model:state.acModel, glideDeg:glideAngleDeg, aimEyeFt:AIMING_POINT_FT, aids:vpAids });
+  // build245: 「ILSオンパス」はFinal断面の表示だけの切り替え(ユーザー要望)。Visual等の経路・TOD計算は常にAiming Point。
+  const vpShowIls = state.pathRef==="ils" && !!(vpAids && vpAids.gp);
+  const vpDisp = vpShowIls ? computeVProfile({ model:state.acModel, glideDeg:vpAids.gp.angle, aimEyeFt:AIMING_POINT_FT, aids:vpAids, ilsOnPath:true }) : vpRes;
+  const thrCrossAFE = Math.max(0, vpRes.gearThr); // Aiming Point(Eye)からの逆算(GearのTCH)
   document.getElementById("thrCross").value = Math.round(thrCrossAFE);
+  document.getElementById("thrCrossHint").textContent = "Eye " + vpRes.eyeThr.toFixed(0) + "ft − (Eye−Gear " + vpRes.geom.eyeGear.toFixed(1) + "ft, " + state.acModel + ") ＝ Gear " + vpRes.gearThr.toFixed(0) + "ft";
   const downwindIAS = parseFloat(document.getElementById("downwindSpd").value)||145;
   const targetAppSpdKt = parseFloat(document.getElementById("targetAppSpd").value)||147;
   const oatC = readOat(refElevFt + downwindAltAFE, "パターン高度"); // build198: 空欄はISA
@@ -6163,6 +6527,8 @@ function renderMain(){
     <div class="item${Math.abs(trueAltCorrFt)>=100?" warn":""}"><div class="k">真高度補正の目安</div><div class="v">${trueAltCorrFt>=0?"+":""}${trueAltCorrFt.toFixed(0)} ft</div></div>
     ${entryLegBCSec!==null && !isVorA16L ? `<div class="item"><div class="k">B→C 秒数</div><div class="v">${entryLegBCSec.toFixed(0)} sec</div></div>` : ""}
   `;
+  renderVProfile(vpDisp, { model:state.acModel, rwyLabel, appFlap:state.appFlap, hasGp: !!(vpAids && vpAids.gp), refElevFt,
+    hasPapiAlt: !!(vpAidsRaw && vpAidsRaw.papiAlt), papiAltOn: vpPapiAltOn });
 
   // 入力状態の永続化(build 154)。render()はほぼ全ての操作の最後に呼ばれるため、
   // ここに1箇所フックしておけば個別のイベントハンドラごとに保存呼び出しを
@@ -6185,7 +6551,7 @@ const PERSIST_KEY = "approachPlannerState_v1";
 const PERSIST_STATE_KEYS = [
   "acModel","appFlap","circDwFlap","approach","side","airportKey","cutAngle",
   "baseMode","vorAltMSL","showImage","show3D","showTerrain",
-  "tiltDeg","headingOffsetDeg","showAltLabels","mode","depBank","nightMode"
+  "tiltDeg","headingOffsetDeg","showAltLabels","mode","depBank","nightMode","pathRef","papi16"
 ];
 
 // DOM入力欄のうち保存するもの。downwindSpd/targetAppSpd/thrCrossなどの
@@ -6291,7 +6657,7 @@ function applySavedStateOverride(saved){
     cutAngle: oneOf([0,45,60]), baseMode: oneOf(["dist","time"]), vorAltMSL: oneOf([1500,1800]),
     showImage: isBool, show3D: isBool, showTerrain: isBool, showAltLabels: isBool, nightMode: isBool,
     tiltDeg: numIn(0, 89), headingOffsetDeg: numIn(-3600, 3600), mode: oneOf(["approach","pattern","departure","lda"]),
-    depBank: oneOf([25,30])
+    depBank: oneOf([25,30]), pathRef: oneOf(["aim","ils"]), papi16: oneOf(["3.0","3.25"])
   };
   Object.keys(saved.state).forEach(k=>{
     if(!PERSIST_STATE_KEYS.includes(k)) return;
@@ -6500,7 +6866,7 @@ window.addEventListener("pagehide", flushSaveState);
 
 // build187: 「入力値を既定値に戻す」ボタン。起動直後(保存状態の復元前)のstateを既定値として控えておく。
 const DEFAULT_STATE = JSON.parse(JSON.stringify(state));
-const RESET_STATE_KEYS = ["acModel","appFlap","circDwFlap","approach","side","cutAngle","baseMode","vorAltMSL","depBank"];
+const RESET_STATE_KEYS = ["acModel","appFlap","circDwFlap","approach","side","cutAngle","baseMode","vorAltMSL","depBank","pathRef","papi16"];
 (function(){
   const btn = document.getElementById("resetBtn");
   if(!btn) return;
