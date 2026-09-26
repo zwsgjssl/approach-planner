@@ -298,7 +298,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 266</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 268</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -477,6 +477,7 @@
     <div class="field">
       <label>Bank Angle</label>
       <div class="seg" id="depBank">
+        <button data-v="20">20°</button>
         <button data-v="25" class="active">25°</button>
         <button data-v="30">30°</button>
       </div>
@@ -1532,7 +1533,7 @@ function computeDepartureToDownwind(pat, turnSign, downwindTAS, downwindOffsetNM
      ・32Lから離陸。滑走路終端(反対側=14R)の2000ft手前から離陸開始。
      ・速度は既定170kt(IAS)固定 → Acceleration Height(既定3000ft AFE)から1.5kt/secで加速。
      ・ISK(ILS-DME RWY32L)から1.8NMと交差する点で左旋回を開始。
-     ・Bank角は25°/30°を選択。
+     ・Bank角は20°/25°/30°を選択(既定25°、build267で20°を追加)。
      ・上昇率: Acceleration Heightまでは2000fpm、それ以降は1000fpm固定(ユーザー指定)。
      ・旋回終了TRK: 既定180°、選択式(build169、ユーザー指定)。
    経路は3段階のフェーズで構成する(build169で確定した構造):
@@ -1554,7 +1555,7 @@ function computeDepartureToDownwind(pat, turnSign, downwindTAS, downwindOffsetNM
    「一旦2.8から3.6の間に入った後で、その範囲外に出たら経路を赤くする」)。範囲に
    入る前や、範囲内にいる間は通常の色(直進=緑、旋回・旋回後直進=アンバー)のまま。
    ============================================================ */
-const ITAMI_DEP_CLIMB_LOW_FPM = 2000;  // build207: Accel Heightまでの上昇率(固定)
+const ITAMI_DEP_CLIMB_LOW_FPM = 2500;  // build207: Accel Heightまでの上昇率(固定)。build268: 2000→2500fpm(ユーザー指定)
 const ITAMI_DEP_CLIMB_HIGH_FPM = 1000; // build207: Accel Height以降の上昇率(固定)
 const ITAMI_DEP_ACCEL_KT_SEC = 1.5;    // build207: Accel Height以降の加速率(固定)
 const ITAMI_DEP_IAS_LIMIT_KT = 250; // build199: 加速の上限(10,000ft以下のIAS制限)
@@ -1649,7 +1650,7 @@ function simulateItamiDeparture(opts){
   let turnStartTime = 0;
   let prevDistToITE = null;
   let hasEnteredIskBand = false;
-  let turnStartInfo = null, trkStopInfo = null, iteCrossInfo = null;
+  let turnStartInfo = null, trkStopInfo = null, iteCrossInfo = null, accelInfo = null, iteBeyondInfo = null;   // build268: accelInfo=Acceleration Heightに達した点
   const path = [];
   const snap = (t)=>{
     const pressureAltFt = elevationFt+altFt;
@@ -1701,7 +1702,14 @@ function simulateItamiDeparture(opts){
     pos = { x: pos.x+(tasMs*Math.sin(headingDeg*D2R)+windVx)*dt, y: pos.y+(tasMs*Math.cos(headingDeg*D2R)+windVy)*dt };
 
     const climbFpm = altFt<accelHeightFt ? climbLowFpm : climbHighFpm;
+    const altPrev = altFt;
     altFt += climbFpm/60*dt;
+    if(!accelInfo && altPrev<accelHeightFt && altFt>=accelHeightFt){
+      // build268: Acceleration Heightに達した点(ステップ内で高度が線形なので、位置も比例配分で求める)
+      const f = (accelHeightFt-altPrev)/(altFt-altPrev);
+      const prevP = path[path.length-1];
+      accelInfo = Object.assign(snap(t), { x: prevP.x+(pos.x-prevP.x)*f, y: prevP.y+(pos.y-prevP.y)*f, altFt: accelHeightFt, t: t-dt+dt*f });
+    }
     // build199: 10,000ft以下のIAS制限(250kt)で頭打ち(旧版は上限なしで加速し続けていた)
     if(altFt>=accelHeightFt) iasNow = Math.min(iasNow + accelRateKtSec*dt, Math.max(ITAMI_DEP_IAS_LIMIT_KT, iasKt));
 
@@ -1717,11 +1725,18 @@ function simulateItamiDeparture(opts){
         prevDistToITE = distToITE;
         break;
       }
+      // build268: 旋回終了の時点ですでにITE 2.2NMの外にいて、さらに遠ざかっているときは円と交わらないので、
+      // そこで打ち切る(以前は10分まで回り続けて「収束しませんでした」になっていた。上昇率2500fpm・
+      // 低いAcceleration Heightで早く加速して旋回が大きくなると起きる)
+      if(prevDistToITE!=null && distToITE>iteTargetM && distToITE>prevDistToITE){
+        iteBeyondInfo = snap(t);
+        break;
+      }
       prevDistToITE = distToITE;
     }
   }
 
-  return { path, turnStartInfo, trkStopInfo, iteCrossInfo, ok: !!(turnStartInfo && trkStopInfo && iteCrossInfo) };
+  return { path, turnStartInfo, trkStopInfo, iteCrossInfo, iteBeyondInfo, accelInfo, ok: !!(turnStartInfo && trkStopInfo && (iteCrossInfo || iteBeyondInfo)) };
 }
 
 // 中心(centerXY)からradiusM離れた点の集合(n角形近似)をXY座標で返す。
@@ -4765,6 +4780,11 @@ function renderDeparture(airport, rwyLabel){
     svg.appendChild(markerXY(sim.iteCrossInfo, refLat, refLon, {fill:"var(--cyan)", stroke:"var(--cyan)"},   // build234: 他の点と同じ水色に
       "ITE "+ITAMI_DEP_ITE_TARGET_NM+"NM", counterRot));
   }
+  // build268: Acceleration Height(既定3000ft AFE)に達した点。経路の途中で達したときだけ表示する
+  if(sim.accelInfo){
+    svg.appendChild(markerXY(sim.accelInfo, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"},
+      "Accel "+Math.round(accelHeightFt)+"ft AFE", counterRot));
+  }
 
   // --- build196: 「E2A 中国道」ラベル(build180で非表示にしていたものをユーザー要望で復活) ---
   // 補助線(ISK/ITEの円・Turn Start円)、経路、滑走路、各マーカーとその文字に重ならない位置を
@@ -4784,7 +4804,8 @@ function renderDeparture(airport, rwyLabel){
         {xy:iskXY, text:"ISK"}, {xy:iteXY, text:"ITE"}, {xy:startXY, text:"TKOF"},
         ...(sim.turnStartInfo?[{xy:sim.turnStartInfo, text:"Turn Start"}]:[]),
         ...(sim.trkStopInfo?[{xy:sim.trkStopInfo, text:"TRK"+trkStopDeg+"°M"}]:[]),
-        ...(sim.iteCrossInfo?[{xy:sim.iteCrossInfo, text:"ITE "+ITAMI_DEP_ITE_TARGET_NM+"NM"}]:[])
+        ...(sim.iteCrossInfo?[{xy:sim.iteCrossInfo, text:"ITE "+ITAMI_DEP_ITE_TARGET_NM+"NM"}]:[]),
+        ...(sim.accelInfo?[{xy:sim.accelInfo, text:"Accel "+Math.round(accelHeightFt)+"ft AFE"}]:[])   // build268
       ],
       refLat, refLon, counterRot, text:"E2A 中国道"
     });
@@ -6809,7 +6830,7 @@ function applySavedStateOverride(saved){
     cutAngle: oneOf([0,45,60]), baseMode: oneOf(["dist","time"]), vorAltMSL: oneOf([1500,1800]),
     showImage: isBool, show3D: isBool, showTerrain: isBool, showAltLabels: isBool, nightMode: isBool,
     tiltDeg: numIn(0, 89), headingOffsetDeg: numIn(-3600, 3600), mode: oneOf(["approach","pattern","departure","lda"]),
-    depBank: oneOf([25,30]), pathRef: oneOf(["aim","ils"]), papi16: oneOf(["3.0","3.25"]),
+    depBank: oneOf([20,25,30]),   // build267: 20°を追加 pathRef: oneOf(["aim","ils"]), papi16: oneOf(["3.0","3.25"]),
     northUp: isBool, ldaNorthUp: isBool
   };
   Object.keys(saved.state).forEach(k=>{
