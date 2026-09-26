@@ -180,6 +180,9 @@
   .dlBtn:disabled{ opacity:.45; }
   /* build198: 表示リセット(⟲)ボタンと、3D初回の操作ヒント */
   .viewResetBtn{ top:60px; font-size:20px; padding:0; width:44px; }
+  /* build262: 地図の向き(North↑／RWY↑)の切替。North↑のときは枠と文字をアンバーにする */
+  .northBtn{ top:112px; padding:0; width:44px; font-size:13px; font-weight:600; }
+  .northBtn.on{ border-color:var(--amber); color:var(--amber); }
   /* build201: 地形の色の凡例(3D+地形表示中のみ) */
   .terrLegend{ position:absolute; right:6px; bottom:26px; z-index:3; display:none; background:rgba(0,0,0,.55);
     border-radius:6px; padding:4px 6px 3px; font-family:monospace; font-size:10px; color:var(--text); pointer-events:none; }
@@ -291,7 +294,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 261</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 263</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -513,6 +516,14 @@
     </div>
 
     <div class="field">
+      <label>地図の向き</label>
+      <div class="seg" id="mapOrientToggle">
+        <button data-v="rwy" class="active">RWY↑</button>
+        <button data-v="north">North↑</button>
+      </div>
+    </div>
+
+    <div class="field">
       <label>3D表示</label>
       <div class="seg" id="show3DToggle">
         <button data-v="off" class="active">OFF</button>
@@ -586,6 +597,7 @@
   <div class="mapwrap" id="mapwrap">
     <button class="dlBtn" id="dlBtn" title="表示中の地図をPNGで保存">⤓ PNG</button>
     <button class="dlBtn viewResetBtn" id="viewResetBtn" title="表示を元に戻す(拡大・移動・3Dの向きと傾き)" aria-label="表示を元に戻す">⟲</button>
+    <button class="dlBtn northBtn" id="northBtn" title="地図の向きを切り替え(North↑／RWY↑)" aria-label="地図の向きを切り替え">N↑</button>
     <div class="terrLegend" id="terrLegend"></div>
     <div class="gestureHint" id="gestureHint">1本指：回転・傾き ／ 2本指：拡大・移動 ／ ⟲：元に戻す</div>
     <div class="compass" id="compassLabel">DW ↑ ---°</div>
@@ -1581,6 +1593,11 @@ function screenUpMagText(rwyMagHdg){
   const up = Math.round((((rwyMagHdg - off)%360)+360)%360);
   return String(up===0?360:up).padStart(3,"0")+"°M"+(Math.abs(off)>0.5 ? "(回転中)" : "");
 }
+// build262: North↑表示のときのコンパス表記。「N ↑ ／ RWY 34R 337°M」(3Dでドラッグ回転中はその旨を付ける)
+function northUpCompassText(rwyText, rwyMagHdg){
+  const off = state.headingOffsetDeg || 0;
+  return "N ↑"+(Math.abs(off)>0.5 ? "(回転中)" : "")+" ／ RWY "+rwyText+" "+String(rwyMagHdg).padStart(3,"0")+"°M";
+}
 function updateWindIndicator(windSpeedKt, windFromTrueDeg, rotationDeg, magVarDeg){
   const windIndicatorEl = document.getElementById("windIndicator");
   if(windSpeedKt>0){
@@ -2076,7 +2093,7 @@ function unionStadiumOutline(runwayPairs, R, centerXY, angleStepDeg=3){
 /* ============================================================
    5. UI state / setup
    ============================================================ */
-const state = { acModel:"787-9", appFlap:25, circDwFlap:30, approach:"visual", side:"right", airportKey:"haneda", cutAngle:0, baseMode:"time", vorAltMSL:1800, showImage:true, show3D:false, showTerrain:true, tiltDeg:0, headingOffsetDeg:0, showAltLabels:false, mode:"approach", depBank:25, nightMode:false, pathRef:"aim", papi16:"3.0" };
+const state = { acModel:"787-9", appFlap:25, circDwFlap:30, approach:"visual", side:"right", airportKey:"haneda", cutAngle:0, baseMode:"time", vorAltMSL:1800, showImage:true, show3D:false, showTerrain:true, tiltDeg:0, headingOffsetDeg:0, showAltLabels:false, mode:"approach", depBank:25, nightMode:false, pathRef:"aim", papi16:"3.0", northUp:false, ldaNorthUp:true };
 
 // VOR方式(VOR 34L→16R / VOR A→16L)はApproach TypeとDownwind側をCircling/Leftに強制し、
 // Downwind Altitude等の入力欄もその方式の値で上書きする。
@@ -2843,7 +2860,8 @@ function dlFileName(){
   const rwy = (document.getElementById("rwyEnd").value || "").replace(/[^A-Za-z0-9]/g, "");
   const d = new Date(), z = n=>String(n).padStart(2,"0");
   const stamp = d.getFullYear()+z(d.getMonth()+1)+z(d.getDate())+"_"+z(d.getHours())+z(d.getMinutes());
-  return [ap, rwy, state.approach, stamp].filter(Boolean).join("_") + ".png";
+  const kind = /^LDA/.test(rwy) ? "" : (state.mode==="departure" ? "departure" : (state.mode==="pattern" ? "pattern_"+state.approach : state.approach));   // build262
+  return [ap, rwy, kind, stamp].filter(Boolean).join("_") + ".png";
 }
 
 async function dlExportPng(){
@@ -3131,6 +3149,26 @@ document.getElementById("viewResetBtn").addEventListener("click", (e)=>{
   render();
 });
 document.getElementById("viewResetBtn").addEventListener("pointerdown", (e)=>e.stopPropagation());
+// build262: 地図の向き(North↑／RWY↑)。全モード共通の切替だが、既定が違うので値はLDAとそれ以外で別に持つ
+// (Approach/Traffic Pattern/Departure＝RWY↑が既定[state.northUp]、LDA＝North↑が既定[state.ldaNorthUp]、build176の仕様)。
+function isLdaSelected(){ const v = (document.getElementById("rwyEnd")||{}).value||""; return v==="LDA22" || v==="LDA23"; }
+function northUpNow(){ return isLdaSelected() ? !!state.ldaNorthUp : !!state.northUp; }
+function syncMapOrientUI(){
+  const nu = northUpNow();
+  document.querySelectorAll("#mapOrientToggle button").forEach(b=>b.classList.toggle("active", (b.dataset.v==="north")===nu));
+  const nb = document.getElementById("northBtn");
+  if(nb){ nb.classList.toggle("on", nu); nb.setAttribute("aria-pressed", nu ? "true" : "false"); }
+}
+function setNorthUp(nu){
+  if(isLdaSelected()) state.ldaNorthUp = nu; else state.northUp = nu;
+  state.headingOffsetDeg = 0;   // 3Dでドラッグ回転していた分は、向きを切り替えたら戻す
+  render();
+}
+document.querySelectorAll("#mapOrientToggle button").forEach(btn=>{
+  btn.addEventListener("click", ()=>setNorthUp(btn.dataset.v==="north"));
+});
+document.getElementById("northBtn").addEventListener("click", (e)=>{ e.stopPropagation(); setNorthUp(!northUpNow()); });
+document.getElementById("northBtn").addEventListener("pointerdown", (e)=>e.stopPropagation());
 // build198: 3Dを初めてONにしたとき(このセッションで最初の2回)だけ、操作方法を数秒表示する
 let _gestureHintCount = 0, _gestureHintTimer = null;
 function showGestureHint(){
@@ -4487,7 +4525,7 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
 // render()冒頭で早期returnして分岐する(既存コードへの影響を避けるため)。
 // ============================================================
 function renderDeparture(airport, rwyLabel){
-  document.getElementById("dlBtn").style.display = "none"; // PNG保存は当面対応しない
+  document.getElementById("dlBtn").style.display = ""; // build262: LDA/DepartureもPNG保存に対応(3D非対応なので常に出す)
   document.getElementById("windIndicator").classList.remove("show"); // build196: 風ありなら後段(地図回転決定後)で表示
 
   const geErr = document.getElementById("geomError");
@@ -4592,7 +4630,7 @@ function renderDeparture(airport, rwyLabel){
   }
 
   // --- 画面のパン/回転設定。既存モードと同じ仕組み(rotwrap)をそのまま流用する ---
-  const rotationDeg = -headingTrueDeg; // 離陸滑走方向を画面上向きにする
+  const rotationDeg = state.northUp ? 0 : -headingTrueDeg; // 離陸滑走方向を画面上向きにする(build262: North↑なら回さない)
   // 経路全体(直進+旋回)の外形の中心を画面中心に合わせる
   const allPts = sim.path.map(p=>({x:p.x,y:p.y})).concat([startXY, thrXY]);
   const minX = Math.min(...allPts.map(p=>p.x)), maxX = Math.max(...allPts.map(p=>p.x));
@@ -4605,10 +4643,11 @@ function renderDeparture(airport, rwyLabel){
   rotwrap.style.transformOrigin = (centerF.fx*100) + "% " + (centerF.fy*100) + "%";
   currentRotationDeg = rotationDeg;
   rotwrap.style.transform = "rotate("+(rotationDeg+state.headingOffsetDeg)+"deg)"; // Departureは3D非対応(tiltは常に0)
-  const counterRot = headingTrueDeg - state.headingOffsetDeg;   // build236
+  const counterRot = -rotationDeg - state.headingOffsetDeg;   // build236
   updateWindIndicator(windSpeedKt, windFromTrueDeg, rotationDeg+state.headingOffsetDeg, depMagVar); // build198: ドラッグ回転分も反映
-  document.getElementById("compassLabel").textContent =
-    "RWY "+rwyLabel+" (Departure) ↑ "+screenUpMagText(getRunwayMagHeading(airport,rwyLabel));
+  document.getElementById("compassLabel").textContent = state.northUp
+    ? northUpCompassText(rwyLabel+" (Departure)", getRunwayMagHeading(airport,rwyLabel))
+    : "RWY "+rwyLabel+" (Departure) ↑ "+screenUpMagText(getRunwayMagHeading(airport,rwyLabel));
 
   // --- 補助線: ISKから2.8NM/3.6NM、ITEから2.2NMの円(AIP掲載の目安距離) ---
   // (build166で一旦ISKの2円を廃止したが、ユーザーから「2.8と3.6は残していい」との
@@ -4812,7 +4851,7 @@ function drawE2ALabelAt(c, counterRot, text, FS){
 //    OATがあればMAP付近の代表気圧高度(elevationFt+1200ft AFE相当)で一度だけ行う
 //    (旋回中の減速等は考慮しない簡略モデル)。風は考慮しない(build196以降、Departureモードは風を考慮する)。
 function renderLda(airport, rwyLabel){
-  document.getElementById("dlBtn").style.display = "none"; // PNG保存は当面対応しない
+  document.getElementById("dlBtn").style.display = ""; // build262: LDA/DepartureもPNG保存に対応(3D非対応なので常に出す)
   document.getElementById("windIndicator").classList.remove("show"); // 風は考慮しないため常に非表示
 
   const geErr = document.getElementById("geomError");
@@ -5005,7 +5044,8 @@ function renderLda(airport, rwyLabel){
   // build176: ユーザー指定によりLDAモードは常にNorth up固定(着陸滑走方向を上にする回転はしない)。
   // 中心も経路全体を囲むバウンディングボックスではなく、MAP(Missed Approach Point)と
   // 着陸滑走路(RWY、thrXY)の中間点に固定する。
-  const rotationDeg = 0;
+  // build262: North↑(既定)とRWY↑(着陸方向を上)を切り替えられるようにした
+  const rotationDeg = state.ldaNorthUp ? 0 : -finalCourseTrueDeg;
   const centerXYpan = { x:(mapXY.x+thrXY.x)/2, y:(mapXY.y+thrXY.y)/2 };
   const rwyMidLatLon = toLatLon(centerXYpan.x, centerXYpan.y, refLat, refLon);
   const centerF = latLonToFraction(rwyMidLatLon.lat, rwyMidLatLon.lon);
@@ -5013,17 +5053,19 @@ function renderLda(airport, rwyLabel){
   rotwrap.style.top = (50 - centerF.fy*142) + "%";
   rotwrap.style.transformOrigin = (centerF.fx*100) + "% " + (centerF.fy*100) + "%";
   currentRotationDeg = rotationDeg;
-  // LDAは3D非対応・常にNorth up固定のため、他モードの3Dチルトドラッグで残った
+  // build262: North↑/RWY↑を選べるようになったが、ドラッグ回転(headingOffsetDeg)は引き続き反映しない。
+  // LDAは3D非対応のため、他モードの3Dチルトドラッグで残った
   // state.headingOffsetDeg(3D視点回転用のドラッグオフセット)を一切反映しない。
   // これを反映してしまうと、直前に他モードで3D画面をドラッグ操作した場合に
   // その残留角度がそのままLDAのNorth up表示に混入し、コンパス上「North up」の
   // はずが実際には別の向き(ユーザー報告：South up)になって見えてしまう不具合があった。
-  rotwrap.style.transform = "rotate(0deg)";
-  const counterRot = 0; // North up固定のため、ラベルの向きを打ち消す回転も不要
+  rotwrap.style.transform = "rotate("+rotationDeg+"deg)";
+  const counterRot = -rotationDeg; // ラベルの向きを打ち消す(North↑なら0)
   // build176: North up固定になったため、他モードのような「滑走路方位↑」ではなく
   // 「N(北)↑」＋滑走路の磁方位を参考値として併記する表記に変更する。
-  document.getElementById("compassLabel").textContent =
-    "N ↑ ／ RWY "+rwyLabel+" (LDA W) "+String(getRunwayMagHeading(airport,rwyLabel)).padStart(3,"0")+"°M";
+  document.getElementById("compassLabel").textContent = state.ldaNorthUp
+    ? "N ↑ ／ RWY "+rwyLabel+" (LDA W) "+String(getRunwayMagHeading(airport,rwyLabel)).padStart(3,"0")+"°M"
+    : "RWY "+rwyLabel+" (LDA W) ↑ "+String(getRunwayMagHeading(airport,rwyLabel)).padStart(3,"0")+"°M";
 
   // --- 航法援助施設 ---
   svg.appendChild(markerXY(navXY, refLat, refLon, {fill:"var(--cyan)", stroke:"var(--cyan)"}, proc.navaid, counterRot));
@@ -5443,7 +5485,7 @@ function showContTurnDialog(){
 function render(){
   resetInputCheck();
   npSummaryText = "";
-  try{ renderMain(); try{ applyGroundClip3D(); }catch(e){ console.error(e); } try{ placeMapLabels(); }catch(e){ console.error(e); } }
+  try{ try{ syncMapOrientUI(); }catch(e){} renderMain(); try{ applyGroundClip3D(); }catch(e){ console.error(e); } try{ placeMapLabels(); }catch(e){ console.error(e); } }
   finally{
     try{ finishVProfile(); }catch(e){}   // build247
     try{ finishContTurnNotice(); }catch(e){}   // build257
@@ -5970,7 +6012,7 @@ function renderMain(){
 
   // --- 画面の回転：滑走路の磁方位を「上」にする（座標系は真方位なので回転自体は真方位で行い、表示だけ磁方位に変換） ---
   const rwyMagHeading = getRunwayMagHeading(airport, rwyLabel);
-  const rotationDeg = -pat.finalCourseTrueDeg;
+  const rotationDeg = state.northUp ? 0 : -pat.finalCourseTrueDeg;   // build262: North↑なら回さない
 
   // --- 表示の中心：THR(along=0, cross=0)とAbeam点(along=0, cross=downwindOffset)の中点に自動でパンする。
   // (滑走路そのものを中央にすると、Downwind側に大きく伸びるパターンが画面外に寄ってしまうため)
@@ -5993,11 +6035,11 @@ function renderMain(){
     ? "rotateX("+state.tiltDeg+"deg) rotate("+(rotationDeg+state.headingOffsetDeg)+"deg)"
     : "rotate("+(rotationDeg+state.headingOffsetDeg)+"deg)";
   mapwrap.classList.toggle("is3d", !!state.show3D);
-  const counterRot = pat.finalCourseTrueDeg - state.headingOffsetDeg; // ラベルの向きを打ち消す（回転と同じ基準）。build236: 3Dでドラッグ回転した分も打ち消す(逆さまになっていた)
+  const counterRot = -rotationDeg - state.headingOffsetDeg; // ラベルの向きを打ち消す（回転と同じ基準）。build236: 3Dでドラッグ回転した分も打ち消す(逆さまになっていた)
   // 方位は3桁ゼロ埋め(航空の作法)。滑走路プルダウンの "RWY 01R (003°M)" と表記を揃える。
   // getRunwayMagHeading()は既に整数を返すのでMath.roundは不要。
   document.getElementById("compassLabel").textContent =
-    "RWY "+rwyLabel+" ↑ "+screenUpMagText(rwyMagHeading)
+    (state.northUp ? northUpCompassText(rwyLabel, rwyMagHeading) : "RWY "+rwyLabel+" ↑ "+screenUpMagText(rwyMagHeading))
     + (state.show3D ? "  ／ 傾斜 "+Math.round(state.tiltDeg)+"°" : "");
 
   // --- 風向風速の矢印表示（地図上、画面の向きに追従） ---
@@ -6612,7 +6654,7 @@ const PERSIST_KEY = "approachPlannerState_v1";
 const PERSIST_STATE_KEYS = [
   "acModel","appFlap","circDwFlap","approach","side","airportKey","cutAngle",
   "baseMode","vorAltMSL","showImage","show3D","showTerrain",
-  "tiltDeg","headingOffsetDeg","showAltLabels","mode","depBank","nightMode","pathRef","papi16"
+  "tiltDeg","headingOffsetDeg","showAltLabels","mode","depBank","nightMode","pathRef","papi16","northUp","ldaNorthUp"
 ];
 
 // DOM入力欄のうち保存するもの。downwindSpd/targetAppSpd/thrCrossなどの
@@ -6718,7 +6760,8 @@ function applySavedStateOverride(saved){
     cutAngle: oneOf([0,45,60]), baseMode: oneOf(["dist","time"]), vorAltMSL: oneOf([1500,1800]),
     showImage: isBool, show3D: isBool, showTerrain: isBool, showAltLabels: isBool, nightMode: isBool,
     tiltDeg: numIn(0, 89), headingOffsetDeg: numIn(-3600, 3600), mode: oneOf(["approach","pattern","departure","lda"]),
-    depBank: oneOf([25,30]), pathRef: oneOf(["aim","ils"]), papi16: oneOf(["3.0","3.25"])
+    depBank: oneOf([25,30]), pathRef: oneOf(["aim","ils"]), papi16: oneOf(["3.0","3.25"]),
+    northUp: isBool, ldaNorthUp: isBool
   };
   Object.keys(saved.state).forEach(k=>{
     if(!PERSIST_STATE_KEYS.includes(k)) return;
@@ -6944,7 +6987,7 @@ window.addEventListener("pagehide", flushSaveState);
 
 // build187: 「入力値を既定値に戻す」ボタン。起動直後(保存状態の復元前)のstateを既定値として控えておく。
 const DEFAULT_STATE = JSON.parse(JSON.stringify(state));
-const RESET_STATE_KEYS = ["acModel","appFlap","circDwFlap","approach","side","cutAngle","baseMode","vorAltMSL","depBank","pathRef","papi16"];
+const RESET_STATE_KEYS = ["acModel","appFlap","circDwFlap","approach","side","cutAngle","baseMode","vorAltMSL","depBank","pathRef","papi16","northUp","ldaNorthUp"];
 (function(){
   const btn = document.getElementById("resetBtn");
   if(!btn) return;
