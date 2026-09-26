@@ -291,7 +291,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 259</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 261</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -4640,7 +4640,8 @@ function renderDeparture(airport, rwyLabel){
   // build196: ラベルは他の線を全部描いた後で空いている場所に置く(下の placeE2ALabel)
 
   // --- 滑走路・離陸開始点 ---
-  svg.appendChild(polylineFromXY([thrXY, oppXY], refLat, refLon, {stroke:"#fff", "stroke-width":"4", opacity:"0.85"}));
+  // build261: 通常モードと同じく、使う滑走路は黄色で強調する(以前は白だった)
+  svg.appendChild(polylineFromXY([thrXY, oppXY], refLat, refLon, {stroke:"var(--yellow)", "stroke-width":"6"}));
   svg.appendChild(markerXY(startXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "TKOF", counterRot));
 
   // --- 実際の経路(直進/旋回/旋回後直進の3フェーズ＋ISK2.8-3.6NM帯からの逸脱を赤で色分け) ---
@@ -5030,7 +5031,8 @@ function renderLda(airport, rwyLabel){
     "MAP (D"+mapDmeNm.toFixed(1)+" "+proc.navaid+")", counterRot));
 
   // --- 滑走路 ---
-  svg.appendChild(polylineFromXY([thrXY, oppXY], refLat, refLon, {stroke:"#fff", "stroke-width":"4", opacity:"0.85"}));
+  // build261: 通常モードと同じく、使う滑走路は黄色で強調する(以前は白だった)
+  svg.appendChild(polylineFromXY([thrXY, oppXY], refLat, refLon, {stroke:"var(--yellow)", "stroke-width":"6"}));
   svg.appendChild(markerXY(aimingPointXY, refLat, refLon, {fill:"var(--green)", stroke:"var(--green)", r:"3"},
     "Aiming Pt ("+AIMING_POINT_FT.toFixed(0)+"ft)", counterRot));
 
@@ -5361,7 +5363,9 @@ function renderVProfile(r, info){
     const crossRow = (label, k)=>{
       const i = p.segs.findIndex(sg=>sg.whites<=k);
       let v;
-      if(i<0) v = `THRまでならない <span style="color:var(--textdim);font-weight:400">（THR上 ${PAPI_STATE_LABEL[p.thrWhites].split(" ")[0]}）</span>`;
+      // build260: 「THRまでならない」→「なし（THRまで 2W2R のまま）」(ユーザー要望：言い方を変える)
+      if(i<0){ const thrSt = p.thrWhites===1 ? "3R1W" : PAPI_STATE_LABEL[p.thrWhites].split(" ")[0];
+        v = `なし <span style="color:var(--textdim);font-weight:400">（THRまで ${thrSt} のまま）</span>`; }
       else if(i===0) v = `5NM以遠からすでに${label}以下`;
       else {
         const x = p.segs[i].fromX, gH = r.gearAt(x);
@@ -6904,7 +6908,8 @@ window.addEventListener("pagehide", flushSaveState);
     if(!cur) return;
     let v = cur.value;
     if(k==="done"){ close(); return; }
-    if(k==="bs"){ v = fresh ? "" : v.slice(0,-1); }
+    // build261: ⌫は欄をタップした直後でも最後の1文字だけを消す(以前は直後だけ全部消えていた。全部消すのはC)
+    if(k==="bs"){ v = v.slice(0,-1); }
     else if(k==="clr"){ v = ""; }
     else if(k==="neg"){ v = fresh ? "-" : (v.startsWith("-") ? v.slice(1) : "-"+v); }   // タップ直後なら新しい負の数を打ち始める
     else if(k==="."){
@@ -6963,8 +6968,8 @@ function resetInputsToDefaults(){
   const rwySel = document.getElementById("rwyEnd");
   const keepRwy = rwySel ? rwySel.value : null;
   const keepMode = state.mode;
-  // 表示設定(3D)は維持する(滑走路のchange処理はbuild192から3DをOFFにするため、あとで戻す)
-  const keepView = { show3D: state.show3D, tiltDeg: state.tiltDeg, headingOffsetDeg: state.headingOffsetDeg };
+  // build260: リセットでは3D表示も解除して2Dに戻す(ユーザー要望。以前は3Dを維持していた)
+  resetTo2DView();
   RESET_STATE_KEYS.forEach(k=>{ state[k] = DEFAULT_STATE[k]; });
   // 入力欄はHTMLに書かれた初期値(defaultValue)へ。空港ごとに決まる値(Downwind高度・
   // Downwind側など)はこのあとのsetupAirport()が空港の既定値で入れ直す。
@@ -6977,7 +6982,6 @@ function resetInputsToDefaults(){
     // 滑走路ごとの既定(VOR方式の強制値、LDAのTurn Start DME=MAP、Downwind側など)を適用
     rwySel.dispatchEvent(new Event("change"));
   }
-  Object.assign(state, keepView);
   syncButtonsFromState();
   fmsApplySpeeds();
   render();
