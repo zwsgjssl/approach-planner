@@ -263,7 +263,9 @@
   .vprofile .vpTitle span{ color:var(--textdim); text-transform:none; letter-spacing:0; margin-left:4px; }
   .vprofile > svg{ display:block; width:100%; }
   /* build254: 横持ち(幅900px以上)では、断面図を右の狭いカラムではなく地図の下(左カラム)に置いて幅いっぱいに使う */
-  .mapCol > .vprofile{ margin-top:14px; border:1px solid var(--line); border-radius:8px; }
+  .mapCol > .vprofile{ margin-top:14px; border:1px solid var(--line); border-radius:8px; transition:margin-left .22s ease; }
+  /* build257: 設定パネルを開いたとき、地図と同じく断面図も右に寄せる(パネルの下に隠れないように) */
+  body.drawer-open .mapCol > .vprofile{ margin-left:min(88vw,360px); }
   .vprofile .vpLegend{ font-size:10.5px; color:var(--textdim); display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; margin:4px 0 8px; }
   .vprofile .vpBand{ display:inline-block; width:14px; height:8px; background:var(--green); opacity:.35; vertical-align:middle; }
   .vprofile .vpSub{ font-size:10.5px; color:var(--textdim); text-transform:uppercase; letter-spacing:.4px; margin:10px 0 4px; }
@@ -289,7 +291,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 256</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 259</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -2105,14 +2107,14 @@ function clearVorForcing(){
 // その端ごとのDownwind側を自動適用する（build 142・熊本25でRight DWにする要望、
 // build 143・函館30でLeft DWにする要望）。
 const AIRPORT_DEFAULTS = {
-  haneda:    { rwy:"34R", side:"right" },
+  haneda:    { rwy:"34R", side:"right", sideByRwy: { "34R":"right", "34L":"right", "16L":"left", "16R":"left", "04":"right", "22":"left", "23":"left" } },   // build258/259(ユーザー指定)
   hakodate:  { rwy:"12",  side:"right", sideByRwy: { "12":"right", "30":"left" } },
-  chitose:   { rwy:"19L", side:"left" },
-  hiroshima: { rwy:"10",  side:"right" },
-  takamatsu: { rwy:"08",  side:"left" },
-  matsuyama: { rwy:"32",  side:"left" },
-  fukuoka:   { rwy:"34R", side:"left" },
-  itami:     { rwy:"14R", side:"right" },
+  chitose:   { rwy:"19L", side:"left", sideByRwy: { "19L":"left", "19R":"left", "01L":"right", "01R":"right" } },
+  hiroshima: { rwy:"10",  side:"right", sideByRwy: { "10":"right", "28":"left" } },
+  takamatsu: { rwy:"08",  side:"left", sideByRwy: { "08":"left", "26":"right" } },
+  matsuyama: { rwy:"32",  side:"left", sideByRwy: { "32":"left", "14":"right" } },
+  fukuoka:   { rwy:"34R", side:"left", sideByRwy: { "34R":"left", "34L":"left", "16L":"right", "16R":"right" } },
+  itami:     { rwy:"14R", side:"right", sideByRwy: { "14R":"right", "14L":"right", "32L":"left", "32R":"left" } },
   kumamoto:  { rwy:"07",  side:"left", sideByRwy: { "07":"left", "25":"right" } },
 };
 
@@ -2741,9 +2743,9 @@ document.getElementById("rwyEnd").addEventListener("change", ()=>{
     state.approach = "circling";
   } else {
     clearVorForcing();   // VOR方式から通常滑走路に戻したらApproach/Sideも元に戻す
-    // 滑走路端ごとにDownwind側の既定が決まっている空港(熊本25→Right、函館30→Left)は、
-    // 同じ空港内で端を切り替えたときにも反映する(build 142/143)。それ以外の空港は
-    // 従来どおり、滑走路を変えても現在のDownwind側選択を維持する。
+    // 滑走路端ごとにDownwind側の既定(sideByRwy)がある端は、同じ空港内で端を切り替えたときにも
+    // 反映する(build 142/143、build259で全空港の全着陸滑走路に指定＝向かい合う滑走路でも空港の同じ側を回る)。
+    // 指定の無い端(VOR方式など)は、現在のDownwind側選択を維持する。
     applySideDefaultForRwy(state.airportKey, selRwy, { rwyOnly: true });
   }
   updateModeFieldsVisibility();
@@ -5287,7 +5289,9 @@ function renderVProfile(r, info){
     band(u[2],u[3],"var(--amber)",0.10);
     for(const a of u) g.push(`<line x1="${f1(sx(ox))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(hAt(a)))}" stroke="var(--textdim)" stroke-width="0.5" stroke-opacity="0.6"/>`);
     // build251: 目の線が境界の光に沿って飛ぶ(差3′以内)ときは、その境界線を強調して名前を付ける
-    const emph = [[r.papi.near.onslopeLow, u[1], "2W2R／3R1W 境界"], [r.papi.near.lowest, u[0], "3R1W／4R 境界"]];
+    // build257: 3R1W／4R境界は、表に「4Rになる高度」の行を出す3.25° PAPIのときだけ強調する(表と図を揃える)
+    const is325 = Math.abs(r.papi.angle-3.25)<1e-9;
+    const emph = [[r.papi.near.onslopeLow, u[1], "2W2R／3R1W 境界"], [is325 ? r.papi.near.lowest : null, u[0], "3R1W／4R 境界"]];
     for(const [rg, a, name] of emph){
       if(!rg) continue;
       const kk = a===u[1] ? 1 : 0, ci = r.papi.segs.findIndex(sg=>sg.whites<=kk);
@@ -5321,8 +5325,11 @@ function renderVProfile(r, info){
   parts.push(`<g clip-path="url(#vpClip)">${g.join("")}</g>`);
   if(r.ils) parts.push(`<text x="${f1(sx(-r.ils.distM/0.3048))}" y="${f1(sy(0)+FSs+5)}" text-anchor="middle" font-size="${FSs}" fill="var(--amber)">GP</text>`);
   // THR上の高さ
-  parts.push(`<text x="${f1(sx(0)+4)}" y="${f1(sy(r.eyeThr)-4)}" font-size="${FS}" fill="var(--cyan)">${r.eyeThr.toFixed(0)}</text>`);
-  parts.push(`<text x="${f1(sx(0)+4)}" y="${f1(sy(r.gearThr)+FS+2)}" font-size="${FS}" fill="var(--green)">${r.gearThr.toFixed(0)}</text>`);
+  // build257: 値が図の範囲外(Aiming Point 0でGearがTHR標高より下、高いAiming Point+大きい角度など)でも
+  // ラベルが図の外に消えないよう、置く高さだけ図の中に収める(数値は実際の値のまま)
+  const hLbl = h=>Math.max(0, Math.min(yMax-12, h));
+  parts.push(`<text x="${f1(sx(0)+4)}" y="${f1(sy(hLbl(r.eyeThr))-4)}" font-size="${FS}" fill="var(--cyan)">${r.eyeThr.toFixed(0)}</text>`);
+  parts.push(`<text x="${f1(sx(0)+4)}" y="${f1(sy(hLbl(r.gearThr))+FS+2)}" font-size="${FS}" fill="var(--green)">${r.gearThr.toFixed(0)}</text>`);
   const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Final断面図" style="max-width:none">${parts.join("")}</svg>`;
 
   const sw = (color, dash)=> `<svg width="18" height="6" style="vertical-align:middle"><line x1="0" y1="3" x2="18" y2="3" stroke="${color}" stroke-width="2" ${dash?`stroke-dasharray="${dash}"`:""}/></svg>`;
@@ -5396,6 +5403,18 @@ function renderVProfile(r, info){
 }
 
 let wasVisualContinuous = false;
+// build257: そのrender()でContinuous Turnの状態を確認したか(LDA/Departure/入力値エラーなどで途中returnした
+// ときはfalseのまま→render()の最後でダイアログを閉じる)。起動・自動更新直後の復元では出さない(contTurnBoot)。
+let contTurnSeenThisRender = false;
+let contTurnBoot = true;
+function anyFieldEditing(){
+  const a = document.activeElement;
+  return !!document.body.dataset.npEditing || !!(a && a.tagName==="INPUT" && a.type!=="checkbox");
+}
+function finishContTurnNotice(){
+  // 数値の入力途中(1.5→1.6と打つ途中の「1」など)はエラーや別状態を一時的に通るので、状態を消さない
+  if(!contTurnSeenThisRender && !anyFieldEditing()) resetContTurnNotice();
+}
 function resetContTurnNotice(){
   wasVisualContinuous = false;
   const t = document.getElementById("contTurnDialog");
@@ -5423,6 +5442,7 @@ function render(){
   try{ renderMain(); try{ applyGroundClip3D(); }catch(e){ console.error(e); } try{ placeMapLabels(); }catch(e){ console.error(e); } }
   finally{
     try{ finishVProfile(); }catch(e){}   // build247
+    try{ finishContTurnNotice(); }catch(e){}   // build257
     scheduleSaveState();
     const nps = document.getElementById("npSummary");
     if(nps) nps.textContent = inputCheck.errors.length ? "⚠ 入力値が範囲外" : npSummaryText;
@@ -5438,6 +5458,7 @@ function render(){
   }
 }
 function renderMain(){
+  contTurnSeenThisRender = false;   // build257
   _labelFSCache = null; // build205
   hideVProfile(); // build243: 通常の進入の計算結果を出せたときだけ最後に表示する
   showTerrLegend(false); // build201: 地形を描いたときだけ再表示
@@ -6129,7 +6150,7 @@ function renderMain(){
     document.getElementById("geomErrorDetail").textContent = geo.geomError.detail;
     document.getElementById("geomErrorFix").textContent = geo.geomError.fix;
     ge.classList.add("show");
-    resetContTurnNotice(); // build241
+    // build257: ここで直接リセットせず、render()の最後(finishContTurnNotice)で入力中かどうかを見て判断する
     document.getElementById("readout").innerHTML =
       `<div class="item danger" style="grid-column:1/-1;">
          <div class="k">パターン計算エラー</div>
@@ -6144,10 +6165,9 @@ function renderMain(){
   // ダイアログを出す(ユーザー要望。build240の地図下の帯表示から変更)。毎回のrender()で出すと
   // 数値入力中に何度も出てしまうため、直前の状態から新たに切り替わったときだけ表示する。
   if(geo.visualContinuous){
-    if(!wasVisualContinuous) showContTurnDialog();
+    if(!wasVisualContinuous && !contTurnBoot) showContTurnDialog();   // build257: 起動時の復元では出さない
     wasVisualContinuous = true;
-  } else {
-    resetContTurnNotice();
+    contTurnSeenThisRender = true;
   }
 
   // --- Traffic Pattern(離陸→Downwind進入)：state.mode==="pattern"のときだけ計算・描画する ---
@@ -6162,7 +6182,6 @@ function renderMain(){
       document.getElementById("geomErrorDetail").textContent = "offsetに収めるのに必要なBank角が "+departure.turn.bankSolvedDeg.toFixed(1)+"° で、上限 "+BANK_ERROR_DEG+"° を超えています。";
       document.getElementById("geomErrorFix").textContent = "Downwind Offsetを広げるか、Downwind IASを下げてください。";
       ge.classList.add("show");
-      resetContTurnNotice(); // build241
       document.getElementById("readout").innerHTML =
         `<div class="item danger" style="grid-column:1/-1;">
            <div class="k">Traffic Pattern計算エラー</div>
@@ -6854,16 +6873,31 @@ window.addEventListener("pagehide", flushSaveState);
   function fitBodyForPad(){
     const portrait = window.matchMedia("(max-width: 899px)").matches;
     document.body.style.paddingBottom = portrait ? (pad.offsetHeight+8)+"px" : "";
+    // build257: 幅640px未満ではキーパッドが設定パネルの上に全幅で重なるので、パネルの下端にも
+    // キーパッドの高さぶん余白を足して、最後の欄(Descent Angle)までスクロールで見えるようにする
+    const ctl = document.getElementById("controls");
+    if(ctl) ctl.style.paddingBottom = window.matchMedia("(max-width: 639px)").matches ? (pad.offsetHeight+24)+"px" : "";
+  }
+  let padClearTimer = null;
+  function clearPadSpace(){
+    clearTimeout(padClearTimer); padClearTimer = null;
+    if(cur) return;   // その間に別の欄でキーパッドを開き直した
+    document.body.style.paddingBottom = "";
+    const ctl = document.getElementById("controls");
+    if(ctl) ctl.style.paddingBottom = "";
   }
   window.addEventListener("resize", ()=>{ if(cur) fitBodyForPad(); });
   function commitField(inp){
     if(document.body.dataset.npEditing === inp.id) delete document.body.dataset.npEditing;
     inp.dispatchEvent(new Event("change", {bubbles:true}));
   }
-  function close(){
+  // build257: 外側タップで閉じたときは、余白をすぐ消すとページが縮んでスクロール位置が動き、
+  // 押したボタン(Final断面の切替など)が指の下から逃げてタップが無効になる。clickが済むまで待ってから消す。
+  function close(deferSpace){
     const c = cur; cur = null;
     pad.classList.remove("show"); pad.parentElement.classList.remove("np-active");
-    document.body.style.paddingBottom = "";
+    if(deferSpace){ clearTimeout(padClearTimer); padClearTimer = setTimeout(clearPadSpace, 450); }
+    else clearPadSpace();
     if(c){ c.blur(); commitField(c); }
   }
   function press(k){
@@ -6896,7 +6930,8 @@ window.addEventListener("pagehide", flushSaveState);
     if(!cur) return;
     if(pad.contains(e.target)) return;
     if(e.target.dataset && e.target.dataset.np) return;
-    close();
+    if(e.target.closest && e.target.closest("#contTurnDialog")) return;   // build257: ダイアログのOKで入力を中断しない
+    close(true);
   }, true);
   // 設定パネルを閉じたらキーパッドも閉じる
   document.getElementById("menuBtn").addEventListener("click", ()=>{ if(cur) close(); });
@@ -6953,6 +6988,7 @@ fmsApplySpeeds();
 if(!applySavedStateIfAny()){
   setupAirport();
 }
+contTurnBoot = false;   // build257
 </script>
 <script>
 // build218: GitHub Pages等(https)で配信しているときだけ Service Worker を登録し、アプリ本体と
@@ -6973,10 +7009,18 @@ if(!applySavedStateIfAny()){
     // 即時更新する(ユーザー要望)。一段落したらこのフラグを false に戻す(はい/いいえのダイアログは
     // そのまま残してあるので、フラグを戻すだけで元の動作に戻る)。
     const SW_UPDATE_AUTO = true;
-    let declinedBuild = null;   // 「いいえ」を選んだ版(同じ版では、このページを開いている間は聞き直さない)
+    let declinedBuild = null;
+    // build257: 数値の入力途中に自動更新で再読み込みすると、打ちかけの値(例: Offset「0」)がそのまま
+    // 保存・復元されてしまうので、入力が確定する(キーパッドが閉じる)まで待ってから再読み込みする
+    function autoReloadWhenIdle(){
+      const a = document.activeElement;
+      if(document.body.dataset.npEditing || (a && a.tagName==="INPUT")){ setTimeout(autoReloadWhenIdle, 1500); return; }
+      try{ flushSaveState(); }catch(err){}
+      location.reload();
+    }   // 「いいえ」を選んだ版(同じ版では、このページを開いている間は聞き直さない)
     function showUpdatePrompt(build){
       if(!build || !(build > curBuild) || build===declinedBuild) return;
-      if(SW_UPDATE_AUTO){ try{ flushSaveState(); }catch(err){} location.reload(); return; }
+      if(SW_UPDATE_AUTO){ autoReloadWhenIdle(); return; }
       let t = document.getElementById("swUpdatePrompt");
       if(!t){
         t = document.createElement("div"); t.id = "swUpdatePrompt"; t.setAttribute("role","dialog");
