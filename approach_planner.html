@@ -298,7 +298,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 268</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 270</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -495,7 +495,7 @@
     </div>
 
     <div class="field">
-      <div class="hint">上昇率はAccel Heightまで2000fpm・以降1000fpm、加速は1.5kt/sec(250ktまで)で固定。</div>
+      <div class="hint">上昇率はAccel Heightまで2500fpm・以降1000fpm、加速は1.5kt/sec(250ktまで)で固定。</div>
     </div>
     </div><!-- /departureFields -->
 
@@ -517,14 +517,6 @@
       <div class="seg" id="showImageToggle">
         <button data-v="off">OFF</button>
         <button data-v="on" class="active">ON</button>
-      </div>
-    </div>
-
-    <div class="field">
-      <label>地図の向き</label>
-      <div class="seg" id="mapOrientToggle">
-        <button data-v="rwy" class="active">RWY↑</button>
-        <button data-v="north">North↑</button>
       </div>
     </div>
 
@@ -1534,7 +1526,7 @@ function computeDepartureToDownwind(pat, turnSign, downwindTAS, downwindOffsetNM
      ・速度は既定170kt(IAS)固定 → Acceleration Height(既定3000ft AFE)から1.5kt/secで加速。
      ・ISK(ILS-DME RWY32L)から1.8NMと交差する点で左旋回を開始。
      ・Bank角は20°/25°/30°を選択(既定25°、build267で20°を追加)。
-     ・上昇率: Acceleration Heightまでは2000fpm、それ以降は1000fpm固定(ユーザー指定)。
+     ・上昇率: Acceleration Heightまでは2500fpm(build268で2000→2500)、それ以降は1000fpm固定(ユーザー指定)。
      ・旋回終了TRK: 既定180°、選択式(build169、ユーザー指定)。
    経路は3段階のフェーズで構成する(build169で確定した構造):
      1. 直進上昇(straight1)：離陸開始点からISKのDME距離(turnStartNM)に達するまで。
@@ -3177,13 +3169,12 @@ document.getElementById("viewResetBtn").addEventListener("pointerdown", (e)=>e.s
 // build266: エラー表示のOK(伊丹DepartureのISK 2.8NM未到達)。この結果を確認済みにして、経路を赤で描き直す
 document.getElementById("geomErrorOk").addEventListener("click", (e)=>{ e.stopPropagation(); depIskAckKey = depIskPendingKey; render(); });
 document.getElementById("geomErrorOk").addEventListener("pointerdown", (e)=>e.stopPropagation());
-// build262: 地図の向き(North↑／RWY↑)。全モード共通の切替だが、既定が違うので値はLDAとそれ以外で別に持つ
+// build262: 地図の向き(North↑／RWY↑)。build269で設定メニューの切替は削除し、地図上のN↑ボタンだけにした(ユーザー指定)。全モード共通の切替だが、既定が違うので値はLDAとそれ以外で別に持つ
 // (Approach/Traffic Pattern/Departure＝RWY↑が既定[state.northUp]、LDA＝North↑が既定[state.ldaNorthUp]、build176の仕様)。
 function isLdaSelected(){ const v = (document.getElementById("rwyEnd")||{}).value||""; return v==="LDA22" || v==="LDA23"; }
 function northUpNow(){ return isLdaSelected() ? !!state.ldaNorthUp : !!state.northUp; }
 function syncMapOrientUI(){
   const nu = northUpNow();
-  document.querySelectorAll("#mapOrientToggle button").forEach(b=>b.classList.toggle("active", (b.dataset.v==="north")===nu));
   const nb = document.getElementById("northBtn");
   if(nb){ nb.classList.toggle("on", nu); nb.setAttribute("aria-pressed", nu ? "true" : "false"); }
 }
@@ -3192,9 +3183,6 @@ function setNorthUp(nu){
   state.headingOffsetDeg = 0;   // 3Dでドラッグ回転していた分は、向きを切り替えたら戻す
   render();
 }
-document.querySelectorAll("#mapOrientToggle button").forEach(btn=>{
-  btn.addEventListener("click", ()=>setNorthUp(btn.dataset.v==="north"));
-});
 document.getElementById("northBtn").addEventListener("click", (e)=>{ e.stopPropagation(); setNorthUp(!northUpNow()); });
 document.getElementById("northBtn").addEventListener("pointerdown", (e)=>e.stopPropagation());
 // build198: 3Dを初めてONにしたとき(このセッションで最初の2回)だけ、操作方法を数秒表示する
@@ -4783,7 +4771,7 @@ function renderDeparture(airport, rwyLabel){
   // build268: Acceleration Height(既定3000ft AFE)に達した点。経路の途中で達したときだけ表示する
   if(sim.accelInfo){
     svg.appendChild(markerXY(sim.accelInfo, refLat, refLon, {fill:"var(--amber)", stroke:"var(--amber)"},
-      "Accel "+Math.round(accelHeightFt)+"ft AFE", counterRot));
+      "Accel", counterRot));   // build269: 表記は「Accel」だけ(ユーザー指定)
   }
 
   // --- build196: 「E2A 中国道」ラベル(build180で非表示にしていたものをユーザー要望で復活) ---
@@ -4805,7 +4793,7 @@ function renderDeparture(airport, rwyLabel){
         ...(sim.turnStartInfo?[{xy:sim.turnStartInfo, text:"Turn Start"}]:[]),
         ...(sim.trkStopInfo?[{xy:sim.trkStopInfo, text:"TRK"+trkStopDeg+"°M"}]:[]),
         ...(sim.iteCrossInfo?[{xy:sim.iteCrossInfo, text:"ITE "+ITAMI_DEP_ITE_TARGET_NM+"NM"}]:[]),
-        ...(sim.accelInfo?[{xy:sim.accelInfo, text:"Accel "+Math.round(accelHeightFt)+"ft AFE"}]:[])   // build268
+        ...(sim.accelInfo?[{xy:sim.accelInfo, text:"Accel"}]:[])   // build268
       ],
       refLat, refLon, counterRot, text:"E2A 中国道"
     });
@@ -5580,6 +5568,8 @@ function renderMain(){
   showTerrLegend(false); // build201: 地形を描いたときだけ再表示
   // 3D表示中はCanvasで再現できない(rotateXの3D変換)ため、保存ボタンごと隠す
   { const b=document.getElementById("dlBtn"); if(b) b.style.display = state.show3D ? "none" : ""; }
+  // build270: 3D表示中はドラッグで自由に回せるので、N↑(地図の向き)ボタンは隠す(ユーザー指定)
+  { const b=document.getElementById("northBtn"); if(b) b.style.display = state.show3D ? "none" : ""; }
   if(!svg) return;
   while(svg.firstChild) svg.removeChild(svg.firstChild);
   hideTerrainCanvas();   // build186: 地形canvasは描く条件のときだけ下で再表示する
