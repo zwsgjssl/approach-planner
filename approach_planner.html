@@ -258,10 +258,12 @@
   /* build243: Final断面(Eye/Gear/ILS/PAPI) */
   .vprofile{ background:var(--panel); border-top:1px solid var(--line); padding:10px 14px 14px; font-size:12px; }
   .vprofile .vpTitle{ font-size:11px; color:var(--amber); letter-spacing:.6px; text-transform:uppercase; margin-bottom:6px; }
-  .vprofile .vpSeg{ margin:2px 0 8px; max-width:360px; }
+  .vprofile .vpSeg{ margin:2px 0 8px; max-width:520px; }
   .vprofile .vpSeg button{ min-height:36px; font-size:12.5px; }
   .vprofile .vpTitle span{ color:var(--textdim); text-transform:none; letter-spacing:0; margin-left:4px; }
-  .vprofile svg{ display:block; max-width:520px; }
+  .vprofile > svg{ display:block; width:100%; }
+  /* build254: 横持ち(幅900px以上)では、断面図を右の狭いカラムではなく地図の下(左カラム)に置いて幅いっぱいに使う */
+  .mapCol > .vprofile{ margin-top:14px; border:1px solid var(--line); border-radius:8px; }
   .vprofile .vpLegend{ font-size:10.5px; color:var(--textdim); display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; margin:4px 0 8px; }
   .vprofile .vpBand{ display:inline-block; width:14px; height:8px; background:var(--green); opacity:.35; vertical-align:middle; }
   .vprofile .vpSub{ font-size:10.5px; color:var(--textdim); text-transform:uppercase; letter-spacing:.4px; margin:10px 0 4px; }
@@ -287,7 +289,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 253</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 254</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -2616,16 +2618,43 @@ document.querySelectorAll("#acModel button").forEach(btn=>{
   });
 });
 // build245: Final断面の「Aiming Point / On Glideslope(build252で名称変更、旧ILSオンパス)」切り替え(断面図の表示だけ。経路・TOD計算には影響しない)
+// build254: 断面図の置き場所。横持ち(幅900px以上)は右カラムが狭い(380px)ので、地図の下(左カラム)へ移して幅いっぱいに描く。
+// 縦持ちは従来どおり結果ボードの下(画面幅いっぱい)。幅が変わったら描き直す(SVGは表示幅そのもので描いているため)。
+(function(){
+  const vp = document.getElementById("vprofile");
+  const mq = window.matchMedia("(min-width: 900px)");
+  let lastW = 0;
+  function place(){
+    const land = mq.matches;
+    const target = land ? document.querySelector(".mapCol") : document.querySelector(".sideCol");
+    if(!target) return;
+    if(land){ if(vp.parentElement!==target) target.appendChild(vp); }
+    else {
+      const ro = document.getElementById("readout");
+      if(vp.parentElement!==target || vp.previousElementSibling!==ro) ro.insertAdjacentElement("afterend", vp);
+    }
+  }
+  function onResize(){
+    place();
+    const w = vp.parentElement ? vp.parentElement.clientWidth : 0;
+    if(w && Math.abs(w-lastW)>4){ lastW = w; if(vp.style.display!=="none" && typeof requestDragRender==="function") requestDragRender(); }
+  }
+  place();
+  lastW = vp.parentElement ? vp.parentElement.clientWidth : 0;
+  if(mq.addEventListener) mq.addEventListener("change", onResize); else if(mq.addListener) mq.addListener(onResize);
+  let t = null;
+  window.addEventListener("resize", ()=>{ clearTimeout(t); t = setTimeout(onResize, 150); });
+})();
 document.getElementById("vprofile").addEventListener("click", (e)=>{
   const b = e.target.closest && e.target.closest("button[data-vp],button[data-papi]");
   if(!b || b.disabled) return;
   if(b.dataset.vp) state.pathRef = b.dataset.vp;
   if(b.dataset.papi) state.papi16 = b.dataset.papi;   // build246: 羽田16L/16RのPAPI 3.0°/3.25°
   // build247: 描き直しでスクロール位置が動かないよう、ページと右カラムの位置を保って戻す
-  const sc = document.querySelector(".sideCol");
-  const winY = window.scrollY, colY = sc ? sc.scrollTop : 0;
+  const cols = [document.querySelector(".sideCol"), document.querySelector(".mapCol")].filter(Boolean);   // build254: 横持ちは断面図が左カラム
+  const winY = window.scrollY, colY = cols.map(c=>c.scrollTop);
   render();
-  if(sc) sc.scrollTop = colY;
+  cols.forEach((c,i)=>{ c.scrollTop = colY[i]; });
   window.scrollTo(window.scrollX, winY);
 });
 document.querySelectorAll("#circDwFlap button").forEach(btn=>{
@@ -5219,8 +5248,15 @@ function finishVProfile(){
 function renderVProfile(r, info){
   const vp = document.getElementById("vprofile");
   if(!vp) return;
-  const W=360, H=224, ml=30, mr=8, mt=10, mb=20, pw=W-ml-mr, ph=H-mt-mb;
-  const xL = 3000, xR = -1800, yMax = 180;
+  // build254: 横幅いっぱいに描く(ユーザー要望「iPadの幅を活用できていない」)。表示幅をそのまま座標(px)にし、
+  // 文字サイズは固定px。幅が広いときは表示範囲(THR手前)も広げる。
+  const cw = (vp.parentElement && vp.parentElement.clientWidth) ? vp.parentElement.clientWidth - 28 : 360;
+  const W = Math.max(320, Math.round(cw));
+  const wide = W >= 600;
+  const H = Math.round(Math.min(380, Math.max(240, W*0.40)));
+  const FS = wide ? 12 : 10, FSs = wide ? 11 : 9;
+  const ml = wide ? 44 : 32, mr=10, mt=12, mb = wide ? 26 : 22, pw=W-ml-mr, ph=H-mt-mb;
+  const xL = wide ? 5000 : 3000, xR = wide ? -2000 : -1800, yMax = wide ? 300 : 180;
   const sx = (x)=> ml + (xL-x)/(xL-xR)*pw;
   const sy = (h)=> mt + ph - h/yMax*ph;
   const f1 = (v)=> v.toFixed(1);
@@ -5229,14 +5265,14 @@ function renderVProfile(r, info){
   // 目盛り
   for(let h=50; h<=yMax; h+=50){
     parts.push(`<line x1="${ml}" y1="${f1(sy(h))}" x2="${ml+pw}" y2="${f1(sy(h))}" stroke="var(--line)" stroke-width="0.6"/>`);
-    parts.push(`<text x="${ml-4}" y="${f1(sy(h)+3)}" text-anchor="end" font-size="8.5" fill="var(--textdim)">${h}</text>`);
+    parts.push(`<text x="${ml-5}" y="${f1(sy(h)+4)}" text-anchor="end" font-size="${FSs}" fill="var(--textdim)">${h}</text>`);
   }
-  for(let x=-1500; x<=3000; x+=500){
-    parts.push(`<line x1="${f1(sx(x))}" y1="${mt+ph}" x2="${f1(sx(x))}" y2="${mt+ph+3}" stroke="var(--textdim)" stroke-width="0.8"/>`);
-    if(x%1000===0 && x>=0) parts.push(`<text x="${f1(sx(x))}" y="${mt+ph+12}" text-anchor="middle" font-size="8.5" fill="var(--textdim)">${x===0?"THR":x+"ft"}</text>`);
+  for(let x=Math.ceil(xR/500)*500; x<=xL; x+=500){
+    parts.push(`<line x1="${f1(sx(x))}" y1="${mt+ph}" x2="${f1(sx(x))}" y2="${mt+ph+4}" stroke="var(--textdim)" stroke-width="0.8"/>`);
+    if(x%1000===0 && x>=0) parts.push(`<text x="${f1(sx(x))}" y="${mt+ph+FSs+5}" text-anchor="middle" font-size="${FSs}" fill="var(--textdim)">${x===0?"THR":x.toLocaleString()+"ft"}</text>`);
   }
-  parts.push(`<text x="${ml+pw-2}" y="${mt+9}" text-anchor="end" font-size="8" fill="var(--textdim)">← 進入側 ／ 滑走路 →</text>`);
-  parts.push(`<text x="2" y="${mt+4}" font-size="8" fill="var(--textdim)">ft</text>`);
+  parts.push(`<text x="${ml+pw-4}" y="${mt+FSs+2}" text-anchor="end" font-size="${FSs}" fill="var(--textdim)">← 進入側 ／ 滑走路 →</text>`);
+  parts.push(`<text x="2" y="${mt+4}" font-size="${FSs}" fill="var(--textdim)">ft</text>`);
   const g = [];
   // PAPIの表示帯(Eyeで見たとき)
   if(r.papi){
@@ -5256,7 +5292,7 @@ function renderVProfile(r, info){
       if(!(ci<=0 || rg.from-rg.to >= FT_PER_NM)) continue;
       g.push(`<line x1="${f1(sx(ox))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(hAt(a)))}" stroke="var(--red)" stroke-width="1.4" stroke-dasharray="5 3"/>`);
       const lx = Math.min(xL-200, (yMax-30)/Math.tan(a*D2R) + ox), ly = (lx-ox)*Math.tan(a*D2R);   // 図の中に収まる位置
-      g.push(`<text x="${f1(sx(lx)+4)}" y="${f1(sy(ly)+12)}" font-size="8.5" fill="var(--red)" stroke="var(--panel)" stroke-width="2.5" paint-order="stroke">${name}</text>`);
+      g.push(`<text x="${f1(sx(lx)+4)}" y="${f1(sy(ly)+FS+3)}" font-size="${FS}" fill="var(--red)" stroke="var(--panel)" stroke-width="3" paint-order="stroke">${name}</text>`);
     }
   }
   // 滑走路と地面
@@ -5278,14 +5314,14 @@ function renderVProfile(r, info){
   if(r.papi){
     const px = sx(-r.papi.effFt);
     g.push(`<rect x="${f1(px-6)}" y="${f1(sy(0)-5)}" width="5" height="5" fill="#fff"/><rect x="${f1(px+1)}" y="${f1(sy(0)-5)}" width="5" height="5" fill="var(--red)"/>`);
-    g.push(`<text x="${f1(px)}" y="${f1(sy(0)-8)}" text-anchor="middle" font-size="8" fill="var(--text)">PAPI</text>`);
+    g.push(`<text x="${f1(px)}" y="${f1(sy(0)-9)}" text-anchor="middle" font-size="${FSs}" fill="var(--text)">PAPI</text>`);
   }
   parts.push(`<g clip-path="url(#vpClip)">${g.join("")}</g>`);
-  if(r.ils) parts.push(`<text x="${f1(sx(-r.ils.distM/0.3048))}" y="${f1(sy(0)+12)}" text-anchor="middle" font-size="8" fill="var(--amber)">GP</text>`);
+  if(r.ils) parts.push(`<text x="${f1(sx(-r.ils.distM/0.3048))}" y="${f1(sy(0)+FSs+5)}" text-anchor="middle" font-size="${FSs}" fill="var(--amber)">GP</text>`);
   // THR上の高さ
-  parts.push(`<text x="${f1(sx(0)+3)}" y="${f1(sy(r.eyeThr)-3)}" font-size="8.5" fill="var(--cyan)">${r.eyeThr.toFixed(0)}</text>`);
-  parts.push(`<text x="${f1(sx(0)+3)}" y="${f1(sy(r.gearThr)+9)}" font-size="8.5" fill="var(--green)">${r.gearThr.toFixed(0)}</text>`);
-  const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Final断面図">${parts.join("")}</svg>`;
+  parts.push(`<text x="${f1(sx(0)+4)}" y="${f1(sy(r.eyeThr)-4)}" font-size="${FS}" fill="var(--cyan)">${r.eyeThr.toFixed(0)}</text>`);
+  parts.push(`<text x="${f1(sx(0)+4)}" y="${f1(sy(r.gearThr)+FS+2)}" font-size="${FS}" fill="var(--green)">${r.gearThr.toFixed(0)}</text>`);
+  const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Final断面図" style="max-width:none">${parts.join("")}</svg>`;
 
   const sw = (color, dash)=> `<svg width="18" height="6" style="vertical-align:middle"><line x1="0" y1="3" x2="18" y2="3" stroke="${color}" stroke-width="2" ${dash?`stroke-dasharray="${dash}"`:""}/></svg>`;
   const legend = `<div class="vpLegend">${sw("var(--cyan)")}Eye ${sw("var(--green)")}Gear`
