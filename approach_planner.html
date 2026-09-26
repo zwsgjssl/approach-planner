@@ -226,6 +226,10 @@
   .geomError .t{ color:var(--red); font-weight:700; font-size:14px; margin-bottom:8px; }
   .geomError .d{ color:var(--text); font-size:12.5px; line-height:1.7; }
   .geomError .f{ color:var(--amber); font-size:12.5px; line-height:1.7; margin-top:8px; }
+  /* build266: OKで閉じられるエラー(伊丹DepartureのISK 2.8NM未到達)用のボタン */
+  .geomError .acts{ display:flex; justify-content:flex-end; margin-top:12px; }
+  .geomError .acts button{ min-height:40px; min-width:88px; padding:0 14px; border-radius:8px; border:1px solid var(--red);
+    background:var(--red); color:#fff; font-weight:600; font-size:13px; touch-action:manipulation; }
   .fallback{
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     color:var(--textdim); font-size:12px; text-align:center; padding:20px; line-height:1.6; z-index:2;
@@ -294,7 +298,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build226: 表示はVer番号のみ。buildの通し番号は更新の判定(sw.js・更新確認)に使うので、非表示で残す(消すと既存のiPadが更新を受け取れなくなる) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 264</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 266</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -612,6 +616,7 @@
       <div class="t" id="geomErrorTitle"></div>
       <div class="d" id="geomErrorDetail"></div>
       <div class="f" id="geomErrorFix"></div>
+      <div class="acts" id="geomErrorActions" style="display:none;"><button type="button" id="geomErrorOk">OK（経路を赤で表示）</button></div>
     </div></div>
     <div class="zoomPanWrap" id="zoomPanWrap">
       <div class="rotwrap" id="rotwrap">
@@ -3154,6 +3159,9 @@ document.getElementById("viewResetBtn").addEventListener("click", (e)=>{
   render();
 });
 document.getElementById("viewResetBtn").addEventListener("pointerdown", (e)=>e.stopPropagation());
+// build266: エラー表示のOK(伊丹DepartureのISK 2.8NM未到達)。この結果を確認済みにして、経路を赤で描き直す
+document.getElementById("geomErrorOk").addEventListener("click", (e)=>{ e.stopPropagation(); depIskAckKey = depIskPendingKey; render(); });
+document.getElementById("geomErrorOk").addEventListener("pointerdown", (e)=>e.stopPropagation());
 // build262: 地図の向き(North↑／RWY↑)。全モード共通の切替だが、既定が違うので値はLDAとそれ以外で別に持つ
 // (Approach/Traffic Pattern/Departure＝RWY↑が既定[state.northUp]、LDA＝North↑が既定[state.ldaNorthUp]、build176の仕様)。
 function isLdaSelected(){ const v = (document.getElementById("rwyEnd")||{}).value||""; return v==="LDA22" || v==="LDA23"; }
@@ -4529,7 +4537,10 @@ function computeFullPatternGeometry(pat, turnSign, baseLegBearing, approach, dow
 // 既存のApproach/Traffic Pattern描画パイプラインとは完全に独立させ、
 // render()冒頭で早期returnして分岐する(既存コードへの影響を避けるため)。
 // ============================================================
+// build266: ISK 2.8NM未到達エラーのOK(確認済みの計算結果のキー)。保存はしない
+let depIskAckKey = null, depIskPendingKey = null;
 function renderDeparture(airport, rwyLabel){
+  let depIskErr = false, depIskErrHtml = "";
   document.getElementById("dlBtn").style.display = ""; // build262: LDA/DepartureもPNG保存に対応(3D非対応なので常に出す)
   document.getElementById("windIndicator").classList.remove("show"); // build196: 風ありなら後段(地図回転決定後)で表示
 
@@ -4688,6 +4699,38 @@ function renderDeparture(airport, rwyLabel){
   svg.appendChild(polylineFromXY([thrXY, oppXY], refLat, refLon, {stroke:"var(--yellow)", "stroke-width":"6"}));
   svg.appendChild(markerXY(startXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "TKOF", counterRot));
 
+  // build265: 経路がISK 2.8NMのラインを一度も越えない(旋回が内側に収まってしまう)ときはエラーにする(ユーザー要望)。
+  // 経路は描かず、滑走路・補助円・航法援助施設だけ残す(Approachの計算エラーと同じ扱い)。
+  if(sim.ok){
+    let maxIskNM = 0;
+    for(const p of sim.path) if(p.distToISK_NM > maxIskNM) maxIskNM = p.distToISK_NM;
+    if(maxIskNM < ITAMI_DEP_ISK_BAND_MIN_NM){
+      // build266: エラー表示にOKボタンを付け、OKを押したら経路を赤で描く(ユーザー要望)。
+      // OKは「この計算結果」に対して有効(入力が変わって結果が変われば、もう一度エラーを出す)。
+      const lastP = sim.path[sim.path.length-1];
+      depIskPendingKey = [sim.path.length, maxIskNM.toFixed(5), lastP.x.toFixed(1), lastP.y.toFixed(1)].join("|");
+      depIskErr = true;
+      const t = "経路がISK "+ITAMI_DEP_ISK_BAND_MIN_NM.toFixed(1)+"NMのラインを越えません";
+      const d = "ISKから最も離れる点でも "+maxIskNM.toFixed(2)+" NM で、"+ITAMI_DEP_ISK_BAND_MIN_NM.toFixed(1)+" NMに届きません。";
+      const f = "Turn Start（ISKからの距離）を大きくする"+(bankDeg>25 ? "、Bank角を25°にする" : "")+"、またはIASを上げてください。";
+      depIskErrHtml =
+        `<div class="item danger" style="grid-column:1/-1;">
+           <div class="k">Departure計算エラー</div>
+           <div class="v" style="font-size:13px; line-height:1.7;">${t}<br>
+             <span style="color:var(--text); font-weight:400;">${d}</span><br>
+             <span style="color:var(--amber); font-weight:400;">${f}</span></div>
+         </div>`;
+      if(depIskAckKey !== depIskPendingKey){
+        showGeomError(t, d, f);
+        document.getElementById("geomErrorActions").style.display = "";
+        npSummaryText = "⚠ ISK "+ITAMI_DEP_ISK_BAND_MIN_NM.toFixed(1)+"NMを越えない";
+        document.getElementById("readout").innerHTML = depIskErrHtml;
+        return;
+      }
+      // OK済み：このまま下で経路を(全部赤で)描き、結果ボードの先頭にもエラーを残す
+    }
+  }
+
   // --- 実際の経路(直進/旋回/旋回後直進の3フェーズ＋ISK2.8-3.6NM帯からの逸脱を赤で色分け) ---
   // build169: 色は「フェーズ(直進1=緑、旋回・旋回後直進=アンバー)」を基本にしつつ、
   // 各点のoutOfIskBand(一度2.8-3.6NM帯に入った後その帯の外に出た区間)が立っている間は
@@ -4695,7 +4738,7 @@ function renderDeparture(airport, rwyLabel){
   // 次の区間の先頭にも複製して繋ぐ(既存のTraffic Pattern等と同じ手法)。
   if(sim.path.length>1){
     // build222: 直線=青、旋回=緑、ISK帯からの逸脱=赤(ユーザー指定)
-    const colorOf = (p)=> p.outOfIskBand ? "var(--red)" : (p.phase==="turn" ? ROUTE_TURN : ROUTE_STRAIGHT);
+    const colorOf = (p)=> (depIskErr || p.outOfIskBand) ? "var(--red)" : (p.phase==="turn" ? ROUTE_TURN : ROUTE_STRAIGHT);   // build266: ISK 2.8NM未到達(OK済み)は全部赤
     let runStart = 0;
     for(let i=1;i<=sim.path.length;i++){
       const changed = i===sim.path.length || colorOf(sim.path[i])!==colorOf(sim.path[runStart]);
@@ -4751,8 +4794,9 @@ function renderDeparture(airport, rwyLabel){
   const fmtTime = (s)=> s==null ? "―" : (s<60 ? s.toFixed(0)+" sec" : Math.floor(s/60)+"分"+(s%60).toFixed(0)+"秒");
   const ts = sim.turnStartInfo, tk = sim.trkStopInfo, ic = sim.iteCrossInfo;
   // build206: ITM Departureの結果ボードはTurn Start・Bank角・風だけ(ユーザー指定)
-  npSummaryText = ts ? "Turn Start "+fmtTime(ts.t)+" ／ "+afeToDisplayMSL10(ts.altFt, airport.elevationFt).toLocaleString()+"ft MSL" : "";
-  document.getElementById("readout").innerHTML = `
+  npSummaryText = depIskErr ? "⚠ ISK "+ITAMI_DEP_ISK_BAND_MIN_NM.toFixed(1)+"NMを越えない"
+    : (ts ? "Turn Start "+fmtTime(ts.t)+" ／ "+afeToDisplayMSL10(ts.altFt, airport.elevationFt).toLocaleString()+"ft MSL" : "");
+  document.getElementById("readout").innerHTML = (depIskErr ? depIskErrHtml : "") + `
     <div class="item key"><div class="k">Turn Start (ISK ${turnStartNM.toFixed(1)}NM)</div><div class="v">${ts?`${fmtTime(ts.t)} 経過 ／ ${afeToDisplayMSL10(ts.altFt, airport.elevationFt).toLocaleString()} ft MSL ／ ${ts.tasKt.toFixed(0)}kt TAS${windSpeedKt>0?" / GS "+ts.gsKt.toFixed(0)+"kt":""}`:"―"}</div></div>
     <div class="item${bankDeg>=30?" warn":""}"><div class="k">Bank角 / 旋回終了TRK</div><div class="v">${bankDeg}° (左旋回) / TRK${trkStopDeg}°M</div></div>
     <div class="item"><div class="k">風 (高度によらず一定)</div><div class="v">${windSpeedKt>0?`${String(Math.round(windDirMag)).padStart(3,"0")}°M / ${Math.round(windSpeedKt)}kt ／ 離陸滑走方向 ${(()=>{const hw=windSpeedKt*Math.cos((windFromTrueDeg-headingTrueDeg)*D2R), xw=windSpeedKt*Math.sin((windFromTrueDeg-headingTrueDeg)*D2R); return (hw>=0?"向かい風 ":"追い風 ")+Math.abs(hw).toFixed(0)+"kt・"+(Math.abs(xw)<0.5?"横風 0kt":(xw>0?"右":"左")+"横風 "+Math.abs(xw).toFixed(0)+"kt");})()}`:"無風"}</div></div>
@@ -5490,7 +5534,7 @@ function showContTurnDialog(){
 function render(){
   resetInputCheck();
   npSummaryText = "";
-  try{ try{ syncMapOrientUI(); }catch(e){} renderMain(); try{ applyGroundClip3D(); }catch(e){ console.error(e); } try{ placeMapLabels(); }catch(e){ console.error(e); } }
+  try{ try{ syncMapOrientUI(); }catch(e){} { const ga=document.getElementById("geomErrorActions"); if(ga) ga.style.display="none"; } renderMain(); try{ applyGroundClip3D(); }catch(e){ console.error(e); } try{ placeMapLabels(); }catch(e){ console.error(e); } }
   finally{
     try{ finishVProfile(); }catch(e){}   // build247
     try{ finishContTurnNotice(); }catch(e){}   // build257
