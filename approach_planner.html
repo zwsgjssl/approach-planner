@@ -272,7 +272,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 275</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 276</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -307,9 +307,14 @@
     </div>
 
     <div class="field" id="windField">
-      <label>Wind (磁方位/kt 例:010/15、無風は空欄)</label>
+      <label id="windLabel">Wind (磁方位/kt 例:010/15、無風は空欄)</label>
       <input id="wind" type="text" inputmode="numeric" value="">
-      <div class="hint" id="windDepHint" style="display:none;">Departure: 離陸開始点から高度によらず一定の風として計算します。</div>
+    </div>
+
+    <div class="field" id="wind2000Field" style="display:none;">
+      <label>Wind 2000ft (磁方位/kt、空欄は地上風と同じ)</label>
+      <input id="wind2000" type="text" inputmode="numeric" value="">
+      <div class="hint" id="windDepHint">地上〜2000ftは高度に応じて直線的に変化、2000ft以上は2000ftの風で計算します。</div>
     </div>
 
     <div id="aircraftFields" class="grp">
@@ -1349,8 +1354,8 @@ const ITAMI_DEP_ISK_BAND_MAX_NM = 3.6;  // AIP掲載の目安帯(上限)
 // Wind入力(「磁方位/kt」、例 010/15)の解釈。render()/renderDeparture()共通。
 // 方位0〜360・風速0〜99のみ受付、風速は50ktで頭打ち。空欄は無風。
 let lastWindClipped = false;
-function readWindInput(){
-  const windRaw = (document.getElementById("wind").value||"").trim();
+function readWindInput(id="wind", label="Wind"){
+  const windRaw = (document.getElementById(id).value||"").trim();
   const windM = windRaw.match(/^(\d{1,3})\s*[\/\s]\s*(\d{1,3})$/);
   let windDirMag = 0, windSpeedKt = 0, windInputBad = false, windClipped = false;
   if(windM){
@@ -1363,14 +1368,14 @@ function readWindInput(){
   } else if(windRaw!==""){
     windInputBad = true;
   }
-  const we = document.getElementById("wind");
+  const we = document.getElementById(id);
   // 不正な入力(27015、方位370 等)は計算を止めてエラー表示(入力中は止めず無風扱い)
   if(windInputBad && isEditingField(we)){ windInputBad = false; windDirMag = 0; windSpeedKt = 0; }
-  else if(windInputBad){ inputCheck.errors.push("Wind 「"+windRaw+"」（磁方位/kt の形で。例 010/15、無風は空欄）"); }
+  else if(windInputBad){ inputCheck.errors.push(label+" 「"+windRaw+"」（磁方位/kt の形で。例 010/15、無風は空欄）"); }
   we.style.borderColor = windInputBad ? "var(--red)" : (windClipped ? "var(--amber)" : "");
   we.style.color = windInputBad ? "var(--red)" : (windClipped ? "var(--amber)" : "");
-  lastWindClipped = windClipped;
-  return { windDirMag, windSpeedKt, windInputBad, windClipped };
+  if(id==="wind") lastWindClipped = windClipped;
+  return { windDirMag, windSpeedKt, windInputBad, windClipped, blank: windRaw==="" };
 }
 // 画面上向きの磁方位。3Dのドラッグ回転(headingOffsetDeg)分を差し引く。
 function screenUpMagText(rwyMagHdg){
@@ -1402,14 +1407,24 @@ function updateWindIndicator(windSpeedKt, windFromTrueDeg, rotationDeg, magVarDe
 function simulateItamiDeparture(opts){
   const { startXY, headingTrueDeg, iskXY, iteXY, elevationFt,
           iasKt, turnStartNM, bankDeg, trkStopDeg, accelHeightFt, climbLowFpm, climbHighFpm,
-          accelRateKtSec, oatC, oatValid, windSpeedKt=0, windFromTrueDeg=0 } = opts;
-  // 風は高度によらず一定。straight1/straight2はWCAを取ってTRKを維持し、
-  // 旋回は対気の旋回率(bank/TAS)でHDGを回して、旋回終了は地上軌跡(TRK)で判定する。
-  const windToRad = (windFromTrueDeg+180)*D2R;
-  const windVx = windSpeedKt*0.514444*Math.sin(windToRad), windVy = windSpeedKt*0.514444*Math.cos(windToRad);
+          accelRateKtSec, oatC, oatValid, windSpeedKt=0, windFromTrueDeg=0, wind2000=null } = opts;
+  // 風: 地上風(windSpeedKt/windFromTrueDeg)と2000ftの風(wind2000={speedKt, fromTrueDeg, altAFE}、nullなら地上風のまま)。
+  // 地上〜2000ftは風ベクトルを高度で直線補間、2000ft以上は2000ftの風で一定。
+  // straight1/straight2はWCAを取ってTRKを維持し、旋回は対気の旋回率(bank/TAS)でHDGを回して、旋回終了は地上軌跡(TRK)で判定する。
+  const windVec = (spd, fromDeg)=>{ const to=(fromDeg+180)*D2R; return { vx: spd*0.514444*Math.sin(to), vy: spd*0.514444*Math.cos(to) }; };
+  const wG = windVec(windSpeedKt, windFromTrueDeg);
+  const w2 = wind2000 ? windVec(wind2000.speedKt, wind2000.fromTrueDeg) : wG;
+  const layerTopAFE = wind2000 ? Math.max(1, wind2000.altAFE) : 1;
+  const windAt = (altAFE)=>{
+    const f = Math.max(0, Math.min(1, altAFE/layerTopAFE));
+    const vx = wG.vx + (w2.vx-wG.vx)*f, vy = wG.vy + (w2.vy-wG.vy)*f;
+    const speedKt = Math.hypot(vx, vy)/0.514444;
+    const fromTrueDeg = ((Math.atan2(-vx, -vy)*R2D)%360+360)%360;
+    return { vx, vy, speedKt, fromTrueDeg };
+  };
   const wrap180 = (d)=>((d%360)+540)%360-180;
-  const trackOf = (hdgDeg, tasMs)=>{
-    const gx = tasMs*Math.sin(hdgDeg*D2R)+windVx, gy = tasMs*Math.cos(hdgDeg*D2R)+windVy;
+  const trackOf = (hdgDeg, tasMs, w)=>{
+    const gx = tasMs*Math.sin(hdgDeg*D2R)+w.vx, gy = tasMs*Math.cos(hdgDeg*D2R)+w.vy;
     const raw = Math.atan2(gx, gy)*R2D;
     return { trk: hdgDeg+wrap180(raw-hdgDeg), gsKt: Math.hypot(gx,gy)/0.514444 }; // HDG基準で連続化(0/360を跨いでも判定が壊れない)
   };
@@ -1432,7 +1447,7 @@ function simulateItamiDeparture(opts){
   const snap = (t)=>{
     const pressureAltFt = elevationFt+altFt;
     const tasKt = oatValid ? iasToTas(iasNow, pressureAltFt, oatC - 2*altFt/1000) : iasNow;   // OATは地上気温、上昇に応じ2℃/1000ftで下げる
-    const tg = trackOf(headingDeg, tasKt*0.514444);
+    const tg = trackOf(headingDeg, tasKt*0.514444, windAt(altFt));
     const distToISK_NM = Math.hypot(pos.x-iskXY.x, pos.y-iskXY.y)/NM;
     if(distToISK_NM>=ITAMI_DEP_ISK_BAND_MIN_NM && distToISK_NM<=ITAMI_DEP_ISK_BAND_MAX_NM) hasEnteredIskBand = true;
     const outOfIskBand = hasEnteredIskBand && (distToISK_NM<ITAMI_DEP_ISK_BAND_MIN_NM || distToISK_NM>ITAMI_DEP_ISK_BAND_MAX_NM);
@@ -1444,6 +1459,7 @@ function simulateItamiDeparture(opts){
     const pressureAltFt = elevationFt+altFt;
     const tasKt = oatValid ? iasToTas(iasNow, pressureAltFt, oatC - 2*altFt/1000) : iasNow;
     const tasMs = tasKt*0.514444;
+    const w = windAt(altFt);   // このステップの風(高度で補間)
 
     if(phase==="straight1"){
       const distToISK = Math.hypot(pos.x-iskXY.x, pos.y-iskXY.y);
@@ -1455,7 +1471,7 @@ function simulateItamiDeparture(opts){
     }
     if(phase==="straight1"){
       // 滑走路のTRKを維持(TASが変わるとWCAも変わるので毎ステップ取り直す)
-      headingDeg = windSpeedKt>0 ? wcaHeadingForTrack(headingTrueDeg, tasKt, windSpeedKt, windFromTrueDeg) : headingTrueDeg;
+      headingDeg = w.speedKt>0 ? wcaHeadingForTrack(headingTrueDeg, tasKt, w.speedKt, w.fromTrueDeg) : headingTrueDeg;
     }
     if(phase==="turn"){
       const bankRampSec = bankDeg/ROLL_RATE_DEG_PER_SEC;
@@ -1463,18 +1479,18 @@ function simulateItamiDeparture(opts){
       const rateDegPerSec = TURN_SIGN*(G*Math.tan(curBankDeg*D2R)*R2D)/tasMs;
       // 左旋回でheadingDegは単調減少。%360で丸めるとTRK判定が壊れるので丸めない
       headingDeg = headingDeg + rateDegPerSec*dt;
-      if(trackOf(headingDeg, tasMs).trk<=trkStopDeg){
+      if(trackOf(headingDeg, tasMs, w).trk<=trkStopDeg){
         // 指定TRKで旋回終了(無風時はHDG=TRK)。以降straight2はこのTRKを維持する
-        headingDeg = wcaHeadingForTrack(trkStopDeg, tasKt, windSpeedKt, windFromTrueDeg);
+        headingDeg = wcaHeadingForTrack(trkStopDeg, tasKt, w.speedKt, w.fromTrueDeg);
         phase = "straight2";
         trkStopInfo = snap(t);
       }
     } else if(phase==="straight2"){
       // 旋回終了TRKを維持(WCAは毎ステップ取り直す)
-      headingDeg = wcaHeadingForTrack(trkStopDeg, tasKt, windSpeedKt, windFromTrueDeg);
+      headingDeg = wcaHeadingForTrack(trkStopDeg, tasKt, w.speedKt, w.fromTrueDeg);
     }
 
-    pos = { x: pos.x+(tasMs*Math.sin(headingDeg*D2R)+windVx)*dt, y: pos.y+(tasMs*Math.cos(headingDeg*D2R)+windVy)*dt };
+    pos = { x: pos.x+(tasMs*Math.sin(headingDeg*D2R)+w.vx)*dt, y: pos.y+(tasMs*Math.cos(headingDeg*D2R)+w.vy)*dt };
 
     const climbFpm = altFt<accelHeightFt ? climbLowFpm : climbHighFpm;
     const altPrev = altFt;
@@ -1834,7 +1850,7 @@ function unionStadiumOutline(runwayPairs, R, centerXY, angleStepDeg=3){
 }
 
 /* === 5. UI state / setup === */
-const state = { acModel:"787-9", appFlap:25, circDwFlap:30, approach:"visual", side:"right", airportKey:"haneda", cutAngle:0, baseMode:"time", vorAltMSL:1800, showImage:true, show3D:false, showTerrain:true, tiltDeg:0, headingOffsetDeg:0, showAltLabels:false, mode:"approach", depBank:25, nightMode:false, pathRef:"aim", papi16:"3.0", northUp:false, ldaNorthUp:true };
+const state = { acModel:"787-9", appFlap:25, circDwFlap:30, approach:"visual", side:"right", airportKey:"haneda", cutAngle:0, baseMode:"time", vorAltMSL:1800, showImage:true, show3D:false, showTerrain:true, tiltDeg:0, headingOffsetDeg:0, showAltLabels:false, mode:"approach", depBank:25, nightMode:false, pathRef:"aim", papi16:"3.0", northUp:false, ldaNorthUp:true, depNorthUp:true };
 
 // VOR方式はApproach Type/Downwind側/Cut等を強制するので、強制前の選択を退避し、
 // 通常滑走路や別空港へ移ったら戻す(戻さないと他空港でもCircling固定のまま残る)。
@@ -1901,7 +1917,7 @@ function resetTo2DView(){
 }
 // 空港・滑走路の変更時に風とOATを既定値(無風・15℃)に戻す。保存状態の復元はここを通らない。
 function resetWeatherInputs(){
-  ["oat","wind"].forEach(id=>{ const el = document.getElementById(id); if(el) el.value = el.defaultValue; });
+  ["oat","wind","wind2000"].forEach(id=>{ const el = document.getElementById(id); if(el) el.value = el.defaultValue; });
 }
 function resetBreakPointInput(){
   // Break Pointは滑走路ごとの値なので空港を変えたら空欄(既定)に戻す
@@ -2160,7 +2176,10 @@ function updateModeFieldsVisibility(){
   document.getElementById("thrCross").closest(".field").style.display = isLda ? "none" : "";
   // LDAは風を考慮しないためWind欄を隠す
   document.getElementById("windField").style.display = isLda ? "none" : "";
-  document.getElementById("windDepHint").style.display = (!isLda && state.mode==="departure") ? "" : "none";
+  // Departureは地上風と2000ftの風の2つを入れられる
+  document.getElementById("wind2000Field").style.display = (!isLda && state.mode==="departure") ? "" : "none";
+  { const wl = document.getElementById("windLabel");
+    if(wl) wl.textContent = (!isLda && state.mode==="departure") ? "Wind 地上 (磁方位/kt 例:010/15、無風は空欄)" : "Wind (磁方位/kt 例:010/15、無風は空欄)"; }
   // Departure/LDAは3D非対応。3D ONのままだとドラッグが見えない傾き変更になるので2Dに戻して無効化。
   const no3D = isLda || state.mode==="departure";
   if(no3D) resetTo2DView();
@@ -2384,7 +2403,7 @@ document.querySelectorAll("#appFlap button").forEach(btn=>{
 });
 // Downwind Altitudeは入力中は100ft丸めを書き戻さないので、blur時に描き直して丸める
 document.getElementById("downwindAlt").addEventListener("blur", ()=>setTimeout(render, 0));
-["downwindOffset","downwindAlt","baseDist","baseTime","aimingPoint","thrCross","glideAngle","downwindSpd","targetAppSpd","oat","wind","breakDist"].forEach(id=>{
+["downwindOffset","downwindAlt","baseDist","baseTime","aimingPoint","thrCross","glideAngle","downwindSpd","targetAppSpd","oat","wind","wind2000","breakDist"].forEach(id=>{
   document.getElementById(id).addEventListener("input", render);
   document.getElementById(id).addEventListener("change", render);
 });
@@ -2752,16 +2771,16 @@ document.getElementById("viewResetBtn").addEventListener("pointerdown", (e)=>e.s
 document.getElementById("geomErrorOk").addEventListener("click", (e)=>{ e.stopPropagation(); depIskAckKey = depIskPendingKey; render(); });
 document.getElementById("geomErrorOk").addEventListener("pointerdown", (e)=>e.stopPropagation());
 // 地図の向き(North↑/RWY↑)。切替は地図上のN↑ボタンのみ。既定が違うので値は別に持つ
-// (LDA以外=RWY↑既定[state.northUp]、LDA=North↑既定[state.ldaNorthUp])。
+// (Approach/Pattern=RWY↑既定[state.northUp]、LDA=North↑既定[state.ldaNorthUp]、Departure=North↑既定[state.depNorthUp])。
 function isLdaSelected(){ const v = (document.getElementById("rwyEnd")||{}).value||""; return v==="LDA22" || v==="LDA23"; }
-function northUpNow(){ return isLdaSelected() ? !!state.ldaNorthUp : !!state.northUp; }
+function northUpNow(){ return isLdaSelected() ? !!state.ldaNorthUp : (state.mode==="departure" ? !!state.depNorthUp : !!state.northUp); }
 function syncMapOrientUI(){
   const nu = northUpNow();
   const nb = document.getElementById("northBtn");
   if(nb){ nb.classList.toggle("on", nu); nb.setAttribute("aria-pressed", nu ? "true" : "false"); }
 }
 function setNorthUp(nu){
-  if(isLdaSelected()) state.ldaNorthUp = nu; else state.northUp = nu;
+  if(isLdaSelected()) state.ldaNorthUp = nu; else if(state.mode==="departure") state.depNorthUp = nu; else state.northUp = nu;
   state.headingOffsetDeg = 0;   // 3Dのドラッグ回転分をリセット
   render();
 }
@@ -3945,10 +3964,12 @@ function renderDeparture(airport, rwyLabel){
   const oatC = readOat(airport.elevationFt, "空港標高");
   const oatValid = true;
   if(stopIfInputErrors()) return;
-  // 風は高度によらず一定。磁方位→真方位は滑走路のMAG VARで換算
+  // 地上風と2000ftの風(空欄なら地上風のまま)。磁方位→真方位は滑走路のMAG VARで換算
   const { windDirMag, windSpeedKt } = readWindInput();
+  const w2in = readWindInput("wind2000", "Wind 2000ft");
   const depMagVar = getRunwayMagVar(airport, rwyLabel);
   const windFromTrueDeg = windDirMag - depMagVar;
+  const wind2000 = w2in.blank ? null : { speedKt: w2in.windSpeedKt, fromTrueDeg: w2in.windDirMag - depMagVar, altAFE: 2000 - airport.elevationFt };
 
   const startOffsetM = startOffsetFt*0.3048;
   const startXY = { x: oppXY.x-ux*startOffsetM, y: oppXY.y-uy*startOffsetM };
@@ -3973,7 +3994,7 @@ function renderDeparture(airport, rwyLabel){
     startXY, headingTrueDeg, iskXY, iteXY, elevationFt: airport.elevationFt,
     // 旋回終了TRKはAIPどおり磁方位。シミュレーションは真方位なのでMAG VARで換算
     iasKt, turnStartNM, bankDeg, trkStopDeg: trkStopDeg - depMagVar, accelHeightFt, climbLowFpm, climbHighFpm, accelRateKtSec,
-    oatC, oatValid, windSpeedKt, windFromTrueDeg
+    oatC, oatValid, windSpeedKt, windFromTrueDeg, wind2000
   });
 
   if(!sim.ok){
@@ -3985,7 +4006,7 @@ function renderDeparture(airport, rwyLabel){
   }
 
   // --- 画面のパン/回転(rotwrap) ---
-  const rotationDeg = state.northUp ? 0 : -headingTrueDeg; // 離陸滑走方向を上(North↑なら回さない)
+  const rotationDeg = state.depNorthUp ? 0 : -headingTrueDeg; // 離陸滑走方向を上(North↑なら回さない。Departureの既定はNorth↑)
   // 経路全体(直進+旋回)の外形の中心を画面中心に合わせる
   const allPts = sim.path.map(p=>({x:p.x,y:p.y})).concat([startXY, thrXY]);
   const minX = Math.min(...allPts.map(p=>p.x)), maxX = Math.max(...allPts.map(p=>p.x));
@@ -4000,7 +4021,7 @@ function renderDeparture(airport, rwyLabel){
   rotwrap.style.transform = "rotate("+(rotationDeg+state.headingOffsetDeg)+"deg)"; // Departureは3D非対応(tiltは常に0)
   const counterRot = -rotationDeg - state.headingOffsetDeg;
   updateWindIndicator(windSpeedKt, windFromTrueDeg, rotationDeg+state.headingOffsetDeg, depMagVar); // ドラッグ回転分も反映
-  document.getElementById("compassLabel").textContent = state.northUp
+  document.getElementById("compassLabel").textContent = state.depNorthUp
     ? northUpCompassText(rwyLabel+" (Departure)", getRunwayMagHeading(airport,rwyLabel))
     : "RWY "+rwyLabel+" (Departure) ↑ "+screenUpMagText(getRunwayMagHeading(airport,rwyLabel));
 
@@ -4124,7 +4145,7 @@ function renderDeparture(airport, rwyLabel){
   document.getElementById("readout").innerHTML = (depIskErr ? depIskErrHtml : "") + `
     <div class="item key"><div class="k">Turn Start (ISK ${turnStartNM.toFixed(1)}NM)</div><div class="v">${ts?`${fmtTime(ts.t)} 経過 ／ ${afeToDisplayMSL10(ts.altFt, airport.elevationFt).toLocaleString()} ft MSL ／ ${ts.tasKt.toFixed(0)}kt TAS${windSpeedKt>0?" / GS "+ts.gsKt.toFixed(0)+"kt":""}`:"―"}</div></div>
     <div class="item${bankDeg>=30?" warn":""}"><div class="k">Bank角 / 旋回終了TRK</div><div class="v">${bankDeg}° (左旋回) / TRK${trkStopDeg}°M</div></div>
-    <div class="item"><div class="k">風 (高度によらず一定)</div><div class="v">${windSpeedKt>0?`${String(Math.round(windDirMag)).padStart(3,"0")}°M / ${Math.round(windSpeedKt)}kt ／ 離陸滑走方向 ${(()=>{const hw=windSpeedKt*Math.cos((windFromTrueDeg-headingTrueDeg)*D2R), xw=windSpeedKt*Math.sin((windFromTrueDeg-headingTrueDeg)*D2R); return (hw>=0?"向かい風 ":"追い風 ")+Math.abs(hw).toFixed(0)+"kt・"+(Math.abs(xw)<0.5?"横風 0kt":(xw>0?"右":"左")+"横風 "+Math.abs(xw).toFixed(0)+"kt");})()}`:"無風"}</div></div>
+    <div class="item"><div class="k">風 (地上 ／ 2000ft)</div><div class="v">${windSpeedKt>0?`地上 ${String(Math.round(windDirMag)).padStart(3,"0")}°M / ${Math.round(windSpeedKt)}kt ／ 離陸滑走方向 ${(()=>{const hw=windSpeedKt*Math.cos((windFromTrueDeg-headingTrueDeg)*D2R), xw=windSpeedKt*Math.sin((windFromTrueDeg-headingTrueDeg)*D2R); return (hw>=0?"向かい風 ":"追い風 ")+Math.abs(hw).toFixed(0)+"kt・"+(Math.abs(xw)<0.5?"横風 0kt":(xw>0?"右":"左")+"横風 "+Math.abs(xw).toFixed(0)+"kt");})()}`:"地上 無風"}<br>${wind2000 ? (w2in.windSpeedKt>0 ? `2000ft ${String(Math.round(w2in.windDirMag)).padStart(3,"0")}°M / ${Math.round(w2in.windSpeedKt)}kt（地上〜2000ftは直線的に変化）` : "2000ft 無風（地上〜2000ftは直線的に変化）") : "2000ft 地上風と同じ"}</div></div>
   `;
 }
 
@@ -5794,13 +5815,13 @@ const PERSIST_KEY = "approachPlannerState_v1";
 const PERSIST_STATE_KEYS = [
   "acModel","appFlap","circDwFlap","approach","side","airportKey","cutAngle",
   "baseMode","vorAltMSL","showImage","show3D","showTerrain",
-  "tiltDeg","headingOffsetDeg","showAltLabels","mode","depBank","nightMode","pathRef","papi16","northUp","ldaNorthUp"
+  "tiltDeg","headingOffsetDeg","showAltLabels","mode","depBank","nightMode","pathRef","papi16","northUp","ldaNorthUp","depNorthUp"
 ];
 
 // 保存する入力欄(導出値の欄は含めない)
 const PERSIST_FIELD_IDS = [
   "downwindOffset","downwindAlt","baseDist","baseTime","aimingPoint",
-  "glideAngle","oat","wind","acWeight",
+  "glideAngle","oat","wind","wind2000","acWeight",
   "depStartOffsetFt","depSpeedKt","depTurnStartNM","depTrkStopDeg","depAccelHeightFt",
   "ldaTurnStartDme","breakDist"
 ];
@@ -5888,7 +5909,7 @@ function applySavedStateOverride(saved){
     showImage: isBool, show3D: isBool, showTerrain: isBool, showAltLabels: isBool, nightMode: isBool,
     tiltDeg: numIn(0, 89), headingOffsetDeg: numIn(-3600, 3600), mode: oneOf(["approach","pattern","departure","lda"]),
     depBank: oneOf([20,25,30]), pathRef: oneOf(["aim","ils"]), papi16: oneOf(["3.0","3.25"]),
-    northUp: isBool, ldaNorthUp: isBool
+    northUp: isBool, ldaNorthUp: isBool, depNorthUp: isBool
   };
   Object.keys(saved.state).forEach(k=>{
     if(!PERSIST_STATE_KEYS.includes(k)) return;
@@ -5971,7 +5992,7 @@ window.addEventListener("pagehide", flushSaveState);
   const ctl = document.getElementById("controls");
   const NEG_OK = new Set(["oat"]);
   const fields = Array.from(document.querySelectorAll("#controls input")).filter(inp=>
-    !inp.disabled && (inp.type==="number" || inp.id==="wind" || inp.id==="breakDist"));
+    !inp.disabled && (inp.type==="number" || inp.id==="wind" || inp.id==="wind2000" || inp.id==="breakDist"));
   let cur = null, fresh = false;
   fields.forEach(inp=>{
     inp.dataset.np = "1";
@@ -5985,7 +6006,8 @@ window.addEventListener("pagehide", flushSaveState);
     inp.addEventListener("keydown", (e)=>{
       if(e.key==="Enter" || e.key==="Escape"){ e.preventDefault(); if(cur===inp) close(); else inp.blur(); return; }
       if(e.key.length===1 && !e.ctrlKey && !e.metaKey){
-        const ok = /[0-9]/.test(e.key) || (e.key==="." && inp.id!=="wind") || (e.key==="-" && NEG_OK.has(inp.id)) || ((e.key==="/"||e.key===" ") && inp.id==="wind") || ((e.key==="d"||e.key==="D") && inp.id==="breakDist");
+        const isWind = inp.id==="wind" || inp.id==="wind2000";
+        const ok = /[0-9]/.test(e.key) || (e.key==="." && !isWind) || (e.key==="-" && NEG_OK.has(inp.id)) || ((e.key==="/"||e.key===" ") && isWind) || ((e.key==="d"||e.key==="D") && inp.id==="breakDist");
         if(!ok){ e.preventDefault(); return; }
         if(cur===inp && fresh){ e.preventDefault(); fresh=false; inp.value = e.key; inp.dispatchEvent(new Event("input",{bubbles:true})); }
       }
@@ -6007,8 +6029,8 @@ window.addEventListener("pagehide", flushSaveState);
     // Break Point欄では「/」キーを「D」(DME距離指定)として使う
     const slashBtn = pad.querySelector('[data-k="/"]');
     slashBtn.textContent = inp.id==="breakDist" ? "D" : "/";
-    slashBtn.disabled = !(inp.id==="wind" || inp.id==="breakDist");
-    pad.querySelector('[data-k="."]').disabled = inp.id==="wind"; // Windは整数のみ(010/15)
+    slashBtn.disabled = !(inp.id==="wind" || inp.id==="wind2000" || inp.id==="breakDist");
+    pad.querySelector('[data-k="."]').disabled = (inp.id==="wind" || inp.id==="wind2000"); // Windは整数のみ(010/15)
     pad.classList.add("show"); pad.parentElement.classList.add("np-active");
     fitBodyForPad();
     setTimeout(()=>{ try{ inp.scrollIntoView({block:"center", behavior:"smooth"}); }catch(e){} }, 0);
@@ -6083,7 +6105,7 @@ window.addEventListener("pagehide", flushSaveState);
 
 // 「入力値を既定値に戻す」: 起動直後(保存状態の復元前)のstateを既定値として控える
 const DEFAULT_STATE = JSON.parse(JSON.stringify(state));
-const RESET_STATE_KEYS = ["acModel","appFlap","circDwFlap","approach","side","cutAngle","baseMode","vorAltMSL","depBank","pathRef","papi16","northUp","ldaNorthUp"];
+const RESET_STATE_KEYS = ["acModel","appFlap","circDwFlap","approach","side","cutAngle","baseMode","vorAltMSL","depBank","pathRef","papi16","northUp","ldaNorthUp","depNorthUp"];
 (function(){
   const btn = document.getElementById("resetBtn");
   if(!btn) return;
