@@ -272,7 +272,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 272</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 274</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -302,7 +302,7 @@
     <div class="sect">気象</div>
 
     <div class="field">
-      <label id="oatLabel">OAT (℃) - at pattern altitude</label>
+      <label id="oatLabel">OAT (℃) - 地上(空港)</label>
       <input id="oat" type="number" step="1" value="15">
     </div>
 
@@ -2147,9 +2147,9 @@ function updateModeFieldsVisibility(){
     if(typeof applyPatternCircDwFlapDefaultIfNeeded==="function") applyPatternCircDwFlapDefaultIfNeeded();
   }
   document.getElementById("opModeHint").style.display = isLda ? "" : "none";
-  // OATがどの高さの気温かはモードで違うのでラベルで明示
+  // OATは全モード共通で地上(空港)の気温。上空は1000ftあたり2℃で下げる
   { const ol = document.getElementById("oatLabel");
-    if(ol) ol.textContent = state.mode==="departure" ? "OAT (℃) - 地上(空港)" : (isLda ? "OAT (℃) - 約1200ft AFE" : "OAT (℃) - at pattern altitude"); }
+    if(ol) ol.textContent = "OAT (℃) - 地上(空港)"; }
   document.getElementById("ldaFields").style.display = isLda ? "" : "none";
   document.getElementById("departureFields").style.display = (!isLda && state.mode==="departure") ? "" : "none";
   document.getElementById("approachPatternFields").style.display = (isLda || state.mode==="departure") ? "none" : "";
@@ -2946,9 +2946,17 @@ function latLonToFraction(lat, lon){
   const fy = (mapBounds.north-lat)/(mapBounds.north-mapBounds.south);
   return { fx, fy };
 }
-// AFE高度をMSLに変換し10ft単位に丸める(表示用)
+// 気温による高度計の誤差(ICAO Doc 8168の簡易式 4ft/℃/1000ft、trueAltitudeCorrectionFtと同じ)。
+// 飛行場標高からの高さで、実際の高さ = 高度計の高さ × (1 + 0.004×ΔISA)。
+// 経路・3°パス・PAPIは実際の高さで計算し、画面のft MSLは高度計の値に戻して出す。
+// renderMainの先頭でk=0に戻し、各モードがOATを読んだあとでsetAltTempCorrする(Departureは上昇率が気圧基準なので0のまま)。
+let altTemp = { k:0, fieldElevFt:0 };
+function setAltTempCorr(isaDevC, fieldElevFt){ altTemp = { k: 0.004*isaDevC, fieldElevFt }; }
+function indToTrueMSL(indMSL){ return altTemp.fieldElevFt + (indMSL - altTemp.fieldElevFt)*(1+altTemp.k); }
+function trueToIndMSL(trueMSL){ return altTemp.fieldElevFt + (trueMSL - altTemp.fieldElevFt)/(1+altTemp.k); }
+// AFE高度(実際の高さ)をMSLの高度計の値に変換し10ft単位に丸める(表示用)
 function afeToDisplayMSL10(afeFt, elevationFt){
-  return Math.round((elevationFt+afeFt)/10)*10;
+  return Math.round(trueToIndMSL(elevationFt+afeFt)/10)*10;
 }
 // originXY(m)から単位ベクトルdirへ進み、衛星画像の範囲の端に達するまでの距離(m)。範囲外なら0
 function rayExitDistM(originXY, dir, refLat, refLon){
@@ -4286,9 +4294,12 @@ function renderLda(airport, rwyLabel){
   // --- 速度: Target App Spd(IAS)。TAS換算はMAP付近の代表高度で一度だけ ---
   const targetAppSpdKt = parseFloat(document.getElementById("targetAppSpd").value)||147;
   const repPressureAltFt = ldaRefElevFt+1200;
-  const oatC = readOat(repPressureAltFt, "約1200ft AFE");
+  const oatGroundC = readOat(airport.elevationFt, "空港標高");   // OATは地上の気温
+  const oatC = oatGroundC - 2*(repPressureAltFt - airport.elevationFt)/1000;   // 約1200ft AFEの気温
   const oatValid = true;
   const tasKt = oatValid ? iasToTas(targetAppSpdKt, repPressureAltFt, oatC) : targetAppSpdKt;
+  // 気温による高度計の誤差。3°パスは実際の高さで計算し、表示のft MSLは高度計の値にする
+  setAltTempCorr(oatGroundC - isaTempC(airport.elevationFt), airport.elevationFt);
 
   // --- 旋回角/旋回方向: LDA Final Apch Crs(進入方位)→ 滑走路実測Final ---
   let diff = ((finalCourseTrueDeg-ldaCourseTrueDeg+540)%360)-180; // (-180,180]
@@ -4420,7 +4431,7 @@ function renderLda(airport, rwyLabel){
   npSummaryText = "必要Bank "+bankSolvedDeg.toFixed(1)+"°";
   // 結果ボードはMAP通過高度・必要Bank角・on Finalのみ
   document.getElementById("readout").innerHTML = `
-    <div class="item key"><div class="k">MAP通過高度</div><div class="v">${afeToDisplayMSL10(mapCrossAFE, ldaRefElevFt).toLocaleString()} ft MSL (THR上 ${mapCrossAFE.toFixed(0)}ft)</div></div>
+    <div class="item key"><div class="k">MAP通過高度</div><div class="v">${afeToDisplayMSL10(mapCrossAFE, ldaRefElevFt).toLocaleString()} ft MSL (THR上 ${mapCrossAFE.toFixed(0)}ft)${Math.abs(altTemp.k)>1e-9 ? `<br><span style="font-size:11px;color:var(--textdim);font-weight:400;">高度計の値(OAT ${oatGroundC.toFixed(0)}℃)。実際の高さは ${(Math.round((ldaRefElevFt+mapCrossAFE)/10)*10).toLocaleString()} ft MSL</span>` : ""}</div></div>
     <div class="item key${bankSolvedDeg>30?" danger":(bankSolvedDeg>25?" warn":"")}"><div class="k">Finalにのるための必要Bank角</div><div class="v">${bankSolvedDeg.toFixed(1)}° (${turnSign<0?"左":"右"}旋回 ${turnAngleDeg.toFixed(1)}°)</div></div>
     <div class="item key"><div class="k">on Final (旋回終了点)</div><div class="v">${afeToDisplayMSL10(rollOutAFE, ldaRefElevFt).toLocaleString()} ft MSL</div></div>
   `;
@@ -4685,7 +4696,7 @@ function renderVProfile(r, info){
     const elevFt = info.refElevFt||0;
     const nearTxt = (rg, bLabel)=>{
       if(!rg) return "";
-      const alt = (x)=> Math.round(r.gearAt(x)+elevFt).toLocaleString();
+      const alt = (x)=> Math.round(trueToIndMSL(r.gearAt(x)+elevFt)).toLocaleString();
       const toTxt = rg.to < 50 ? "THR" : "THR手前 "+vpFmtNM(rg.to);
       const fromTxt = rg.from >= 5*FT_PER_NM-1 ? "5NM以遠" : "THR手前 "+vpFmtNM(rg.from);
       return `<br><span style="color:var(--amber);font-weight:600">${bLabel}の境界線上を飛行</span> <span style="color:var(--textdim);font-weight:400">（差3′以内：${fromTxt}〜${toTxt}／${alt(rg.from)}〜${alt(rg.to)}ft MSL）</span>`;
@@ -4698,7 +4709,7 @@ function renderVProfile(r, info){
       else if(i===0) v = `5NM以遠からすでに${label}以下`;
       else {
         const x = p.segs[i].fromX, gH = r.gearAt(x);
-        v = `${Math.round(gH+elevFt).toLocaleString()}ft MSL <span style="color:var(--textdim);font-weight:400">（THR上 ${Math.round(gH)}ft ／ THR手前 ${vpFmtNM(x)}）</span>`;
+        v = `${Math.round(trueToIndMSL(gH+elevFt)).toLocaleString()}ft MSL <span style="color:var(--textdim);font-weight:400">（THR上 ${Math.round(gH)}ft ／ THR手前 ${vpFmtNM(x)}）</span>`;
       }
       // 境界を短く横切るだけなら出さない(切替なし/5NM以遠から、または3′以内が1NM以上続くときだけ)
       const rg = k===1 ? p.near.onslopeLow : p.near.lowest;
@@ -4707,7 +4718,7 @@ function renderVProfile(r, info){
     };
     const rowsP = [crossRow("3R1W", 1)];
     if(Math.abs(p.angle-3.25)<1e-9) rowsP.push(crossRow("4R", 0));
-    papiHtml = `<div class="vpSub">PAPI（Eye、${r.ilsOnPath ? "On Glideslopeで" : "このAiming Point・降下角で"}飛んだとき。高度は高度計の値＝Gear基準）</div>
+    papiHtml = `<div class="vpSub">PAPI（Eye、${r.ilsOnPath ? "On Glideslopeで" : "このAiming Point・降下角で"}飛んだとき。高度は高度計の値＝Gear基準・気温補正込み）</div>
       <table class="vpTbl">${rowsP.join("")}</table>
       <div class="hint">PAPI: THRから${p.distM}m（${Math.round(p.distM/0.3048).toLocaleString()}ft）・${p.side==="R"?"右":"左"}・MEHT ${p.mehtFt}ft ／ ${Math.abs(p.angle-3)>1e-9 ? p.angle+"° PAPI" : (p.ilsType?"ILSあり":"ILSなし")}の設定角 ${p.units.map(a=>a.toFixed(2)).join("/")}° ／ MEHTから逆算した実効位置 THRから${Math.round(p.effFt).toLocaleString()}ft${p.note?` ／ ${p.note}`:""}</div>`;
   } else {
@@ -4788,6 +4799,7 @@ function render(){
   }
 }
 function renderMain(){
+  setAltTempCorr(0, 0);   // 気温による高度計の誤差: 各モードがOATを読んでから設定する
   contTurnSeenThisRender = false;
   _labelFSCache = null;
   hideVProfile(); // 通常の進入の結果を出せたときだけ最後に表示
@@ -4944,9 +4956,8 @@ function renderMain(){
      && document.body.dataset.npEditing !== "downwindAlt"){
     document.getElementById("downwindAlt").value = String(downwindAltMSL);
   }
-  const downwindAltAFE = downwindAltMSL - refElevFt;   // THR標高からの高さ(変数名はAFEのまま)
-  document.getElementById("downwindAltHint").textContent = "(" + Math.round(downwindAltMSL - airport.elevationFt).toLocaleString()
-    + " ft AFE ／ THR" + rwyLabel + "上 " + Math.round(downwindAltAFE).toLocaleString() + " ft)";
+  // 入力値は高度計の値。THR標高からの高さ(変数名はAFEのまま)。実際の高さ(downwindAltAFE)はOATを読んだあとで求める
+  const downwindAltIndAFE = downwindAltMSL - refElevFt;
   // Base Leg DistanceはVisual・距離固定のときだけ検証する(非表示の欄の値で計算を止めないため)
   const baseDistNM_input = (!isVorProcedure && state.approach!=="circling" && state.baseMode!=="time")
     ? readNum("baseDist", 2.5, 0.5, 8, "Base Leg Distance", "NM") : 2.5;
@@ -4966,7 +4977,15 @@ function renderMain(){
   document.getElementById("thrCrossHint").textContent = "Eye " + vpRes.eyeThr.toFixed(0) + "ft − (Eye−Gear " + vpRes.geom.eyeGear.toFixed(1) + "ft, " + state.acModel + ") ＝ Gear " + vpRes.gearThr.toFixed(0) + "ft";
   const downwindIAS = parseFloat(document.getElementById("downwindSpd").value)||145;
   const targetAppSpdKt = parseFloat(document.getElementById("targetAppSpd").value)||147;
-  const oatC = readOat(refElevFt + downwindAltAFE, "パターン高度"); // 空欄はISA
+  // OATは地上(空港)の気温。パターン高度の気温は1000ftあたり2℃下げる(空欄はISA)
+  const oatGroundC = readOat(airport.elevationFt, "空港標高");
+  const oatC = oatGroundC - 2*((refElevFt + downwindAltIndAFE) - airport.elevationFt)/1000;   // パターン高度の気温
+  // 気温による高度計の誤差を設定し、Downwind Altitude(高度計)を実際の高さに直す。以降の経路計算は実際の高さ
+  setAltTempCorr(oatGroundC - isaTempC(airport.elevationFt), airport.elevationFt);
+  const downwindAltAFE = indToTrueMSL(downwindAltMSL) - refElevFt;
+  document.getElementById("downwindAltHint").textContent = "(" + Math.round(downwindAltMSL - airport.elevationFt).toLocaleString()
+    + " ft AFE ／ THR" + rwyLabel + "上 " + Math.round(downwindAltIndAFE).toLocaleString() + " ft"
+    + (Math.abs(downwindAltAFE-downwindAltIndAFE)>=0.5 ? " ／ 気温補正後の実際の高さ THR上 " + Math.round(downwindAltAFE).toLocaleString() + " ft" : "") + ")";
   const oatValid = true;
   // Wind「磁方位/kt」(例 010/15、区切りは/か空白)。空欄・不正は無風、風速0〜50kt。
   const { windDirMag, windSpeedKt } = readWindInput();
@@ -4975,12 +4994,12 @@ function renderMain(){
 
   // --- 気温補正: IAS→TAS ---
   // downwindTAS: パターン/旋回用。targetAppTAS: Abeam以降の減速後の最終進入速度(降下率・TOD距離に使う)。
-  const pressureAltFt = refElevFt + downwindAltAFE;
+  const pressureAltFt = refElevFt + downwindAltIndAFE;   // 気圧高度は高度計の値
   const downwindTAS = oatValid ? iasToTas(downwindIAS, pressureAltFt, oatC) : downwindIAS;
   // Target APP SPDはAbeam〜Final降下中の速度なので、平均高度(Downwind AFEの半分)の気圧高度でTAS換算する。
   // OATはパターン高度の気温なので標準減率で補正する。
-  const finalMidPressAltFt = refElevFt + downwindAltAFE/2;
-  const oatAtFinalMidC = oatC + 2*(downwindAltAFE/2)/1000;
+  const finalMidPressAltFt = refElevFt + downwindAltIndAFE/2;
+  const oatAtFinalMidC = oatGroundC - 2*((finalMidPressAltFt) - airport.elevationFt)/1000;
   const targetAppTAS = oatValid ? iasToTas(targetAppSpdKt, finalMidPressAltFt, oatAtFinalMidC) : targetAppSpdKt;
 
   // Base Turn開始(時間基準): Abeam THRからN秒後(Circling 20s、Visual既定35s)、Downwindの追い風1ktにつき0.4s早く(向かい風は遅く)。
@@ -5224,7 +5243,7 @@ function renderMain(){
   }
   const pat = buildPattern(baseDistNM);
   // 気温による高度補正は高度計規正の基準点(飛行場標高)からの高さに比例する(ICAO Doc 8168)。THR標高基準にしないこと。
-  const trueAltCorrFt = oatValid ? trueAltitudeCorrectionFt(pressureAltFt, oatC, (refElevFt + downwindAltAFE) - airport.elevationFt) : 0;
+  const trueAltCorrFt = oatValid ? trueAltitudeCorrectionFt(pressureAltFt, oatC, (refElevFt + downwindAltIndAFE) - airport.elevationFt) : 0;
 
   // --- 画面の回転: 滑走路の方位を上にする(回転は真方位、表示だけ磁方位) ---
   const rwyMagHeading = getRunwayMagHeading(airport, rwyLabel);
@@ -5754,9 +5773,9 @@ function renderMain(){
     <div class="item key${turnInfo.danger?" danger":""}"><div class="k">${turnInfo.label}</div><div class="v">${turnInfo.value}</div></div>
     ${departure ? `<div class="item key${departure.turn.bankSolvedDeg>BANK_WARN_DEG?" danger":""}"><div class="k">離陸→Downwind旋回 必要バンク角(180°, Roll+風込み)</div><div class="v">${departure.turn.bankSolvedDeg.toFixed(1)}°${windSpeedKt>0?` ／ 風ドリフト ${(departure.turn.driftM/NM).toFixed(2)}NM`:""}</div></div>` : ""}
     <div class="item"><div class="k">${turnEndLabel} 高度</div><div class="v">${afeToDisplayMSL10(rollOutAltFt, refElevFt).toLocaleString()} ft MSL <span style="font-size:11px; color:var(--textdim);">(${rollOutDistM.toFixed(0)>0?(rollOutDistM/NM).toFixed(2):"0.00"} NM)</span></div></div>
-    <div class="item"><div class="k">必要降下率の目安 (G/S, Final Track)</div><div class="v">${Math.round(pat.finalGSKt*101.27*Math.tan(glideAngleDeg*D2R))} ft/min</div></div>
+    <div class="item"><div class="k">必要降下率の目安 (G/S, Final Track)</div><div class="v">${Math.round(pat.finalGSKt*101.27*Math.tan(glideAngleDeg*D2R)/(1+altTemp.k))} ft/min</div></div>
     <div class="item"><div class="k">Final Track上のG/S</div><div class="v">${pat.finalGSKt.toFixed(0)} kt${windSpeedKt>0?` (風成分 ${pat.windAlongFinalKt>=0?"+":""}${pat.windAlongFinalKt.toFixed(0)}kt)`:""}</div></div>
-    <div class="item${Math.abs(trueAltCorrFt)>=100?" warn":""}"><div class="k">真高度補正の目安</div><div class="v">${trueAltCorrFt>=0?"+":""}${trueAltCorrFt.toFixed(0)} ft</div></div>
+    <div class="item${Math.abs(trueAltCorrFt)>=100?" warn":""}"><div class="k">気温による高度計の誤差 (Downwind)</div><div class="v">${Math.round(trueAltCorrFt)>=0?"+":""}${Math.round(trueAltCorrFt)} ft <span style="font-size:11px;color:var(--textdim);font-weight:400;">(実際の高さ−高度計。経路・高度の表示に反映済み)</span></div></div>
     ${entryLegBCSec!==null && !isVorA16L ? `<div class="item"><div class="k">B→C 秒数</div><div class="v">${entryLegBCSec.toFixed(0)} sec</div></div>` : ""}
   `;
   renderVProfile(vpDisp, { model:state.acModel, rwyLabel, appFlap:state.appFlap, hasGp: !!(vpAids && vpAids.gp), refElevFt,
