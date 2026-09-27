@@ -272,7 +272,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 274</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 275</span></h1>
   <span class="sub" id="airportSub"></span>
 </header>
 
@@ -5775,7 +5775,7 @@ function renderMain(){
     <div class="item"><div class="k">${turnEndLabel} 高度</div><div class="v">${afeToDisplayMSL10(rollOutAltFt, refElevFt).toLocaleString()} ft MSL <span style="font-size:11px; color:var(--textdim);">(${rollOutDistM.toFixed(0)>0?(rollOutDistM/NM).toFixed(2):"0.00"} NM)</span></div></div>
     <div class="item"><div class="k">必要降下率の目安 (G/S, Final Track)</div><div class="v">${Math.round(pat.finalGSKt*101.27*Math.tan(glideAngleDeg*D2R)/(1+altTemp.k))} ft/min</div></div>
     <div class="item"><div class="k">Final Track上のG/S</div><div class="v">${pat.finalGSKt.toFixed(0)} kt${windSpeedKt>0?` (風成分 ${pat.windAlongFinalKt>=0?"+":""}${pat.windAlongFinalKt.toFixed(0)}kt)`:""}</div></div>
-    <div class="item${Math.abs(trueAltCorrFt)>=100?" warn":""}"><div class="k">気温による高度計の誤差 (Downwind)</div><div class="v">${Math.round(trueAltCorrFt)>=0?"+":""}${Math.round(trueAltCorrFt)} ft <span style="font-size:11px;color:var(--textdim);font-weight:400;">(実際の高さ−高度計。経路・高度の表示に反映済み)</span></div></div>
+    <div class="item${Math.abs(trueAltCorrFt)>=100?" warn":""}"><div class="k">真高度補正</div><div class="v">${Math.round(trueAltCorrFt)>=0?"+":""}${Math.round(trueAltCorrFt)} ft</div></div>
     ${entryLegBCSec!==null && !isVorA16L ? `<div class="item"><div class="k">B→C 秒数</div><div class="v">${entryLegBCSec.toFixed(0)} sec</div></div>` : ""}
   `;
   renderVProfile(vpDisp, { model:state.acModel, rwyLabel, appFlap:state.appFlap, hasGp: !!(vpAids && vpAids.gp), refElevFt,
