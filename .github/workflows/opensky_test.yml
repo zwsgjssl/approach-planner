@@ -1,0 +1,75 @@
+name: OpenSky test
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "取得日数（前日から遡る）"
+        default: "7"
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Fetch departures from OpenSky
+        env:
+          OS_ID: ${{ secrets.OPENSKY_CLIENT_ID }}
+          OS_SECRET: ${{ secrets.OPENSKY_CLIENT_SECRET }}
+          DAYS: ${{ github.event.inputs.days }}
+        run: |
+          python3 - <<'EOF'
+          import os, json, time, csv, urllib.request, urllib.parse, urllib.error, datetime
+          AIRPORTS = """RJTT RJAA RJOO RJBB RJBE RJGG RJCC RJFF ROAH RJFK RJFT RJFM RJFO RJFU RJOM RJOT
+          RJOA RJSS RJCH RJEC RJCK RJCB RJCM RJCN RJCW RJNK RJNT RJSN RJSA RJSK RJSI RJSM RJSY RJSC
+          RJSF RJOB RJOK RJOS RJOC RJOR RJOH RJOW RJOI RJDC RJFR RJFS RJFE RJFG RJFC RJKA RJKN ROIG
+          ROMY RJNS RJAH RJCO RJBD RJNW RJTH""".split()
+          TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
+          tok = {"v": None, "t": 0}
+          def token():
+              if tok["v"] and time.time() - tok["t"] < 1500:
+                  return tok["v"]
+              body = urllib.parse.urlencode({"grant_type": "client_credentials",
+                  "client_id": os.environ["OS_ID"], "client_secret": os.environ["OS_SECRET"]}).encode()
+              with urllib.request.urlopen(urllib.request.Request(TOKEN_URL, data=body), timeout=30) as r:
+                  tok["v"] = json.load(r)["access_token"]; tok["t"] = time.time()
+              return tok["v"]
+          token()
+          print("token OK")
+          days = int(os.environ.get("DAYS") or 7)
+          today = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+          rows, log = [], []
+          stop = False
+          for d in range(days, 0, -1):
+              begin = int((today - datetime.timedelta(days=d)).timestamp()); end = begin + 86400
+              for ap in AIRPORTS:
+                  url = f"https://opensky-network.org/api/flights/departure?airport={ap}&begin={begin}&end={end}"
+                  req = urllib.request.Request(url, headers={"Authorization": "Bearer " + token()})
+                  try:
+                      with urllib.request.urlopen(req, timeout=60) as r:
+                          data = json.load(r)
+                      n = len(data)
+                      for f in data:
+                          rows.append([(f.get("callsign") or "").strip(), f.get("icao24"),
+                              f.get("estDepartureAirport"), f.get("estArrivalAirport"),
+                              f.get("firstSeen"), f.get("lastSeen"),
+                              f.get("estDepartureAirportHorizDistance"), f.get("estArrivalAirportHorizDistance")])
+                  except urllib.error.HTTPError as e:
+                      n = 0 if e.code == 404 else f"HTTP {e.code}"
+                      if e.code == 429:
+                          print("rate limited; stopping", e.headers.get("X-Rate-Limit-Retry-After-Seconds")); stop = True
+                  log.append([ap, begin, n]); print(ap, begin, n, flush=True)
+                  if stop: break
+                  time.sleep(0.3)
+              if stop: break
+          os.makedirs("out", exist_ok=True)
+          with open("out/departures.csv", "w", newline="") as f:
+              w = csv.writer(f); w.writerow(["callsign","icao24","dep","arr","firstSeen","lastSeen","depDist","arrDist"]); w.writerows(rows)
+          with open("out/log.csv", "w", newline="") as f:
+              w = csv.writer(f); w.writerow(["airport","dayBegin","count"]); w.writerows(log)
+          print("total flights", len(rows))
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opensky-test
+          path: out/
