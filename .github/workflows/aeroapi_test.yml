@@ -1,0 +1,93 @@
+name: AeroAPI test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Fetch scheduled flights from AeroAPI
+        env:
+          KEY: ${{ secrets.AEROAPI_KEY }}
+        run: |
+          python3 - <<'EOF'
+          import os, sys, json, time, csv, urllib.request, urllib.parse, urllib.error, datetime
+          BASE = "https://aeroapi.flightaware.com/aeroapi"
+          KEY = os.environ.get("KEY", "").strip()
+          os.makedirs("out", exist_ok=True)
+          print("[check] key length:", len(KEY))
+          if not KEY:
+              print("[ERROR] AEROAPI_KEY が読めていません（Repository secrets に登録されているか確認）"); sys.exit(1)
+          # テスト対象: (空港, 種類, ページ上限)
+          JOBS = [("RJTT","scheduled_departures",60), ("RJFK","scheduled_departures",10),
+                  ("RJCH","scheduled_departures",10), ("RJOM","scheduled_departures",10),
+                  ("ROIG","scheduled_departures",10), ("RJAA","scheduled_arrivals",40)]
+          PAGE_CAP_TOTAL = 150   # 安全上限（150ページ = 約0.75ドル）
+          last = [0.0]
+          def get(path):
+              wait = 6.5 - (time.time() - last[0])     # Personal は 10 result sets/分
+              if wait > 0: time.sleep(wait)
+              last[0] = time.time()
+              req = urllib.request.Request(BASE + path, headers={"x-apikey": KEY, "Accept": "application/json"})
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      return json.load(r), None
+              except urllib.error.HTTPError as e:
+                  return None, f"HTTP {e.code} {e.read()[:300]!r}"
+              except Exception as e:
+                  return None, repr(e)
+          def usage(label):
+              now = datetime.datetime.now(datetime.timezone.utc)
+              q = urllib.parse.urlencode({"start": now.strftime("%Y-%m-01T00:00:00Z"), "end": now.strftime("%Y-%m-%dT%H:%M:%SZ")})
+              d, err = get("/account/usage?" + q)
+              print(f"[usage {label}]", err or json.dumps(d)[:300])
+          usage("before")
+          # 明日（日本時間）の 0:00〜24:00
+          jst = datetime.timezone(datetime.timedelta(hours=9))
+          t0 = (datetime.datetime.now(jst) + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+          start = t0.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          end = (t0 + datetime.timedelta(days=1)).astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          print("[window]", start, "-", end)
+          rows, pages_log, total = [], [], 0
+          sample_saved = False
+          def code(a, k):
+              return (a or {}).get(k) or ""
+          for ap, kind, cap in JOBS:
+              path = f"/airports/{ap}/flights/{kind}?" + urllib.parse.urlencode({"start": start, "end": end, "type": "Airline", "max_pages": 1})
+              n_pages = n_flights = 0
+              while path and n_pages < cap and total < PAGE_CAP_TOTAL:
+                  d, err = get(path)
+                  if d is None:
+                      print("[ERROR]", ap, kind, err); break
+                  n_pages += 1; total += 1
+                  fl = d.get(kind) or []
+                  n_flights += len(fl)
+                  if not sample_saved and fl:
+                      json.dump(fl[:3], open("out/sample.json", "w"), ensure_ascii=False, indent=1); sample_saved = True
+                  for f in fl:
+                      rows.append([ap, kind, f.get("ident"), f.get("ident_icao"), f.get("ident_iata"),
+                          f.get("operator_icao"), f.get("flight_number"),
+                          code(f.get("origin"), "code_icao"), code(f.get("destination"), "code_icao"),
+                          f.get("scheduled_out"), f.get("scheduled_in"), f.get("aircraft_type"),
+                          f.get("registration"), " ".join(f.get("codeshares") or []), f.get("cancelled")])
+                  nxt = (d.get("links") or {}).get("next")
+                  path = nxt if nxt else None
+              pages_log.append([ap, kind, n_pages, n_flights, "more" if path else "done"])
+              print(ap, kind, "pages", n_pages, "flights", n_flights, "(残りあり)" if path else "")
+          with open("out/flights.csv", "w", newline="") as f:
+              w = csv.writer(f)
+              w.writerow(["airport","kind","ident","ident_icao","ident_iata","operator_icao","flight_number","origin","destination","scheduled_out","scheduled_in","aircraft_type","registration","codeshares","cancelled"])
+              w.writerows(rows)
+          with open("out/pages.csv", "w", newline="") as f:
+              w = csv.writer(f); w.writerow(["airport","kind","pages","flights","status"]); w.writerows(pages_log)
+          print("total pages", total, " flights", len(rows), " 概算費用 $%.3f" % (total * 0.005))
+          usage("after")
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aeroapi-test
+          path: out/
+          if-no-files-found: warn
