@@ -1,0 +1,56 @@
+name: Flight DB update
+
+# 便名検索のデータ(flightdb.json)を毎日更新する。
+#  - 毎日: OpenSky で前日の主要空港の発着便を集め、表に無い便名だけ AeroAPI で調べる(1便1単位)
+#  - 8週ごと・ダイヤ改正後: AeroAPI で全国1日分の予定便を取り直す(約480単位)
+#  - AeroAPI の使用は1か月900単位(約4.5ドル)まで。超えそうなら AeroAPI を呼ばない
+# 必要な Secrets: AEROAPI_KEY, OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET
+on:
+  schedule:
+    - cron: "23 6 * * *"      # 毎日 15:23(日本時間)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "auto=自動 / daily=差分だけ / baseline=全国の取り直し"
+        default: "auto"
+        type: choice
+        options: [auto, daily, baseline]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: flightdb
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Update flight database
+        env:
+          AEROAPI_KEY: ${{ secrets.AEROAPI_KEY }}
+          OPENSKY_CLIENT_ID: ${{ secrets.OPENSKY_CLIENT_ID }}
+          OPENSKY_CLIENT_SECRET: ${{ secrets.OPENSKY_CLIENT_SECRET }}
+        run: python3 -u tools/flightdb.py --mode "${{ github.event.inputs.mode || 'auto' }}"
+
+      - name: Commit and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add flightdb.json data/flightdb_master.json
+          if git diff --cached --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "flightdb: $(date -u +%Y-%m-%d) 更新"
+          git pull --rebase origin main
+          git push
+          # Actions からの push では公開用ワークフローが自動で動かないので、ここで起動する
+          gh workflow run pages.yml --ref main
