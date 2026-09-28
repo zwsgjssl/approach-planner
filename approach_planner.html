@@ -264,6 +264,45 @@
   header{ padding-left:max(14px, env(safe-area-inset-left)); padding-right:max(14px, env(safe-area-inset-right)); padding-top:max(10px, env(safe-area-inset-top)); }
   .sideCol{ padding-bottom:env(safe-area-inset-bottom); padding-right:env(safe-area-inset-right); }
   .controls{ padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
+  /* 便名検索 */
+  header .fltBtn{
+    margin-left:auto; align-self:center;
+    background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px;
+    font-size:14px; padding:6px 12px; min-height:44px; cursor:pointer; white-space:nowrap;
+  }
+  header .fltBtn:active{ background:var(--line); }
+  @media(max-width:560px){ header .fltBtnTx, header #appVer{ display:none; } header .fltBtn{ padding:6px 10px; } }
+  .fltOverlay{ position:fixed; inset:0; z-index:85; background:rgba(0,0,0,.55); display:flex; justify-content:center; align-items:flex-start;
+               padding:calc(var(--hdrH,64px) + 8px) 16px 16px; }
+  .fltOverlay[hidden]{ display:none; }
+  .fltBox{ background:var(--panel); border:1px solid var(--line); border-radius:12px; width:100%; max-width:520px;
+           max-height:calc(100vh - var(--hdrH,64px) - 24px); max-height:calc(100dvh - var(--hdrH,64px) - 24px);
+           display:flex; flex-direction:column; box-shadow:0 8px 30px rgba(0,0,0,.6); overflow:hidden; }
+  .fltHead{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px 4px 16px; }
+  .fltTitle{ font-size:15px; font-weight:600; letter-spacing:.3px; }
+  .fltClose{ background:transparent; color:var(--textdim); border:none; font-size:26px; line-height:1; min-width:44px; min-height:44px; cursor:pointer; }
+  .fltInput{ margin:4px 16px 10px; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px;
+             font-size:20px; padding:9px 12px; min-height:48px; font-family:ui-monospace, "SF Mono", Menlo, monospace; letter-spacing:.5px; }
+  .fltInput:focus{ outline:none; border-color:var(--amber); }
+  .fltResults{ overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:0 16px; display:grid; gap:10px; }
+  .fltMsg{ color:var(--textdim); font-size:13px; line-height:1.6; padding:4px 0 8px; }
+  .fltCard{ border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--panel2); display:grid; gap:4px; }
+  .fltCard .cs{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:18px; font-weight:700; color:var(--amber); letter-spacing:.5px; }
+  .fltCard .al{ font-size:13px; color:var(--text); }
+  .fltCard .al .op{ color:var(--textdim); }
+  .fltLeg{ display:grid; gap:2px; padding-top:6px; border-top:1px solid var(--line); margin-top:4px; }
+  .fltLeg:first-of-type{ border-top:none; margin-top:0; }
+  .fltLeg .rt{ font-size:17px; font-weight:600; line-height:1.35; }
+  .fltLeg .rt .code{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:12px; font-weight:400; color:var(--textdim); margin-left:4px; }
+  .fltLeg .rt .arw{ color:var(--cyan); margin:0 6px; }
+  .fltLeg .meta{ font-size:12px; color:var(--textdim); }
+  .fltTag{ display:inline-block; font-size:11px; border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:1px; border:1px solid var(--line); color:var(--textdim); }
+  .fltTag.ref{ color:var(--amber); border-color:var(--amber); }
+  .fltTag.old{ color:var(--red); border-color:var(--red); }
+  .fltSug{ display:flex; flex-wrap:wrap; gap:6px; }
+  .fltSug button{ background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; min-height:40px; padding:6px 10px;
+                  font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:14px; cursor:pointer; }
+  .fltFoot{ color:var(--textdim); font-size:11px; line-height:1.5; padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px)); border-top:1px solid var(--line); margin-top:10px; }
 
 </style>
 </head>
@@ -272,9 +311,22 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 276</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 277</span></h1>
   <span class="sub" id="airportSub"></span>
+  <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog">✈<span class="fltBtnTx"> 便名</span></button>
 </header>
+
+<div class="fltOverlay" id="fltOverlay" role="dialog" aria-modal="true" aria-labelledby="fltTitle" hidden>
+  <div class="fltBox">
+    <div class="fltHead">
+      <div class="fltTitle" id="fltTitle">便名検索</div>
+      <button type="button" class="fltClose" id="fltClose" aria-label="閉じる">×</button>
+    </div>
+    <input id="fltInput" class="fltInput" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="例: ANA23 / NH23 / ALL NIPPON 23">
+    <div class="fltResults" id="fltResults" aria-live="polite"></div>
+    <div class="fltFoot" id="fltFoot"></div>
+  </div>
+</div>
 
   <div class="controls" id="controls">
     <div class="sect">空港・滑走路</div>
@@ -6224,6 +6276,245 @@ contTurnBoot = false;
     navigator.serviceWorker.addEventListener("controllerchange", ()=>setTimeout(precacheMaps, 2000));
     // 保存データを消されにくくする(対応ブラウザのみ)
     try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(err){}
+  }catch(e){}
+})();
+</script>
+<script>
+// 便名検索。データ(flightdb.json)は GitHub Actions が毎日作り直す(tools/flightdb.py)。
+//  f : [運航便名, 出発ICAO, 到着ICAO, 機材, 最終確認日YYYYMMDD]  時刻表(FlightAware AeroAPI)由来
+//  k : 検索キー(正規化したコールサイン) → f の番号(複数なら配列)
+//  vr: 検索キー → "RJTT-RJFF"  参考(VRS standing data)。f に無い便名だけ
+//  ap: ICAO → [IATA, 名前]   ia: 航空会社 IATA → ICAO
+(function(){
+  const btn = document.getElementById("fltBtn");
+  const ov = document.getElementById("fltOverlay");
+  if(!btn || !ov) return;
+  const inp = document.getElementById("fltInput");
+  const out = document.getElementById("fltResults");
+  const foot = document.getElementById("fltFoot");
+
+  // 航空会社名(主に日本発着。無い会社は記号だけ表示)
+  const AIRLINES = {
+    ANA:"全日空", JAL:"日本航空", AKX:"ANAウイングス", JTA:"日本トランスオーシャン航空", JAC:"日本エアコミューター",
+    JLJ:"ジェイエア", NTH:"北海道エアシステム", RAC:"琉球エアーコミューター", AJX:"エアージャパン",
+    SKY:"スカイマーク", APJ:"ピーチ", JJP:"ジェットスター・ジャパン", SJO:"スプリング・ジャパン", TZP:"ZIPAIR",
+    ADO:"AIRDO", SNJ:"ソラシドエア", SFJ:"スターフライヤー", FDA:"フジドリームエアラインズ", IBX:"アイベックスエアラインズ",
+    ORC:"オリエンタルエアブリッジ", AHX:"天草エアライン", TOK:"トキエア", NCA:"日本貨物航空",
+    KAL:"Korean Air", AAR:"Asiana Airlines", JJA:"Jeju Air", JNA:"Jin Air", TWB:"t'way Air", ABL:"Air Busan", ASV:"Air Seoul",
+    ESR:"Eastar Jet", APZ:"Air Premia", EOK:"Aero K",
+    CAL:"China Airlines", EVA:"EVA Air", TTW:"Tigerair Taiwan", SJX:"STARLUX Airlines",
+    CPA:"Cathay Pacific", HKE:"HK Express", CRK:"Hong Kong Airlines", HGB:"Greater Bay Airlines", AMU:"Air Macau", AHK:"Air Hong Kong",
+    CCA:"Air China", CES:"China Eastern", CSN:"China Southern", CHH:"Hainan Airlines", CSH:"Shanghai Airlines", CXA:"Xiamen Airlines",
+    CQH:"Spring Airlines", CSC:"Sichuan Airlines", CSZ:"Shenzhen Airlines", DKH:"Juneyao Air", CSS:"SF Airlines",
+    SIA:"Singapore Airlines", TGW:"Scoot", THA:"Thai Airways", TLM:"Thai Lion Air", TAX:"Thai AirAsia X", MAS:"Malaysia Airlines",
+    XAX:"AirAsia X", PAL:"Philippine Airlines", CEB:"Cebu Pacific", GIA:"Garuda Indonesia", HVN:"Vietnam Airlines", VJC:"VietJet Air",
+    AIC:"Air India", ALK:"SriLankan Airlines", MGL:"MIAT Mongolian", UZB:"Uzbekistan Airways",
+    UAE:"Emirates", QTR:"Qatar Airways", ETD:"Etihad Airways", THY:"Turkish Airlines", ELY:"El Al",
+    DLH:"Lufthansa", AFR:"Air France", KLM:"KLM", BAW:"British Airways", FIN:"Finnair", SWR:"Swiss", AUA:"Austrian",
+    IBE:"Iberia", ITY:"ITA Airways", LOT:"LOT Polish", SAS:"SAS",
+    UAL:"United Airlines", DAL:"Delta Air Lines", AAL:"American Airlines", ACA:"Air Canada", WJA:"WestJet", ASA:"Alaska Airlines",
+    HAL:"Hawaiian Airlines", AMX:"Aeroméxico", QFA:"Qantas", JST:"Jetstar", ANZ:"Air New Zealand",
+    FDX:"FedEx", UPS:"UPS", GTI:"Atlas Air"
+  };
+  // 無線の呼出符号 → ICAO(入力欄で「ALL NIPPON 23」のように入れた場合)
+  const TELEPHONY = {
+    ALLNIPPON:"ANA", JAPANAIR:"JAL", SKYMARK:"SKY", AIRPEACH:"APJ", ORANGELINER:"JJP", NEWSKY:"SNJ", AIRDO:"ADO",
+    STARJET:"SFJ", FUJIDREAM:"FDA", IBEX:"IBX", COMMUTER:"JAC", JAIOCEAN:"JTA", ORIENTALBRIDGE:"ORC", ZIPPY:"TZP",
+    AIRJAPAN:"AJX", NIPPONCARGO:"NCA", KOREANAIR:"KAL", ASIANA:"AAR", DYNASTY:"CAL", EVA:"EVA", CATHAY:"CPA",
+    SINGAPORE:"SIA", UNITED:"UAL", DELTA:"DAL", AMERICAN:"AAL"
+  };
+  // 国内空港の短い名前(無い空港は flightdb.json の名前)
+  const JP_AP = {
+    RJCC:"新千歳", RJCO:"札幌丘珠", RJCH:"函館", RJEC:"旭川", RJCK:"釧路", RJCB:"帯広", RJCM:"女満別", RJCN:"中標津",
+    RJCW:"稚内", RJEB:"紋別", RJER:"利尻", RJEO:"奥尻",
+    RJSA:"青森", RJSM:"三沢", RJSI:"花巻", RJSK:"秋田", RJSR:"大館能代", RJSY:"庄内", RJSC:"山形", RJSS:"仙台", RJSF:"福島",
+    RJTT:"羽田", RJAA:"成田", RJAH:"茨城", RJTO:"大島", RJTQ:"三宅島", RJTH:"八丈島", RJTF:"調布", RJAN:"新島", RJAZ:"神津島",
+    RJGG:"中部", RJNA:"名古屋(小牧)", RJNS:"静岡", RJAF:"松本", RJSN:"新潟", RJNT:"富山", RJNK:"小松", RJNW:"能登",
+    RJOO:"伊丹", RJBB:"関西", RJBE:"神戸", RJBD:"南紀白浜", RJBT:"但馬",
+    RJOB:"岡山", RJOA:"広島", RJDC:"山口宇部", RJOI:"岩国", RJOW:"石見", RJOC:"出雲", RJOR:"鳥取", RJOH:"米子", RJNO:"隠岐",
+    RJOT:"高松", RJOS:"徳島", RJOK:"高知", RJOM:"松山",
+    RJFF:"福岡", RJFR:"北九州", RJFS:"佐賀", RJFU:"長崎", RJFT:"熊本", RJFO:"大分", RJFM:"宮崎", RJFK:"鹿児島",
+    RJDT:"対馬", RJDB:"壱岐", RJFE:"五島福江", RJDA:"天草", RJFG:"種子島", RJFC:"屋久島",
+    RJKB:"沖永良部", RJKA:"奄美", RJKI:"喜界", RJKN:"徳之島", RORY:"与論",
+    ROAH:"那覇", ROMY:"宮古", RORS:"下地島", ROIG:"石垣", ROYN:"与那国", ROMD:"南大東", ROKJ:"久米島"
+  };
+
+  let db = null, loading = null, loadErr = "";
+  function load(){
+    if(db) return Promise.resolve(db);
+    if(loading) return loading;
+    loading = fetch("flightdb.json").then(r=>{
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    }).then(d=>{
+      if(!d || d.v!==1 || !d.k) throw new Error("形式が違います");
+      db = d; loadErr = ""; return d;
+    }).catch(e=>{
+      loadErr = (/\.github\.io$|\.pages\.dev$/.test(location.hostname) ? "便のデータを読み込めませんでした。一度ネットにつないで開き直してください。" :
+                 "便のデータはオンライン版（GitHub Pages）でのみ使えます。");
+      return null;
+    }).finally(()=>{ loading = null; });
+    return loading;
+  }
+
+  // 入力 → 正規化した検索キー(ANA23 形式)。変換の説明も返す
+  function canon(s){
+    const m = /^([A-Z]{3})0*(\d{1,4})([A-Z]{0,2})$/.exec(s);
+    return m ? m[1] + String(parseInt(m[2],10)) + m[3] : null;
+  }
+  function normalize(raw){
+    const up = String(raw||"").toUpperCase().replace(/[‐-―−ー\-\.]/g,"").trim();
+    const compact = up.replace(/\s+/g,"");
+    if(!compact) return null;
+    // 呼出符号 + 番号(ALL NIPPON 23)
+    const t = /^([A-Z]+)(\d{1,4}[A-Z]{0,2})$/.exec(compact);
+    if(t && TELEPHONY[t[1]]){ const k = canon(TELEPHONY[t[1]] + t[2]); if(k) return { key:k, note:t[1]+" → "+TELEPHONY[t[1]] }; }
+    // ICAO形式(ANA23)
+    const k3 = canon(compact);
+    if(k3) return { key:k3 };
+    // IATA形式(NH23 / 7G123)
+    const m2 = /^([A-Z0-9]{2})0*(\d{1,4})([A-Z]?)$/.exec(compact);
+    if(m2){
+      const icao = (db && db.ia && db.ia[m2[1]]) || null;
+      if(icao){ const k = canon(icao + m2[2] + m2[3]); if(k) return { key:k, note:m2[1]+" → "+icao }; }
+    }
+    return { key:null, partial:compact };
+  }
+
+  const esc = (s)=>String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  function apName(icao){
+    if(JP_AP[icao]) return JP_AP[icao];
+    const a = db && db.ap && db.ap[icao];
+    return a && a[1] ? a[1] : "";
+  }
+  function apHtml(icao){
+    const a = db && db.ap && db.ap[icao];
+    const iata = a && a[0] ? a[0] : "";
+    const nm = apName(icao);
+    if(!nm) return esc(icao) + (iata ? '<span class="code">' + esc(iata) + "</span>" : "");
+    return esc(nm) + '<span class="code">' + esc(icao) + (iata ? "/"+esc(iata) : "") + "</span>";
+  }
+  function airlineHtml(prefix){
+    const nm = AIRLINES[prefix];
+    return nm ? esc(nm) + ' <span class="op">(' + esc(prefix) + ")</span>" : esc(prefix);
+  }
+  function fmtDate(ymd){ return ymd ? ymd.slice(0,4)+"/"+ymd.slice(4,6)+"/"+ymd.slice(6,8) : ""; }
+  function daysAgo(ymd){
+    const d = new Date(+ymd.slice(0,4), +ymd.slice(4,6)-1, +ymd.slice(6,8));
+    return Math.floor((Date.now() - d.getTime())/86400000);
+  }
+
+  function lookup(key){
+    if(!db || !key) return null;
+    const ix = db.k[key];
+    if(ix!=null){
+      const recs = (Array.isArray(ix) ? ix : [ix]).map(i=>db.f[i]).filter(Boolean);
+      recs.sort((a,b)=> b[4].localeCompare(a[4]));
+      return { src:"a", recs };
+    }
+    if(db.vr && db.vr[key]) return { src:"v", route:db.vr[key] };
+    return null;
+  }
+
+  function cardHtml(key, hit, note){
+    const prefix = key.slice(0,3);
+    let h = '<div class="fltCard"><div class="cs">' + esc(key);
+    if(hit.src==="v") h += '<span class="fltTag ref">参考・古い可能性あり</span>';
+    h += '</div><div class="al">' + airlineHtml(prefix);
+    if(hit.src==="a"){
+      const ops = [...new Set(hit.recs.map(r=>r[0]))].filter(op=>op!==key);
+      if(ops.length) h += ' <span class="op">— 運航: ' + ops.map(op=>{ const n = AIRLINES[op.slice(0,3)]; return esc((n?n+" ":"") + op); }).join("、") + "</span>";
+    }
+    h += "</div>";
+    if(hit.src==="a"){
+      hit.recs.forEach((r, i)=>{
+        const old = daysAgo(r[4]) > 60;
+        h += '<div class="fltLeg"><div class="rt">' + apHtml(r[1]) + '<span class="arw">→</span>' + apHtml(r[2]) + "</div>";
+        const meta = [];
+        if(r[3]) meta.push("機材 " + esc(r[3]));
+        meta.push(fmtDate(r[4]) + " の運航予定で確認");
+        h += '<div class="meta">' + meta.join("・") + (old ? '<span class="fltTag old">古い記録</span>' : "") +
+             (hit.recs.length>1 && i===0 ? '<span class="fltTag">最新</span>' : "") + "</div></div>";
+      });
+    }else{
+      const aps = hit.route.split("-");
+      h += '<div class="fltLeg"><div class="rt">' + aps.map(apHtml).join('<span class="arw">→</span>') + "</div>" +
+           '<div class="meta">過去の飛行記録（VRS standing data）より。時刻表では確認できていません</div></div>';
+    }
+    if(note) h += '<div class="meta" style="font-size:11px;color:var(--textdim);">' + esc(note) + "</div>";
+    return h + "</div>";
+  }
+
+  function suggestions(prefix){
+    if(!db || prefix.length < 3) return [];
+    const out = [];
+    for(const k in db.k){ if(k.startsWith(prefix)) out.push(k); }
+    if(out.length < 12 && db.vr){ for(const k in db.vr){ if(k.startsWith(prefix)) out.push(k); } }
+    const num = (k)=>{ const m = /(\d+)/.exec(k); return m ? +m[1] : 0; };
+    return [...new Set(out)].sort((a,b)=> a.length-b.length || num(a)-num(b)).slice(0,12);
+  }
+
+  function render(){
+    if(!db){ out.innerHTML = '<div class="fltMsg">' + esc(loadErr || "読み込み中…") + "</div>"; return; }
+    const q = normalize(inp.value);
+    if(!q){ out.innerHTML = '<div class="fltMsg">便名（コールサイン）を入力してください。<br>ICAO形式（ANA23）・IATA形式（NH23）・呼出符号（ALL NIPPON 23）で探せます。</div>'; return; }
+    if(q.key){
+      let hit = lookup(q.key), key = q.key, note = q.note || "";
+      // 末尾の文字付き(JAL373C など)で見つからなければ、文字を除いて探す
+      if(!hit){ const m = /^([A-Z]{3}\d+)[A-Z]{1,2}$/.exec(q.key); if(m){ const h2 = lookup(m[1]); if(h2){ hit = h2; key = m[1]; note = (note?note+"。":"") + q.key + " が無いため " + m[1] + " を表示"; } } }
+      if(hit){ out.innerHTML = cardHtml(key, hit, note); return; }
+      const sug = suggestions(q.key);
+      out.innerHTML = '<div class="fltMsg">' + esc(q.key) + " は見つかりませんでした。" +
+        "臨時便・新しい便は、翌日以降にデータへ追加されることがあります。</div>" + sugHtml(sug.filter(k=>k!==q.key));
+      return;
+    }
+    // 途中まで(ANA / ANA2 など)
+    const pre = q.partial.replace(/^([A-Z]{3})0+(\d)/, "$1$2");
+    const sug = suggestions(pre);
+    out.innerHTML = sug.length ? '<div class="fltMsg">候補</div>' + sugHtml(sug) : '<div class="fltMsg">該当する便名がありません。</div>';
+  }
+  function sugHtml(list){
+    if(!list.length) return "";
+    return '<div class="fltSug">' + list.map(k=>'<button type="button" data-k="'+esc(k)+'">'+esc(k)+"</button>").join("") + "</div>";
+  }
+  out.addEventListener("click", (e)=>{
+    const b = e.target.closest("button[data-k]");
+    if(!b) return;
+    inp.value = b.dataset.k; render();
+  });
+
+  function footHtml(){
+    if(!db) return "";
+    const u = db.updated ? db.updated.replace(/-/g,"/") : "—";
+    return "データ更新 " + esc(u) + "（時刻表: FlightAware AeroAPI、参考: VRS standing data）。" +
+           "実際の運航と異なる場合があります。";
+  }
+  let timer = null;
+  inp.addEventListener("input", ()=>{ clearTimeout(timer); timer = setTimeout(render, 120); });
+  inp.addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); clearTimeout(timer); render(); inp.blur(); } });
+
+  function open(){
+    ov.hidden = false;
+    btn.setAttribute("aria-expanded","true");
+    render();
+    load().then(()=>{ render(); foot.innerHTML = footHtml(); });
+    setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(e){} }, 30);
+  }
+  function close(){
+    ov.hidden = true;
+    btn.setAttribute("aria-expanded","false");
+    try{ inp.blur(); }catch(e){}
+  }
+  btn.addEventListener("click", ()=>{ if(ov.hidden) open(); else close(); });
+  document.getElementById("fltClose").addEventListener("click", close);
+  ov.addEventListener("click", (e)=>{ if(e.target===ov) close(); });
+  document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !ov.hidden) close(); });
+
+  // 公開サイトでは、起動が落ち着いてから裏でデータを取っておく(Service Worker が保存し、オフラインでも引ける)
+  try{
+    if(location.protocol==="https:" && window.top===window && "serviceWorker" in navigator){
+      setTimeout(()=>{ if(navigator.onLine!==false) fetch("flightdb.json").then(r=>r.ok ? r.arrayBuffer() : null).catch(()=>{}); }, 8000);
+    }
   }catch(e){}
 })();
 </script>
