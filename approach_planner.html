@@ -293,6 +293,7 @@
   .fltRow:active{ background:var(--panel2); }
   .fltRow .tm, .fltRow .fn{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:14px; }
   .fltRow .tm{ color:var(--cyan); }
+  .fltRow .tm.prev{ color:var(--textdim); }
   .fltRow .fn{ color:var(--amber); font-weight:700; }
   .fltRow .ap{ font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .fltRow .ap .code{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; color:var(--textdim); margin-left:4px; }
@@ -333,7 +334,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 280</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 281</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> 便名</span></button>
 </header>
@@ -6505,7 +6506,7 @@ contTurnBoot = false;
       hit.recs.forEach((r, i)=>{
         const old = daysAgo(r[4]) > 60;
         h += '<div class="fltLeg"><div class="rt">' + apHtml(r[1]) + '<span class="arw">→</span>' + apHtml(r[2]) + "</div>";
-        if(r[5]) h += '<div class="tms">STD ' + zt(r[5]) + '　→　STA ' + zt(r[6]) + "</div>";
+        if(r[5]) h += '<div class="tms">STD ' + zt(r[5]) + '　→　STA ' + zt(r[6]) + (r[10]===0 ? '<span class="fltTag old">前のダイヤの時刻</span>' : "") + "</div>";
         const meta = [];
         if(r[3]) meta.push("機材 " + esc(r[3]));
         meta.push(fmtDate(r[4]) + " の運航予定で確認");
@@ -6628,13 +6629,15 @@ contTurnBoot = false;
       // 国内は短い空港名＋3レター、海外は3レター(無ければ4レター)＋空港名(小さく)
       const apTxt = JP_AP[other] ? esc(JP_AP[other]) + '<span class="code">' + esc(iata || other) + "</span>"
         : esc(iata || other) + (a && a[1] ? '<span class="code">' + esc(a[1]) + "</span>" : "");
-      return '<button type="button" class="fltRow" data-q="' + esc(r[0]) + '"><span class="tm">' + tStr + '</span><span class="fn">' + esc(dispFn(x.i)) + "</span>"
+      const prev = r[10]===0 && !!r[5];   // 時刻がダイヤ改正前のもの(改正後まだ確かめられていない)
+      return '<button type="button" class="fltRow" data-q="' + esc(r[0]) + '"><span class="tm' + (prev ? ' prev" title="前のダイヤの時刻' : "") + '">' + tStr + (prev ? "*" : "") + '</span><span class="fn">' + esc(dispFn(x.i)) + "</span>"
         + '<span class="ap">' + (dir==="dep" ? "→ " : "← ") + apTxt + "</span>"
         + '<span class="ty">' + esc(r[3]||"") + "</span></button>";
     };
     const pad = (n)=>String(n).padStart(2,"0");
     let h = rows.map(x=>{ const t = new Date(x.t); return rowHtml(x, pad(t.getUTCHours()) + pad(t.getUTCMinutes()) + "Z"); }).join("");
     if(noTime.length) h += '<div class="fltBoardSub">時刻未取得（次の全国一括取得で入ります）</div>' + noTime.map(x=>rowHtml(x, "----Z")).join("");
+    if(rows.some(x=>x.r[10]===0)) h += '<div class="fltBoardSub">* 前のダイヤの時刻（ダイヤ改正後まだ確認できていない便）</div>';
     if(!rows.length && !noTime.length) h = '<div class="fltMsg">この空港の' + (dir==="dep" ? "出発" : "到着") + "便はデータにありません。</div>";
     boardEl.innerHTML = h;
   }
