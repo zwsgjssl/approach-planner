@@ -3,7 +3,10 @@ name: Flight DB update
 # 便名検索のデータ(flightdb.json)を毎日更新する。
 #  - 毎日: OpenSky で前日の主要空港の発着便を集め、表に無い便名だけ AeroAPI で調べる(1便1単位)
 #  - 8週ごと・ダイヤ改正後: AeroAPI で全国1日分の予定便を取り直す(約480単位)
+#  - 全国の取り直しの日は、続けて毎日の処理も行う(合わせて最大2時間ほど)
+#  - 曜日限定便の一覧(data/seed_flights.txt)を毎日25件ずつ調べる。月の最終日は今月の残りを使い切る
 #  - AeroAPI の使用は1か月900単位(約4.5ドル)まで。超えそうなら AeroAPI を呼ばない
+#  - 途中で失敗・時間切れになっても、それまでに取れた分は保存して公開する
 # 必要な Secrets: AEROAPI_KEY, OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET
 on:
   schedule:
@@ -27,18 +30,22 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 200
     steps:
       - uses: actions/checkout@v5
 
       - name: Update flight database
+        timeout-minutes: 180
         env:
           AEROAPI_KEY: ${{ secrets.AEROAPI_KEY }}
           OPENSKY_CLIENT_ID: ${{ secrets.OPENSKY_CLIENT_ID }}
           OPENSKY_CLIENT_SECRET: ${{ secrets.OPENSKY_CLIENT_SECRET }}
+          TIME_LIMIT_MIN: "165"
         run: python3 -u tools/flightdb.py --mode "${{ github.event.inputs.mode || 'auto' }}"
 
       - name: Commit and publish
+        # 上の処理が失敗しても、途中まで保存した結果は反映する
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
