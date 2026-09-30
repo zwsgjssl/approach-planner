@@ -10,7 +10,11 @@ name: Flight DB update
 # 必要な Secrets: AEROAPI_KEY, OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET
 on:
   schedule:
+    # GitHub の定期実行は数時間遅れたり飛ばされたりすることがあるので、予備を2回置く。
+    # その日(UTC)の更新が最後まで済んでいれば、予備の回は何もせずに終わる(--scheduled)
     - cron: "23 6 * * *"      # 毎日 15:23(日本時間)
+    - cron: "53 12 * * *"     # 予備 21:53(日本時間)
+    - cron: "53 18 * * *"     # 予備 翌3:53(日本時間。UTCでは同じ日)
   workflow_dispatch:
     inputs:
       mode:
@@ -41,7 +45,7 @@ jobs:
           OPENSKY_CLIENT_ID: ${{ secrets.OPENSKY_CLIENT_ID }}
           OPENSKY_CLIENT_SECRET: ${{ secrets.OPENSKY_CLIENT_SECRET }}
           TIME_LIMIT_MIN: "165"
-        run: python3 -u tools/flightdb.py --mode "${{ github.event.inputs.mode || 'auto' }}"
+        run: python3 -u tools/flightdb.py --mode "${{ github.event.inputs.mode || 'auto' }}" ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
 
       - name: Commit and publish
         # 上の処理が失敗しても、途中まで保存した結果は反映する
