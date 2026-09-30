@@ -158,10 +158,9 @@
     display:flex; align-items:center; justify-content:center; gap:5px; touch-action:manipulation;
   }
   .dlBtn:disabled{ opacity:.45; }
-  /* 表示リセット(⟲)ボタンと、3D初回の操作ヒント */
-  .viewResetBtn{ top:60px; font-size:20px; padding:0; width:44px; }
+  /* 3D初回の操作ヒント(表示のリセットは地図のダブルタップ) */
   /* 地図の向き(North↑／RWY↑)。North↑のときアンバー */
-  .northBtn{ top:112px; padding:0; width:44px; font-size:13px; font-weight:600; }
+  .northBtn{ top:60px; padding:0; width:44px; font-size:13px; font-weight:600; }
   .northBtn.on{ border-color:var(--amber); color:var(--amber); }
   /* 地形の色の凡例(3D+地形表示中のみ) */
   .terrLegend{ position:absolute; right:6px; bottom:26px; z-index:3; display:none; background:rgba(0,0,0,.55);
@@ -334,7 +333,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 281</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 282</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> 便名</span></button>
 </header>
@@ -662,10 +661,9 @@
 
   <div class="mapwrap" id="mapwrap">
     <button class="dlBtn" id="dlBtn" title="表示中の地図をPNGで保存">⤓ PNG</button>
-    <button class="dlBtn viewResetBtn" id="viewResetBtn" title="表示を元に戻す(拡大・移動・3Dの向きと傾き)" aria-label="表示を元に戻す">⟲</button>
     <button class="dlBtn northBtn" id="northBtn" title="地図の向きを切り替え(North↑／RWY↑)" aria-label="地図の向きを切り替え">N↑</button>
     <div class="terrLegend" id="terrLegend"></div>
-    <div class="gestureHint" id="gestureHint">1本指：回転・傾き ／ 2本指：拡大・移動 ／ ⟲：元に戻す</div>
+    <div class="gestureHint" id="gestureHint">1本指：回転・傾き ／ 2本指：拡大・移動 ／ ダブルタップ：元に戻す</div>
     <div class="compass" id="compassLabel">DW ↑ ---°</div>
     <div class="windIndicator" id="windIndicator">
       <svg viewBox="0 0 28 28"><g class="windArrowRot" id="windArrowRot">
@@ -2825,7 +2823,35 @@ mapwrap.addEventListener("wheel", (e)=>{
   setInteracting(true); setInteracting(false);   // 止まって少ししたら分離を外す
   zpZoomAt(e.clientX, e.clientY, e.deltaY<0 ? 1.12 : 1/1.12);
 }, {passive:false});
-mapwrap.addEventListener("dblclick", zpReset);
+// ダブルタップ(ダブルクリック)で表示を元に戻す(拡大・移動・3Dの向きと傾き)。以前の⟲ボタンの代わり
+function resetMapView(){
+  zpReset();
+  state.headingOffsetDeg = 0;
+  if(state.show3D) state.tiltDeg = TILT_3D_DEG;
+  render();
+}
+mapwrap.addEventListener("dblclick", (e)=>{ if(e.target.closest && e.target.closest("button")) return; resetMapView(); });
+// タッチのダブルタップ(iPadのSafariはdblclickを出さないことがあるので自前で判定)。指1本で動かさずに2回、350ms以内
+(function(){
+  let down = null, lastTap = null;
+  mapwrap.addEventListener("pointerdown", (e)=>{
+    if(e.pointerType==="mouse") return;   // マウスはdblclickで扱う
+    if(e.target.closest && e.target.closest("button")) return;
+    down = (zpPointers.size<=1) ? { id:e.pointerId, t:e.timeStamp, x:e.clientX, y:e.clientY } : null;
+    if(zpPointers.size>1) lastTap = null;   // 2本指の操作はタップにしない
+  });
+  mapwrap.addEventListener("pointerup", (e)=>{
+    if(!down || down.id!==e.pointerId) return;
+    const moved = Math.hypot(e.clientX-down.x, e.clientY-down.y), dur = e.timeStamp-down.t;
+    down = null;
+    if(moved>12 || dur>300){ lastTap = null; return; }
+    if(lastTap && e.timeStamp-lastTap.t < 350 && Math.hypot(e.clientX-lastTap.x, e.clientY-lastTap.y) < 40){
+      lastTap = null;
+      resetMapView();
+    } else lastTap = { t:e.timeStamp, x:e.clientX, y:e.clientY };
+  });
+  mapwrap.addEventListener("pointercancel", ()=>{ down = null; lastTap = null; });
+})();
 // iPad Safariは user-scalable=no を無視し、地図外のピンチでページが拡大されて固定パネルが崩れるので止める。
 document.addEventListener("gesturestart", (e)=>e.preventDefault(), {passive:false});
 document.addEventListener("gesturechange", (e)=>e.preventDefault(), {passive:false});
@@ -2849,15 +2875,6 @@ document.addEventListener("touchmove", (e)=>{
   document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") resetZoomIfNeeded(); });
   window.addEventListener("orientationchange", ()=>setTimeout(resetZoomIfNeeded, 500));
 })();
-// ズーム・移動・3Dの向き/傾きを一括リセット
-document.getElementById("viewResetBtn").addEventListener("click", (e)=>{
-  e.stopPropagation();
-  zpReset();
-  if(state.show3D){ state.headingOffsetDeg = 0; state.tiltDeg = TILT_3D_DEG; }
-  else state.headingOffsetDeg = 0;
-  render();
-});
-document.getElementById("viewResetBtn").addEventListener("pointerdown", (e)=>e.stopPropagation());
 // エラー表示のOK(伊丹DepartureのISK 2.8NM未到達)。確認済みにして経路を赤で描き直す
 document.getElementById("geomErrorOk").addEventListener("click", (e)=>{ e.stopPropagation(); depIskAckKey = depIskPendingKey; render(); });
 document.getElementById("geomErrorOk").addEventListener("pointerdown", (e)=>e.stopPropagation());
@@ -5548,6 +5565,23 @@ function renderMain(){
          </div>`;
       return;
     }
+  }
+
+  // Traffic Patternは、経路の上端(離陸後の旋回)と下端(Base/Final旋回)の中点が画面の中心に来るよう、画面の縦方向だけずらす
+  if(departure){
+    const up = vecFromBearing(state.northUp ? 0 : pat.finalCourseTrueDeg, 1);   // 画面の上方向(3Dのドラッグ回転は考えない)
+    const along = (p)=> p.x*up.x + p.y*up.y;
+    let lo = Infinity, hi = -Infinity;
+    for(const p of [pat.thrXY, pat.oppXY, departure.pStart, ...departure.turn.pts, ...nearToFarBase]){
+      const a = along(p); if(a<lo) lo = a; if(a>hi) hi = a;
+    }
+    const shift = (lo+hi)/2 - along(centerXYpan);
+    const cPat = { x: centerXYpan.x + up.x*shift, y: centerXYpan.y + up.y*shift };
+    const ll = toLatLon(cPat.x, cPat.y, refLat, refLon);
+    const cF = latLonToFraction(ll.lat, ll.lon);
+    rotwrap.style.left = (50 - cF.fx*142) + "%";
+    rotwrap.style.top = (50 - cF.fy*142) + "%";
+    rotwrap.style.transformOrigin = (cF.fx*100) + "% " + (cF.fy*100) + "%";
   }
 
   // 実際の旋回開始点(connectXY)のTHRからの距離: 描画経路(nearToFarFull)上の弧長で求める(Visual/Circling共通)
