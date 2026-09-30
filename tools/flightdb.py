@@ -689,22 +689,53 @@ def run_seeds(m, aero, max_units):
     old = max((today - datetime.timedelta(days=SEED_REFRESH_DAYS)).isoformat(), ch.isoformat())
     todo = [x for x in seeds if (m["seeded"].get(x) or "") < old]
     cap = (max_units - keep) if month_end else SEED_DAILY_CAP
-    limit = max(0, min(cap, max_units - keep, len(todo)))
-    log(f"[seed] 一覧 {len(seeds)} 便名、未確認 {len(todo)} 件、今回 {limit} 件" + ("（月末なので今月の残りを使う）" if month_end else ""))
+    limit = max(0, min(cap, max_units - keep))    # 使ってよい単位数
+    log(f"[seed] 一覧 {len(seeds)} 便名、未確認 {len(todo)} 件、今回の上限 {limit} 単位" + ("（月末なので今月の残りを使う）" if month_end else ""))
     used0 = aero.calls
-    ok = looked = 0
-    for x in todo[:limit]:
+    idx = key_index(m)
+    ok = looked = skipped = 0
+    for x in todo:
+        if aero.calls - used0 >= limit:
+            break
         if out_of_time():
             log("[seed] 時間切れのため残りは次回")
             break
         des = to_icao_designator(m, x)
+        alt = ("ANA" + des[3:]) if des.startswith("AKX") else None   # ANAウイングス(EH)の便は ANA の便名で飛んでいることがある
+        # 実際には毎日飛んでいる便(直近14日の運航日が7曜日そろう)は調べない(全国取得で時刻が入るため)
+        if runs_daily(idx.get(des) or []) or (alt and runs_daily(idx.get(alt) or [])):
+            m["seeded"][x] = today.isoformat()
+            skipped += 1
+            continue
+        if alt and alt in idx and des not in idx:
+            des, alt = alt, None      # 表に ANA の便名でしか無ければ、最初から ANA の便名で調べる(1単位で済む)
         got, cover_ok = aero_lookup(m, aero, des)
+        if not got and alt and aero.calls - used0 < limit:
+            m["miss"].pop(des, None)
+            got, cover_ok = aero_lookup(m, aero, alt)
+            if not got:
+                m["miss"][des] = today.isoformat()
         looked += 1
         if got:
             ok += 1
         if cover_ok or not got:
             m["seeded"][x] = today.isoformat()
-    return {"seed_looked": looked, "seed_found": ok, "seed_left": len(todo) - looked, "seed_units": aero.calls - used0}
+        idx = key_index(m) if got else idx
+    left = sum(1 for x in todo if (m["seeded"].get(x) or "") < old)
+    log(f"[seed] 調べた {looked}（見つかった {ok}）、毎日運航なので省いた {skipped}、残り {left}")
+    return {"seed_looked": looked, "seed_found": ok, "seed_skipped_daily": skipped, "seed_left": left,
+            "seed_units": aero.calls - used0}
+
+
+def runs_daily(recs):
+    """直近14日(今のダイヤ期間)の運航日の記録が7つの曜日すべてにある記録を含むか"""
+    lim = max((datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=14)).isoformat(),
+              last_schedule_change().isoformat())
+    for r in recs:
+        wd = {datetime.date.fromisoformat(x).weekday() for x in r.get("obs", []) if x >= lim}
+        if len(wd) == 7:
+            return True
+    return False
 
 
 def run_daily(m, aero, osn, max_units):
@@ -725,9 +756,13 @@ def run_daily(m, aero, osn, max_units):
     # 表に無い(または記録が古い)便名は「調べる待ち」に積む。上限で今回調べきれなかった分は次回以降に回す
     pend = m["pending"]
     # 全国の取り直し(STD/STA付き)が済むまでは、時刻が無いだけの便は調べない(取り直しで入るため)。
-    # 済んだ後は、時刻が無い記録と、時刻が前のダイヤ期間のままの記録を、見かけたら調べ直す
+    # 済んだ後は、時刻が無い記録と、時刻が前のダイヤ期間のままの記録を、見かけたら調べ直す。
+    # ただしダイヤ改正後の全国取り直しがまだなら、前のダイヤの時刻のままの便は調べない(毎日運航の便は取り直しで入るため、
+    # 改正直後の残り単位は曜日限定便の確認に回す)
     ch = last_schedule_change().isoformat()
-    need_time = lambda recs: bool(m["meta"].get("std_ok")) and not all(r.get("std") and (r.get("sd") or "") >= ch for r in recs)
+    base_after_ch = (m["meta"].get("baseline_date") or "") >= ch
+    need_time = lambda recs: bool(m["meta"].get("std_ok")) and not all(
+        r.get("std") and ((r.get("sd") or "") >= ch or not base_after_ch) for r in recs)
     for c, n in seen.items():
         if c in m["miss"]:
             continue
@@ -750,6 +785,10 @@ def run_daily(m, aero, osn, max_units):
     # 初回や取り直しで何日分もまとめて集めたときは、その分だけ多めに調べる(最大 CATCHUP_LOOKUP_MAX 件)
     cap = min(max(DAILY_LOOKUP_CAP, DAILY_LOOKUP_CAP * len(days)), CATCHUP_LOOKUP_MAX)
     limit = min(cap, max_units)
+    if is_month_end_utc():
+        # 月末は今月の残りを使い切る。半分は実際に飛んでいる未登録の便名に、残りは曜日限定便の確認(seed)に
+        limit = max(cap, (max_units - SEED_MONTH_END_KEEP) // 2)
+        limit = max(0, min(limit, max_units - SEED_MONTH_END_KEEP))
     log(f"[daily] OpenSky {', '.join(days) or '(新しい日なし)'}: {len(seen)} 便名、調べる待ち {len(order)} 件、今回調べる上限 {limit} 件")
     used0 = aero.calls if aero else 0
     ok = 0
@@ -862,11 +901,17 @@ def save_all(m):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", default="auto", choices=["auto", "baseline", "daily", "rebuild"])
+    ap.add_argument("--scheduled", action="store_true",
+                    help="定期実行。同じ日(UTC)にすでに最後まで実行できていれば何もしない(予備の定期実行用)")
     a = ap.parse_args()
 
     m = load_master()
     mode = a.mode
-    summary = {"date": today_jst().isoformat()}
+    utc_today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    if a.scheduled and mode != "rebuild" and any(r.get("utc") == utc_today and r.get("ok") for r in m["meta"]["runs"]):
+        log(f"[skip] 今日（UTC {utc_today}）の更新は実行済みなので何もしない")
+        return
+    summary = {"date": today_jst().isoformat(), "utc": utc_today, "ok": False}
 
     if mode == "rebuild":
         save_all(m)
@@ -910,6 +955,7 @@ def main():
             if not cid or not sec:
                 log("[error] OpenSky の認証情報がありません"); sys.exit(1)
             summary.update(run_daily(m, aero, OpenSky(cid, sec), max(0, rem)))
+        summary["ok"] = True
     finally:
         summary["month_units"] = units_used(m)
         log("[summary]", json.dumps(summary, ensure_ascii=False))
