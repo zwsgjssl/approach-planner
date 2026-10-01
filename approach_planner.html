@@ -29,6 +29,8 @@
     --text: #dbe6ee;
     --textdim: #7d8b99;
     --groundline: #b7c0c9;
+    --nhBlue: #5b9bff;   /* 便名検索・発着一覧の NH 便 */
+    --jlRed: #ff5c6c;    /* 同 JL 便 */
   }
   *{box-sizing:border-box;}
   /* UIのピンチ/ダブルタップ拡大を止める(iPad Safariは user-scalable=no を無視する)。地図(.mapwrap)は自前で拡大するので none */
@@ -257,7 +259,7 @@
   .vprofile .vpTbl td{ padding:3px 6px 3px 0; border-top:1px solid var(--line); vertical-align:top; }
   .vprofile .vpTbl td:nth-child(2){ font-weight:600; white-space:nowrap; }
   /* 夜間モード(減光) */
-  body.night{ --text:#9aa6b0; --textdim:#5d6a76; --amber:#b98400; --cyan:#3a9dbb; --green:#27b873; --yellow:#b8a338; }
+  body.night{ --text:#9aa6b0; --textdim:#5d6a76; --amber:#b98400; --cyan:#3a9dbb; --green:#27b873; --yellow:#b8a338; --nhBlue:#3f6db3; --jlRed:#b3414c; }
   body.night .rotwrap img{ filter:brightness(.45); }
   body.night .rotwrap canvas{ filter:brightness(.55); }
   body.night .seg button.active{ background:transparent; color:var(--amber); box-shadow:inset 0 0 0 2px var(--amber); }
@@ -301,6 +303,9 @@
   .fltRow .tm{ color:var(--cyan); }
   .fltRow .tm.prev{ color:var(--textdim); }
   .fltRow .fn{ color:var(--amber); font-weight:700; }
+  /* 便名の色: NH(ANA)は青、JL(JAL)は赤。他社はアンバー */
+  .fltRow .fn.nh, .fltCard .cs.nh{ color:var(--nhBlue); }
+  .fltRow .fn.jl, .fltCard .cs.jl{ color:var(--jlRed); }
   .fltRow .ap{ font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .fltRow .ap .code{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; color:var(--textdim); margin-left:4px; }
   .fltRow .ty{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; color:var(--textdim); }
@@ -324,6 +329,7 @@
   .fltLeg .rt{ font-size:17px; font-weight:600; line-height:1.35; }
   .fltLeg .rt .code{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:12px; font-weight:400; color:var(--textdim); margin-left:4px; }
   .fltLeg .rt .arw{ color:var(--cyan); margin:0 6px; }
+  .fltLeg .rt .apc{ font-family:ui-monospace, "SF Mono", Menlo, monospace; letter-spacing:.5px; }
   .fltLeg .meta{ font-size:12px; color:var(--textdim); }
   .fltTag{ display:inline-block; font-size:11px; border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:1px; border:1px solid var(--line); color:var(--textdim); }
   .fltTag.ref{ color:var(--amber); border-color:var(--amber); }
@@ -340,7 +346,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 286</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 288</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> 便名</span></button>
 </header>
@@ -6550,13 +6556,14 @@ contTurnBoot = false;
     const a = db && db.ap && db.ap[icao];
     return a && a[1] ? a[1] : "";
   }
+  // 便名検索の区間は3レター(IATA)だけで表示(ユーザー指定)。IATAが無い空港は4レター。押さえると(title)空港名
   function apHtml(icao){
     const a = db && db.ap && db.ap[icao];
     const iata = a && a[0] ? a[0] : "";
     const nm = apName(icao);
-    if(!nm) return esc(icao) + (iata ? '<span class="code">' + esc(iata) + "</span>" : "");
-    return esc(nm) + '<span class="code">' + esc(icao) + (iata ? "/"+esc(iata) : "") + "</span>";
+    return '<span class="apc"' + (nm ? ' title="' + esc(nm + "（" + icao + "）") + '"' : "") + ">" + esc(iata || icao) + "</span>";
   }
+
   function airlineHtml(prefix){
     const nm = AIRLINES[prefix];
     return nm ? esc(nm) + ' <span class="op">(' + esc(prefix) + ")</span>" : esc(prefix);
@@ -6588,6 +6595,8 @@ contTurnBoot = false;
     const ia = icaoIata[op.slice(0,3)];
     return ia ? ia + num : op;
   }
+  // 便名の色分け用(NH=青、JL=赤)
+  const fnCls = (fn)=> /^NH\d/.test(fn) ? " nh" : (/^JL\d/.test(fn) ? " jl" : "");
   function iataOfKey(key){
     prepIndexes();
     const ia = icaoIata[key.slice(0,3)];
@@ -6614,7 +6623,7 @@ contTurnBoot = false;
   function cardHtml(key, hit, note){
     const prefix = key.slice(0,3);
     const title = hit.src==="a" ? dispFn(hit.ids[0]) : iataOfKey(key);
-    let h = '<div class="fltCard"><div class="cs">' + esc(title) + (title!==key ? '<span class="atc">コールサイン ' + esc(key) + "</span>" : "");
+    let h = '<div class="fltCard"><div class="cs' + fnCls(title) + '">' + esc(title) + (title!==key ? '<span class="atc">コールサイン ' + esc(key) + "</span>" : "");
     if(hit.src==="v") h += '<span class="fltTag ref">参考・古い可能性あり</span>';
     h += '</div><div class="al">' + airlineHtml(prefix);
     if(hit.src==="a"){
@@ -6782,7 +6791,7 @@ contTurnBoot = false;
         : esc(iata || other) + (a && a[1] ? '<span class="code">' + esc(a[1]) + "</span>" : "");
       const prev = r[10]===0 && !!r[5];   // 時刻がダイヤ改正前のもの(改正後まだ確かめられていない)
       const tag = dir==="both" ? '<span class="dirTag ' + x.d + '">' + (x.d==="dep" ? "出" : "着") + "</span>" : "";
-      return '<button type="button" class="fltRow" data-q="' + esc(r[0]) + '"><span class="tm' + (prev ? ' prev" title="前のダイヤの時刻' : "") + '">' + tStr + (prev ? "*" : "") + '</span><span class="fn">' + esc(dispFn(x.i)) + "</span>"
+      return '<button type="button" class="fltRow" data-q="' + esc(r[0]) + '"><span class="tm' + (prev ? ' prev" title="前のダイヤの時刻' : "") + '">' + tStr + (prev ? "*" : "") + '</span><span class="fn' + fnCls(dispFn(x.i)) + '">' + esc(dispFn(x.i)) + "</span>"
         + '<span class="ap">' + tag + (x.d==="dep" ? "→ " : "← ") + apTxt + "</span>"
         + '<span class="ty">' + esc(r[3]||"") + "</span></button>";
     };
