@@ -197,6 +197,9 @@
     background:rgba(26,6,6,.95); padding:16px 18px; text-align:left;
   }
   .geomError .t{ color:var(--red); font-weight:700; font-size:14px; margin-bottom:8px; }
+  /* 注意(入力待ち)は赤ではなくアンバー */
+  .geomError.caution .box{ border-color:var(--amber); background:rgba(26,19,4,.95); }
+  .geomError.caution .t{ color:var(--amber); }
   .geomError .d{ color:var(--text); font-size:12.5px; line-height:1.7; }
   .geomError .f{ color:var(--amber); font-size:12.5px; line-height:1.7; margin-top:8px; }
   /* OKで閉じられるエラー(伊丹DepartureのISK 2.8NM未到達)用 */
@@ -333,7 +336,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 282</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 284</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> 便名</span></button>
 </header>
@@ -534,8 +537,9 @@
     </div>
 
     <div class="field">
-      <label>Speed (IAS, kt)</label>
-      <input id="depSpeedKt" type="number" step="1" value="170">
+      <label>V2 (kt)</label>
+      <input id="depSpeedKt" type="number" step="1" value="" placeholder="V2を入力">
+      <div class="hint">経路は V2+15kt (IAS) で計算します。空港・滑走路を変えると空欄に戻ります。</div>
     </div>
 
     <div class="field">
@@ -2008,12 +2012,22 @@ function resetTo2DView(){
 function resetWeatherInputs(){
   ["oat","wind","wind2000"].forEach(id=>{ const el = document.getElementById(id); if(el) el.value = el.defaultValue; });
 }
+// 伊丹Departureの入力(V2・Rotation Point・Turn Start・旋回終了TRK・Accel Height・Bank)を既定に戻す。
+// 空港・滑走路を変えたときに呼ぶ(別の滑走路へ行ってDepartureに戻ったら、前のV2などを使わない)。V2の既定は空欄
+function resetDepartureInputs(){
+  ["depSpeedKt","depStartOffsetFt","depTurnStartNM","depTrkStopDeg","depAccelHeightFt"].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.value = el.defaultValue;
+    if(typeof lastGoodNum!=="undefined") delete lastGoodNum[id];
+  });
+  state.depBank = 25;
+  document.querySelectorAll("#depBank button").forEach(b=>b.classList.toggle("active", parseFloat(b.dataset.v)===25));
+}
 function resetBreakPointInput(){
   // Break Pointは滑走路ごとの値なので空港を変えたら空欄(既定)に戻す
   const bd = document.getElementById("breakDist"); if(bd) bd.value = "";
   if(typeof lastGoodNum!=="undefined") delete lastGoodNum.breakDist;
 }
-airportSel.addEventListener("change", ()=>{ state.airportKey = airportSel.value; resetWeatherInputs(); resetBreakPointInput(); resetTo2DView(); setupAirport(); });
+airportSel.addEventListener("change", ()=>{ state.airportKey = airportSel.value; resetWeatherInputs(); resetBreakPointInput(); resetDepartureInputs(); resetTo2DView(); setupAirport(); });
 
 // pointer-events:none のボタンも外付けキーボード(Tab/Enter)では押せるので disabled もそろえる
 function syncLockedButtons(){
@@ -2502,6 +2516,7 @@ document.getElementById("rwyEnd").addEventListener("change", ()=>{
   // （逆だとVisualのoffset/速度が残り、操作順で表示が変わる）。
   const selRwy = document.getElementById("rwyEnd").value;
   resetWeatherInputs();
+  resetDepartureInputs();
   resetTo2DView();
   if(selRwy==="LDA22" || selRwy==="LDA23"){
     // LDAは専用描画なので通常の既定値適用は不要。ただしVOR方式から直接来た場合は
@@ -4062,7 +4077,32 @@ function renderDeparture(airport, rwyLabel){
   const headingTrueDeg = ((Math.atan2(ux,uy)*R2D)+360)%360;
 
   const startOffsetFt = readNum("depStartOffsetFt", 2000, 0, Math.floor(rwyLenM/0.3048)-1000, "Rotation Point", "ft");
-  const iasKt = readNum("depSpeedKt", 170, 120, 250, "Speed", "kt");
+  // V2(空欄なら注意を出して描画しない)。経路の速度は V2+15kt
+  const v2El = document.getElementById("depSpeedKt");
+  const v2Raw = (v2El.value||"").trim(), v2v = parseFloat(v2Raw);
+  const v2Ok = v2Raw!=="" && isFinite(v2v) && v2v>=100 && v2v<=200;
+  if(v2Raw==="" || (!v2Ok && isEditingField(v2El) && !("depSpeedKt" in lastGoodNum))){
+    geErr.classList.add("caution");
+    showGeomError("V2を入力してください", "伊丹 RWY32L Departure の経路は、V2+15kt(IAS)で計算します。", "設定パネル(☰)の「V2 (kt)」に入力すると描画します。");
+    v2El.style.borderColor = "var(--amber)"; inputCheck.touched.add("depSpeedKt");
+    // 地図は滑走路だけ出す(経路は描かない)
+    const rot0 = state.depNorthUp ? 0 : -headingTrueDeg;
+    const mid0 = toLatLon((thrXY.x+oppXY.x)/2, (thrXY.y+oppXY.y)/2, refLat, refLon);
+    const cF0 = latLonToFraction(mid0.lat, mid0.lon);
+    rotwrap.style.left = (50 - cF0.fx*142) + "%"; rotwrap.style.top = (50 - cF0.fy*142) + "%";
+    rotwrap.style.transformOrigin = (cF0.fx*100) + "% " + (cF0.fy*100) + "%";
+    currentRotationDeg = rot0; rotwrap.style.transform = "rotate("+(rot0+state.headingOffsetDeg)+"deg)";
+    svg.appendChild(polylineFromXY([thrXY, oppXY], refLat, refLon, {stroke:"var(--yellow)", "stroke-width":"6"}));
+    document.getElementById("compassLabel").textContent = state.depNorthUp
+      ? northUpCompassText(rwyLabel+" (Departure)", getRunwayMagHeading(airport,rwyLabel))
+      : "RWY "+rwyLabel+" (Departure) ↑ "+screenUpMagText(getRunwayMagHeading(airport,rwyLabel));
+    npSummaryText = "V2を入力してください";
+    document.getElementById("readout").innerHTML =
+      `<div class="item warn" style="grid-column:1/-1;"><div class="k">Departure</div><div class="v">V2を入力してください（経路は V2+15kt で計算）</div></div>`;
+    return;
+  }
+  const v2Kt = readNum("depSpeedKt", 150, 100, 200, "V2", "kt");
+  const iasKt = v2Kt + 15;   // V2+15kt で計算(運用上の指定)
   const turnStartNM = readNum("depTurnStartNM", 1.8, 0.3, 5, "Turn Start", "NM");
   const bankDeg = state.depBank || 25;
   const trkStopDeg = readNum("depTrkStopDeg", ITAMI_DEP_TRK_STOP_DEFAULT_DEG, 1, 360, "旋回終了TRK", "°");
@@ -4252,6 +4292,7 @@ function renderDeparture(airport, rwyLabel){
     : (ts ? "Turn Start "+fmtTime(ts.t)+" ／ "+afeToDisplayMSL10(ts.altFt, airport.elevationFt).toLocaleString()+"ft MSL" : "");
   document.getElementById("readout").innerHTML = (depIskErr ? depIskErrHtml : "") + `
     <div class="item key"><div class="k">Turn Start (ISK ${turnStartNM.toFixed(1)}NM)</div><div class="v">${ts?`${fmtTime(ts.t)} 経過 ／ ${afeToDisplayMSL10(ts.altFt, airport.elevationFt).toLocaleString()} ft MSL ／ ${ts.tasKt.toFixed(0)}kt TAS${windSpeedKt>0?" / GS "+ts.gsKt.toFixed(0)+"kt":""}`:"―"}</div></div>
+    <div class="item"><div class="k">速度 (IAS)</div><div class="v">V2 ${Math.round(v2Kt)} + 15 = ${Math.round(iasKt)} kt</div></div>
     <div class="item${bankDeg>=30?" warn":""}"><div class="k">Bank角 / 旋回終了TRK</div><div class="v">${bankDeg}° (左旋回) / TRK${trkStopDeg}°M</div></div>
     <div class="item"><div class="k">風 (地上 ／ 2000ft)</div><div class="v">${windSpeedKt>0?`地上 ${String(Math.round(windDirMag)).padStart(3,"0")}°M / ${Math.round(windSpeedKt)}kt ／ 離陸滑走方向 ${(()=>{const hw=windSpeedKt*Math.cos((windFromTrueDeg-headingTrueDeg)*D2R), xw=windSpeedKt*Math.sin((windFromTrueDeg-headingTrueDeg)*D2R); return (hw>=0?"向かい風 ":"追い風 ")+Math.abs(hw).toFixed(0)+"kt・"+(Math.abs(xw)<0.5?"横風 0kt":(xw>0?"右":"左")+"横風 "+Math.abs(xw).toFixed(0)+"kt");})()}`:"地上 無風"}<br>${wind2000 ? (w2in.windSpeedKt>0 ? `2000ft ${String(Math.round(w2in.windDirMag)).padStart(3,"0")}°M / ${Math.round(w2in.windSpeedKt)}kt（地上〜2000ftは直線的に変化）` : "2000ft 無風（地上〜2000ftは直線的に変化）") : "2000ft 地上風と同じ"}</div></div>
   `;
@@ -4651,6 +4692,27 @@ function stopIfInputErrors(){
 // ILS: THR上RDHからGP角の直線。PAPI: 下側のオンパス灯(ILSあり2°45'/なし2°50')がTHR上でMEHTを通るよう実効位置を逆算。
 const FT_PER_NM = NM/0.3048;
 const PAPI_STATE_LABEL = ["4R 低すぎ","1W3R やや低","2W2R オンパス","3W1R やや高","4W 高すぎ"];
+// フレア(運用上の指定): 主脚の高さ(RA)50ftまでは降下角のまま、50→30ftで角度を直線的に1.5°まで浅くし、30ft以下は1.5°で接地。
+// 高さはTHR標高の水平面から。x = THRから進入側への距離(ft、滑走路側が負)。
+const FLARE_START_FT = 50, FLARE_END_FT = 30, FLARE_FINAL_DEG = 1.5;
+function computeFlare(gearThrFt, glideDeg){
+  const tg = Math.tan(glideDeg*D2R);
+  const x50 = (FLARE_START_FT - gearThrFt)/tg;          // 主脚が50ftになる点
+  const pts = [{ x:x50, h:FLARE_START_FT, a:glideDeg }];   // a = その点の経路角(°)
+  const N = 40, dh = (FLARE_START_FT-FLARE_END_FT)/N;
+  let x = x50;
+  for(let i=0;i<N;i++){
+    const hMid = FLARE_START_FT - (i+0.5)*dh;
+    const ang = glideDeg + (FLARE_FINAL_DEG-glideDeg)*(FLARE_START_FT-hMid)/(FLARE_START_FT-FLARE_END_FT);
+    x -= dh/Math.tan(ang*D2R);
+    const hEnd = FLARE_START_FT-(i+1)*dh;
+    pts.push({ x, h: hEnd, a: glideDeg + (FLARE_FINAL_DEG-glideDeg)*(FLARE_START_FT-hEnd)/(FLARE_START_FT-FLARE_END_FT) });
+  }
+  const x30 = x;
+  const tdX = x30 - FLARE_END_FT/Math.tan(FLARE_FINAL_DEG*D2R);
+  pts.push({ x:tdX, h:0, a:FLARE_FINAL_DEG });
+  return { x50, x30, tdX, tdFt: -tdX, pts };
+}
 function computeVProfile(o){
   const tg = Math.tan(o.glideDeg*D2R);
   const g = acApproachGeom(o.model, o.glideDeg, (o.flap!==undefined ? o.flap : state.appFlap));
@@ -4668,8 +4730,10 @@ function computeVProfile(o){
     antThr = gearThr + g.antGear;
   }
   const aimEyeFt = eyeThr/tg;   // Eyeの狙い点(ILSオンパス時は等価な値)
+  const flare = computeFlare(gearThr, o.glideDeg);
   const res = { tg, geom:g, glideDeg:o.glideDeg, aimEyeFt, aimEyeFtInput:o.aimEyeFt, ilsOnPath, eyeThr, gearThr, antThr,
-    gearTdFt: gearThr/tg, eyeAt:(x)=>eyeThr+x*tg, gearAt:(x)=>gearThr+x*tg, antAt:(x)=>antThr+x*tg, ils:null, papi:null };
+    flare, gearTdFt: flare.tdFt, gearTdNoFlareFt: gearThr/tg,
+    eyeAt:(x)=>eyeThr+x*tg, gearAt:(x)=>gearThr+x*tg, antAt:(x)=>antThr+x*tg, ils:null, papi:null };
   if(aids && aids.gp){
     const ta = Math.tan(aids.gp.angle*D2R);
     const at = (x)=>aids.gp.rdhFt + x*ta;
@@ -4734,7 +4798,7 @@ function renderVProfile(r, info){
   const H = Math.round(Math.min(380, Math.max(240, W*0.40)));
   const FS = wide ? 12 : 10, FSs = wide ? 11 : 9;
   const ml = wide ? 44 : 32, mr=10, mt=12, mb = wide ? 26 : 22, pw=W-ml-mr, ph=H-mt-mb;
-  const xL = wide ? 5000 : 3000, xR = wide ? -2000 : -1800, yMax = wide ? 300 : 180;
+  const xL = wide ? 5000 : 3000, xR = wide ? -2800 : -2400, yMax = wide ? 300 : 180;   // 滑走路側はフレア後の接地点(THRから約1,600ft)まで
   const sx = (x)=> ml + (xL-x)/(xL-xR)*pw;
   const sy = (h)=> mt + ph - h/yMax*ph;
   const f1 = (v)=> v.toFixed(1);
@@ -4780,16 +4844,25 @@ function renderVProfile(r, info){
   g.push(`<line x1="${ml}" y1="${f1(sy(0))}" x2="${f1(sx(0))}" y2="${f1(sy(0))}" stroke="var(--groundline)" stroke-width="1"/>`);
   g.push(`<rect x="${f1(sx(0))}" y="${f1(sy(0))}" width="${f1(sx(xR)-sx(0))}" height="4" fill="var(--textdim)"/>`);
   g.push(`<line x1="${f1(sx(0))}" y1="${mt}" x2="${f1(sx(0))}" y2="${f1(sy(0))}" stroke="var(--textdim)" stroke-width="0.6" stroke-dasharray="2 3"/>`);
+  // フレア中は機体と一緒に Eye・GSアンテナも動かす: 主脚の高さ＋(Eye−Gear / アンテナ−Gear)＋機首上げの分。
+  // 機首上げ＝経路角が浅くなった分(迎え角一定とみなす)。1°あたりの高さの変化は表の Eye−Gear の姿勢による変化(約2ft/°)を
+  // Eye・GSアンテナの両方に使う(どちらも機首付近で主脚から同じくらい前にあるため)
+  const fl = r.flare, perDeg = r.geom.eyePerDeg || 0;
+  const flarePath = (off)=> [{ x:xL, h:r.gearAt(xL)+off }, ...fl.pts.map(q=>({ x:q.x, h:q.h + off + perDeg*(r.glideDeg - q.a) }))];
+  const eyePath = flarePath(r.eyeThr - r.gearThr), antPath = flarePath(r.antThr - r.gearThr);
   // ILSパスとGSアンテナの通り道
   if(r.ils){
     const o = -r.ils.originFt;
     g.push(`<line x1="${f1(sx(o))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(r.ils.at(xL)))}" stroke="var(--amber)" stroke-width="1.6" stroke-dasharray="6 4"/>`);
-    g.push(`<line x1="${f1(sx(-r.antThr/r.tg))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(r.antAt(xL)))}" stroke="var(--amber)" stroke-width="1" stroke-dasharray="1.5 2.5"/>`);
+    g.push(`<polyline points="${antPath.map(q=>f1(sx(q.x))+","+f1(sy(q.h))).join(" ")}" fill="none" stroke="var(--amber)" stroke-width="1" stroke-dasharray="1.5 2.5"/>`);
     g.push(`<rect x="${f1(sx(-r.ils.distM/0.3048)-2.5)}" y="${f1(sy(0)-7)}" width="5" height="7" fill="var(--amber)"/>`);
   }
   // 主脚とEyeの通り道
-  g.push(`<line x1="${f1(sx(-r.gearTdFt))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(r.gearAt(xL)))}" stroke="var(--green)" stroke-width="2"/>`);
-  g.push(`<line x1="${f1(sx(-r.aimEyeFt))}" y1="${f1(sy(0))}" x2="${f1(sx(xL))}" y2="${f1(sy(r.eyeAt(xL)))}" stroke="var(--cyan)" stroke-width="2"/>`);
+  // 主脚: 50ft RAまで降下角のまま、そこからフレア(50→30ftで1.5°へ、以後1.5°)で接地
+  g.push(`<polyline points="${[{x:xL, h:r.gearAt(xL)}, ...r.flare.pts].map(q=>f1(sx(q.x))+","+f1(sy(q.h))).join(" ")}" fill="none" stroke="var(--green)" stroke-width="2"/>`);
+  g.push(`<polyline points="${eyePath.map(q=>f1(sx(q.x))+","+f1(sy(q.h))).join(" ")}" fill="none" stroke="var(--cyan)" stroke-width="2"/>`);
+  // 狙い点へ向かう元の線(フレアしなかった場合)は細い点線で残す
+  g.push(`<line x1="${f1(sx(fl.x50))}" y1="${f1(sy(r.eyeAt(fl.x50)))}" x2="${f1(sx(-r.aimEyeFt))}" y2="${f1(sy(0))}" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="2 3" stroke-opacity="0.7"/>`);
   g.push(`<circle cx="${f1(sx(-r.gearTdFt))}" cy="${f1(sy(0))}" r="3" fill="var(--green)"/>`);
   g.push(`<circle cx="${f1(sx(-r.aimEyeFt))}" cy="${f1(sy(0))}" r="3" fill="var(--cyan)"/>`);
   if(r.papi){
@@ -4814,7 +4887,7 @@ function renderVProfile(r, info){
   const rows = [];
   rows.push(`<tr><td style="color:var(--cyan)">Eye</td><td>${r.eyeThr.toFixed(1)} ft</td><td>${r.ilsOnPath ? `Eyeの狙い点 ${Math.round(r.aimEyeFt).toLocaleString()}ft相当` : `Aiming Point ${Math.round(r.aimEyeFt).toLocaleString()}ft`}</td></tr>`);
   rows.push(`<tr><td style="color:var(--amber)">GSアンテナ</td><td>${r.antThr.toFixed(1)} ft</td><td>${r.ilsOnPath ? `ILSパス上(RDH ${r.ils.rdhFt}ft)` : r.ils ? `ILS(RDH ${r.ils.rdhFt}ft)より ${sgn(r.ils.devThr)}ft` + (Math.abs(r.ils.dev1nm-r.ils.devThr)>=0.5 ? `（1NMで ${sgn(r.ils.dev1nm)}ft）` : "") : "この滑走路はILS(GP)なし"}</td></tr>`);
-  rows.push(`<tr><td style="color:var(--green)">Gear</td><td>${r.gearThr.toFixed(1)} ft</td><td>${r.gearThr>0 ? `接地(No Flare) THRから${Math.round(r.gearTdFt).toLocaleString()}ft` : `<span style="color:var(--red)">THR手前で接地する高さ</span>`}</td></tr>`);
+  rows.push(`<tr><td style="color:var(--green)">Gear</td><td>${r.gearThr.toFixed(1)} ft</td><td>${r.gearThr>0 ? `接地 THRから${Math.round(r.gearTdFt).toLocaleString()}ft <span style="color:var(--textdim)">（フレア: 50→30ft RAで1.5°へ。No Flareなら${Math.round(r.gearTdNoFlareFt).toLocaleString()}ft）</span>` : `<span style="color:var(--red)">THR手前で接地する高さ</span>`}</td></tr>`);
   if(r.papi) rows.push(`<tr><td>PAPI</td><td>${PAPI_STATE_LABEL[r.papi.thrWhites].split(" ")[0]}</td><td>THR上でEyeから見た表示</td></tr>`);
   const tbl = `<table class="vpTbl"><tr><th></th><th>THR上</th><th></th></tr>${rows.join("")}</table>`;
 
@@ -4859,6 +4932,8 @@ function renderVProfile(r, info){
     notes.push(`Flaps 25：表(Flaps 30)より姿勢 ${r.geom.flapPitchDeg>0?"+":"−"}${Math.abs(r.geom.flapPitchDeg).toFixed(1)}° として計算（Eye−Gear ${dE>=0?"+":"−"}${Math.abs(dE).toFixed(1)}ft）`); }
   notes.push("Eye height・GSアンテナ・主脚の高さ・姿勢は、B787 TRAINING MANUAL 8-1-5「ILS Approach - Landing Geometry」内の表から計算");
   if(r.ils) notes.push(`ILS: GP角 ${r.ils.angle.toFixed(1)}° ／ GPアンテナ THRから${r.ils.distM}m（${Math.round(r.ils.distM/0.3048).toLocaleString()}ft） ／ RDH ${r.ils.rdhFt}ft`);
+  notes.push("接地点: 主脚の高さ(RA) 50ftまで降下角のまま、50→30ftで角度を直線的に1.5°まで浅くし、30ft以下は1.5°として計算(運用上の指定)。"
+    + "フレア中のEye・GSアンテナは主脚の動きに合わせ、経路角が浅くなった分だけ機首が上がるとして約" + (r.geom.eyePerDeg||0).toFixed(1) + "ft/°高くなる(接地時 +" + ((r.geom.eyePerDeg||0)*(r.glideDeg-FLARE_FINAL_DEG)).toFixed(1) + "ft)。Eyeの点線はフレアしなかった場合の狙い点への線。PAPIの見え方は進入中(フレア前)の直線で計算。");
   notes.push("滑走路・進入側の勾配は無視(THR標高の水平面で計算)。TOD/高度の計算はAiming Point(Eye)から求めたGear(高度計)基準のTHR通過高度を使用。");
 
   // 断面図の基準切替(ILSオンパスはGPのある滑走路のみ)
@@ -4928,6 +5003,7 @@ function render(){
   }
 }
 function renderMain(){
+  { const ge = document.getElementById("geomError"); if(ge) ge.classList.remove("caution"); }
   setAltTempCorr(0, 0);   // 気温による高度計の誤差: 各モードがOATを読んでから設定する
   contTurnSeenThisRender = false;
   _labelFSCache = null;
@@ -5971,6 +6047,7 @@ function saveState(){
     // VOR方式強制前のApproach/Side退避値も保存する(無いと復元後にclearVorForcing()で元へ戻せない)
     snapshot.vorSavedState = vorSavedState;
     snapshot.bm237 = true;   // Base Turn基準の既定を時間式へ移行済みの印
+    snapshot.v2b283 = true;  // depSpeedKt が V2 になった(build 283)印
     // Traffic Pattern中に強制したCut/DW Flapの元の値(再起動後もApproachへ戻る時に復元するため)
     snapshot.patternSaved = { cut: cutBeforePattern, flap: circDwFlapBeforePattern };
     localStorage.setItem(PERSIST_KEY, JSON.stringify(snapshot));
@@ -6059,6 +6136,7 @@ function applySavedStateOverride(saved){
   }
   PERSIST_FIELD_IDS.forEach(id=>{
     if(saved.fields[id]===undefined) return;
+    if(id==="depSpeedKt" && !saved.v2b283) return;   // build 282以前は「Speed(IAS)」。V2として使わない
     const el = document.getElementById(id);
     if(el) el.value = saved.fields[id];
   });
