@@ -352,7 +352,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 291</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 292</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> 便名</span></button>
 </header>
@@ -4710,26 +4710,17 @@ function stopIfInputErrors(){
 // ILS: THR上RDHからGP角の直線。PAPI: 下側のオンパス灯(ILSあり2°45'/なし2°50')がTHR上でMEHTを通るよう実効位置を逆算。
 const FT_PER_NM = NM/0.3048;
 const PAPI_STATE_LABEL = ["4R 低すぎ","1W3R やや低","2W2R オンパス","3W1R やや高","4W 高すぎ"];
-// フレア(運用上の指定): 主脚の高さ(RA)50ftまでは降下角のまま、50→30ftで角度を直線的に1.5°まで浅くし、30ft以下は1.5°で接地。
+// フレア(運用上の指定・資料「Visual Aiming Point」図1どおり): 主脚の高さ(RA) 30ft(30ft Call)までは降下角のまま、30ftで1.5°に切り替えて接地。
 // 高さはTHR標高の水平面から。x = THRから進入側への距離(ft、滑走路側が負)。
-const FLARE_START_FT = 50, FLARE_END_FT = 30, FLARE_FINAL_DEG = 1.5;
+// (build 283〜291 は 50→30ftで徐々に1.5°へ浅くしていたが、資料と約150ft合わないため build 292 で変更)
+const FLARE_SWITCH_FT = 30, FLARE_FINAL_DEG = 1.5;
 function computeFlare(gearThrFt, glideDeg){
   const tg = Math.tan(glideDeg*D2R);
-  const x50 = (FLARE_START_FT - gearThrFt)/tg;          // 主脚が50ftになる点
-  const pts = [{ x:x50, h:FLARE_START_FT, a:glideDeg }];   // a = その点の経路角(°)
-  const N = 40, dh = (FLARE_START_FT-FLARE_END_FT)/N;
-  let x = x50;
-  for(let i=0;i<N;i++){
-    const hMid = FLARE_START_FT - (i+0.5)*dh;
-    const ang = glideDeg + (FLARE_FINAL_DEG-glideDeg)*(FLARE_START_FT-hMid)/(FLARE_START_FT-FLARE_END_FT);
-    x -= dh/Math.tan(ang*D2R);
-    const hEnd = FLARE_START_FT-(i+1)*dh;
-    pts.push({ x, h: hEnd, a: glideDeg + (FLARE_FINAL_DEG-glideDeg)*(FLARE_START_FT-hEnd)/(FLARE_START_FT-FLARE_END_FT) });
-  }
-  const x30 = x;
-  const tdX = x30 - FLARE_END_FT/Math.tan(FLARE_FINAL_DEG*D2R);
-  pts.push({ x:tdX, h:0, a:FLARE_FINAL_DEG });
-  return { x50, x30, tdX, tdFt: -tdX, pts };
+  const x30 = (FLARE_SWITCH_FT - gearThrFt)/tg;          // 主脚が30ftになる点
+  const tdX = x30 - FLARE_SWITCH_FT/Math.tan(FLARE_FINAL_DEG*D2R);
+  // a = その点での経路角(°)。Eye・GSアンテナの機首上げ分は30ftの点(0)から接地(1.5°ぶん)まで直線でつなぐ
+  const pts = [{ x:x30, h:FLARE_SWITCH_FT, a:glideDeg }, { x:tdX, h:0, a:FLARE_FINAL_DEG }];
+  return { xStart:x30, x30, tdX, tdFt: -tdX, pts };
 }
 function computeVProfile(o){
   const tg = Math.tan(o.glideDeg*D2R);
@@ -4876,11 +4867,11 @@ function renderVProfile(r, info){
     g.push(`<rect x="${f1(sx(-r.ils.distM/0.3048)-2.5)}" y="${f1(sy(0)-7)}" width="5" height="7" fill="var(--amber)"/>`);
   }
   // 主脚とEyeの通り道
-  // 主脚: 50ft RAまで降下角のまま、そこからフレア(50→30ftで1.5°へ、以後1.5°)で接地
+  // 主脚: 30ft RAまで降下角のまま、30ftで1.5°に切り替えて接地
   g.push(`<polyline points="${[{x:xL, h:r.gearAt(xL)}, ...r.flare.pts].map(q=>f1(sx(q.x))+","+f1(sy(q.h))).join(" ")}" fill="none" stroke="var(--green)" stroke-width="2"/>`);
   g.push(`<polyline points="${eyePath.map(q=>f1(sx(q.x))+","+f1(sy(q.h))).join(" ")}" fill="none" stroke="var(--cyan)" stroke-width="2"/>`);
   // 狙い点へ向かう元の線(フレアしなかった場合)は細い点線で残す
-  g.push(`<line x1="${f1(sx(fl.x50))}" y1="${f1(sy(r.eyeAt(fl.x50)))}" x2="${f1(sx(-r.aimEyeFt))}" y2="${f1(sy(0))}" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="2 3" stroke-opacity="0.7"/>`);
+  g.push(`<line x1="${f1(sx(fl.xStart))}" y1="${f1(sy(r.eyeAt(fl.xStart)))}" x2="${f1(sx(-r.aimEyeFt))}" y2="${f1(sy(0))}" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="2 3" stroke-opacity="0.7"/>`);
   g.push(`<circle cx="${f1(sx(-r.gearTdFt))}" cy="${f1(sy(0))}" r="3" fill="var(--green)"/>`);
   g.push(`<circle cx="${f1(sx(-r.aimEyeFt))}" cy="${f1(sy(0))}" r="3" fill="var(--cyan)"/>`);
   if(r.papi){
@@ -4905,7 +4896,7 @@ function renderVProfile(r, info){
   const rows = [];
   rows.push(`<tr><td style="color:var(--cyan)">Eye</td><td>${r.eyeThr.toFixed(1)} ft</td><td>${r.ilsOnPath ? `Eyeの狙い点 ${Math.round(r.aimEyeFt).toLocaleString()}ft相当` : `Aiming Point ${Math.round(r.aimEyeFt).toLocaleString()}ft`}</td></tr>`);
   rows.push(`<tr><td style="color:var(--amber)">GSアンテナ</td><td>${r.antThr.toFixed(1)} ft</td><td>${r.ilsOnPath ? `ILSパス上(RDH ${r.ils.rdhFt}ft)` : r.ils ? `ILS(RDH ${r.ils.rdhFt}ft)より ${sgn(r.ils.devThr)}ft` + (Math.abs(r.ils.dev1nm-r.ils.devThr)>=0.5 ? `（1NMで ${sgn(r.ils.dev1nm)}ft）` : "") : "この滑走路はILS(GP)なし"}</td></tr>`);
-  rows.push(`<tr><td style="color:var(--green)">Gear</td><td>${r.gearThr.toFixed(1)} ft</td><td>${r.gearThr>0 ? `接地 THRから${Math.round(r.gearTdFt).toLocaleString()}ft <span style="color:var(--textdim)">（フレア: 50→30ft RAで1.5°へ。No Flareなら${Math.round(r.gearTdNoFlareFt).toLocaleString()}ft）</span>` : `<span style="color:var(--red)">THR手前で接地する高さ</span>`}</td></tr>`);
+  rows.push(`<tr><td style="color:var(--green)">Gear</td><td>${r.gearThr.toFixed(1)} ft</td><td>${r.gearThr>0 ? `接地 THRから${Math.round(r.gearTdFt).toLocaleString()}ft <span style="color:var(--textdim)">（30ft RAで1.5°に切り替え。No Flareなら${Math.round(r.gearTdNoFlareFt).toLocaleString()}ft）</span>` : `<span style="color:var(--red)">THR手前で接地する高さ</span>`}</td></tr>`);
   if(r.papi) rows.push(`<tr><td>PAPI</td><td>${PAPI_STATE_LABEL[r.papi.thrWhites].split(" ")[0]}</td><td>THR上でEyeから見た表示</td></tr>`);
   const tbl = `<table class="vpTbl"><tr><th></th><th>THR上</th><th></th></tr>${rows.join("")}</table>`;
 
@@ -4950,8 +4941,8 @@ function renderVProfile(r, info){
     notes.push(`Flaps 25：表(Flaps 30)より姿勢 ${r.geom.flapPitchDeg>0?"+":"−"}${Math.abs(r.geom.flapPitchDeg).toFixed(1)}° として計算（Eye−Gear ${dE>=0?"+":"−"}${Math.abs(dE).toFixed(1)}ft）`); }
   notes.push("Eye height・GSアンテナ・主脚の高さ・姿勢は、B787 TRAINING MANUAL 8-1-5「ILS Approach - Landing Geometry」内の表から計算");
   if(r.ils) notes.push(`ILS: GP角 ${r.ils.angle.toFixed(1)}° ／ GPアンテナ THRから${r.ils.distM}m（${Math.round(r.ils.distM/0.3048).toLocaleString()}ft） ／ RDH ${r.ils.rdhFt}ft`);
-  notes.push("接地点: 主脚の高さ(RA) 50ftまで降下角のまま、50→30ftで角度を直線的に1.5°まで浅くし、30ft以下は1.5°として計算(運用上の指定)。"
-    + "フレア中のEye・GSアンテナは主脚の動きに合わせ、経路角が浅くなった分だけ機首が上がるとして約" + (r.geom.eyePerDeg||0).toFixed(1) + "ft/°高くなる(接地時 +" + ((r.geom.eyePerDeg||0)*(r.glideDeg-FLARE_FINAL_DEG)).toFixed(1) + "ft)。Eyeの点線はフレアしなかった場合の狙い点への線。PAPIの見え方は進入中(フレア前)の直線で計算。");
+  notes.push("接地点: 主脚の高さ(RA) 30ft(30ft Call)まで降下角のまま、30ftで1.5° Pathに切り替えて接地として計算(運用上の指定、Visual Aiming Point の資料の図1と同じ考え方)。"
+    + "30ftから接地までのEye・GSアンテナは主脚の動きに合わせ、経路角が浅くなった分だけ機首が上がるとして約" + (r.geom.eyePerDeg||0).toFixed(1) + "ft/°、接地までに徐々に高くなる(接地時 +" + ((r.geom.eyePerDeg||0)*(r.glideDeg-FLARE_FINAL_DEG)).toFixed(1) + "ft)。Eyeの点線はフレアしなかった場合の狙い点への線。PAPIの見え方は進入中(フレア前)の直線で計算。");
   notes.push("滑走路・進入側の勾配は無視(THR標高の水平面で計算)。TOD/高度の計算はAiming Point(Eye)から求めたGear(高度計)基準のTHR通過高度を使用。");
 
   // 断面図の基準切替(ILSオンパスはGPのある滑走路のみ)
