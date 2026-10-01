@@ -20,7 +20,7 @@ GitHub Actions(.github/workflows/flightdb.yml)から毎日実行される。
 使いすぎ防止: 1か月の使用単位を master に記録し、MONTH_CAP_UNITS(既定900単位≒4.5ドル)を超えそうなら
 AeroAPI を呼ばない。AeroAPI の /account/usage が読めればそちらの値とも突き合わせる。
 """
-import os, sys, json, time, re, datetime, urllib.request, urllib.parse, urllib.error, argparse, csv
+import os, sys, json, time, re, datetime, urllib.request, urllib.parse, urllib.error, argparse, csv, collections
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MASTER = os.path.join(ROOT, "data", "flightdb_master.json")
@@ -47,6 +47,18 @@ SEED_DAILY_CAP = int(os.environ.get("SEED_DAILY_CAP", "25"))  # 1回に調べる
 SEED_MIN_REMAINING = 150     # 今月の残りがこれ以下なら調べない(毎日の差分チェック用に残す)
 SEED_REFRESH_DAYS = 84       # 調べてからこの日数、またはダイヤ改正をまたいだら調べ直す
 SEED_MONTH_END_KEEP = 5      # 月末に使い切るときも、これだけは残す
+# 使い切り(ユーザー判断 2026-10-01「残しておくメリットがないので全て使い切ってさっさとデータを埋めたい」)：
+# 毎回、今月の残りを SEED_MONTH_END_KEEP だけ残して使い切る(未登録の便名 → 曜日限定便の順)。
+# 月の途中で全国の取り直しが必要になっても枠が無ければ翌月1日に回る。0 にすると 1日30件/25件 ずつの従来の方式
+SPEND_ALL = os.environ.get("SPEND_ALL", "1") == "1"
+# 使い切りのときの順番(ユーザー判断 2026-10-01)：曜日限定便(seed) → 未登録の便名。どちらも ANA・JAL の便を先に
+PRIORITY_PREFIXES = ("ANA", "AKX", "JAL", "JTA", "JAC", "NTH", "JLJ", "NH", "EH", "JL", "NU", "JC")
+
+
+def is_priority(designator):
+    """ANA・JAL の便(子会社運航を含む)か"""
+    d = (designator or "").upper()
+    return any(d.startswith(p_) and d[len(p_):len(p_) + 1].isdigit() for p_ in PRIORITY_PREFIXES)
 LK_MIN_COVER_DAYS = 7        # 便名検索で「今のダイヤ期間」の運航が何日分見えていれば運航曜日を信じるか
 AERO_PAST_DAYS, AERO_FUTURE_DAYS = 10, 2   # AeroAPI の便名検索が返す範囲(過去10日〜2日先)
 TIME_LIMIT_MIN = float(os.environ.get("TIME_LIMIT_MIN", "165"))   # この分数を超えたら新しい問い合わせをやめて保存する
@@ -665,7 +677,7 @@ def is_month_end_utc():
     return (t + datetime.timedelta(days=1)).month != t.month
 
 
-def run_seeds(m, aero, max_units):
+def run_seeds(m, aero, max_units, only=None):
     """data/seed_flights.txt の便名(曜日限定便など)を少しずつ AeroAPI で調べ、運航曜日と時刻を入れる。
     ふだんは1回 SEED_DAILY_CAP 件まで(今月の残りが SEED_MIN_REMAINING 以下なら調べない)。
     月の最終日(UTC)は、今月の残りを SEED_MONTH_END_KEEP だけ残して使い切る。"""
@@ -678,7 +690,7 @@ def run_seeds(m, aero, max_units):
     if today < ready:
         log(f"[seed] ダイヤ改正（{ch}）直後なので {ready} から調べる")
         return {"seed_looked": 0}
-    month_end = is_month_end_utc()
+    month_end = is_month_end_utc() or SPEND_ALL
     keep = SEED_MONTH_END_KEEP if month_end else SEED_MIN_REMAINING
     if max_units <= keep:
         log(f"[seed] 今月の残りが少ないので今回は調べない（残り {max_units}）")
@@ -688,9 +700,12 @@ def run_seeds(m, aero, max_units):
     seeds = list(dict.fromkeys(seeds))
     old = max((today - datetime.timedelta(days=SEED_REFRESH_DAYS)).isoformat(), ch.isoformat())
     todo = [x for x in seeds if (m["seeded"].get(x) or "") < old]
+    todo.sort(key=lambda x: 0 if is_priority(x) else 1)   # ANA・JAL の便を先に(同じ中では一覧の順)
+    if only is not None:      # only=True: ANA・JAL の便だけ / False: それ以外だけ
+        todo = [x for x in todo if is_priority(x) == only]
     cap = (max_units - keep) if month_end else SEED_DAILY_CAP
     limit = max(0, min(cap, max_units - keep))    # 使ってよい単位数
-    log(f"[seed] 一覧 {len(seeds)} 便名、未確認 {len(todo)} 件、今回の上限 {limit} 単位" + ("（月末なので今月の残りを使う）" if month_end else ""))
+    log(f"[seed] 一覧 {len(seeds)} 便名、未確認 {len(todo)} 件、今回の上限 {limit} 単位" + ("（今月の残りを使い切る）" if month_end else ""))
     used0 = aero.calls
     idx = key_index(m)
     ok = looked = skipped = 0
@@ -707,8 +722,10 @@ def run_seeds(m, aero, max_units):
             m["seeded"][x] = today.isoformat()
             skipped += 1
             continue
-        if alt and alt in idx and des not in idx:
-            des, alt = alt, None      # 表に ANA の便名でしか無ければ、最初から ANA の便名で調べる(1単位で済む)
+        if alt and des not in idx:
+            # 表に AKX の便名が無ければ ANA の便名から調べる(9/29〜10/1 の実績で、見つかったのは ANA 9件・AKX 4件)。
+            # ANA で見つからなければ AKX でも調べる
+            des, alt = alt, (des if alt not in idx else None)
         got, cover_ok = aero_lookup(m, aero, des)
         if not got and alt and aero.calls - used0 < limit:
             m["miss"].pop(des, None)
@@ -780,12 +797,15 @@ def run_daily(m, aero, osn, max_units):
         recs = idx.get(c)
         if c in m["miss"] or (recs and max(r["last"] for r in recs) >= stale and not need_time(recs)):
             continue
-        order.append((0 if not recs else 1, -p["n"], c))
+        order.append((0 if is_priority(c) else 1, 0 if not recs else 1, -p["n"], c))
     order.sort()
     # 初回や取り直しで何日分もまとめて集めたときは、その分だけ多めに調べる(最大 CATCHUP_LOOKUP_MAX 件)
     cap = min(max(DAILY_LOOKUP_CAP, DAILY_LOOKUP_CAP * len(days)), CATCHUP_LOOKUP_MAX)
     limit = min(cap, max_units)
-    if is_month_end_utc():
+    if SPEND_ALL:
+        # 使い切り: ANA・JAL の曜日限定便 → ANA・JAL の未登録便名 → その他の曜日限定便 → その他の未登録便名
+        return run_daily_spend_all(m, aero, max_units, order, pend, res0, days, seen)
+    elif is_month_end_utc():
         # 月末は今月の残りを使い切る。半分は実際に飛んでいる未登録の便名に、残りは曜日限定便の確認(seed)に
         limit = max(cap, (max_units - SEED_MONTH_END_KEEP) // 2)
         limit = max(0, min(limit, max_units - SEED_MONTH_END_KEEP))
@@ -794,7 +814,7 @@ def run_daily(m, aero, osn, max_units):
     ok = 0
     looked = []
     if aero:
-        for _, _, c in order[:limit]:
+        for *_, c in order[:limit]:
             if out_of_time():
                 log("[daily] 時間切れのため残りは次回")
                 break
@@ -809,6 +829,44 @@ def run_daily(m, aero, osn, max_units):
     if aero:
         res.update(run_seeds(m, aero, max_units - res["units"]))
         res["units"] = aero.calls - used0 + res0.get("gap_units", 0)
+    return res
+
+
+def run_daily_spend_all(m, aero, max_units, order, pend, res0, days, seen):
+    """今月の残りを使い切る。ANA・JAL の曜日限定便 → ANA・JAL の未登録便名 → その他の曜日限定便 → その他の未登録便名"""
+    res = {**res0, "mode": "daily", "opensky_days": days, "seen": len(seen), "pending": len(order)}
+    if not aero:
+        res.update({"looked": 0, "found": 0, "left": len(pend), "units": 0})
+        return res
+    used0 = aero.calls
+    left = lambda: max_units - (aero.calls - used0) - SEED_MONTH_END_KEEP
+    looked = found = 0
+    seed_tot = collections.Counter()
+
+    def lookups(prio):
+        nonlocal looked, found
+        for pr, *_, c in order:
+            if (pr == 0) != prio or c not in pend:
+                continue
+            if left() <= 0 or out_of_time():
+                return
+            if aero_lookup(m, aero, c)[0]:
+                found += 1
+            looked += 1
+            pend.pop(c, None)
+
+    for prio in (True, False):
+        r = run_seeds(m, aero, max_units - (aero.calls - used0), only=prio) if left() > 0 else {}
+        for k in ("seed_looked", "seed_found", "seed_skipped_daily", "seed_units"):
+            seed_tot[k] += r.get(k, 0)
+        if "seed_left" in r:
+            seed_tot["seed_left_" + ("anajal" if prio else "other")] = r["seed_left"]
+        lookups(prio)
+    for c in [c for c in pend if c in m["miss"]]:
+        pend.pop(c, None)
+    log(f"[daily] 使い切り: 曜日限定便 {seed_tot['seed_looked']} 件、未登録の便名 {looked} 件（見つかった {found}）、残りの調べる待ち {len(pend)} 件")
+    res.update({"looked": looked, "found": found, "left": len(pend), **dict(seed_tot),
+                "units": aero.calls - used0 + res0.get("gap_units", 0)})
     return res
 
 
