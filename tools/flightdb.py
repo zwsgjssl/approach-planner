@@ -55,6 +55,14 @@ SPEND_ALL = os.environ.get("SPEND_ALL", "1") == "1"
 PRIORITY_PREFIXES = ("ANA", "AKX", "JAL", "JTA", "JAC", "NTH", "JLJ", "NH", "EH", "JL", "NU", "JC")
 
 
+ADHOC_RE = re.compile(r"^(ANA|AKX|JAL|JTA|JAC|NTH|JLJ)9\d{3}[A-Z]{0,2}$")
+
+
+def is_adhoc(callsign):
+    """ANA・JAL グループの9000番台(臨時便・回送・訓練など)か。時刻表が無く AeroAPI でも時刻が取れないので調べない"""
+    return bool(ADHOC_RE.match((callsign or "").upper()))
+
+
 def is_priority(designator):
     """ANA・JAL の便(子会社運航を含む)か"""
     d = (designator or "").upper()
@@ -781,7 +789,7 @@ def run_daily(m, aero, osn, max_units):
     need_time = lambda recs: bool(m["meta"].get("std_ok")) and not all(
         r.get("std") and ((r.get("sd") or "") >= ch or not base_after_ch) for r in recs)
     for c, n in seen.items():
-        if c in m["miss"]:
+        if c in m["miss"] or is_adhoc(c):
             continue
         recs = idx.get(c)
         # 記録が新しく、STD/STA もそろっていれば調べない(時刻の無い古い記録は、見かけたら調べ直して時刻を入れる)
@@ -795,7 +803,7 @@ def run_daily(m, aero, osn, max_units):
     order = []
     for c, p in pend.items():
         recs = idx.get(c)
-        if c in m["miss"] or (recs and max(r["last"] for r in recs) >= stale and not need_time(recs)):
+        if c in m["miss"] or is_adhoc(c) or (recs and max(r["last"] for r in recs) >= stale and not need_time(recs)):
             continue
         order.append((0 if is_priority(c) else 1, 0 if not recs else 1, -p["n"], c))
     order.sort()
