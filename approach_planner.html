@@ -352,7 +352,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 290</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 291</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> 便名</span></button>
 </header>
@@ -6837,13 +6837,13 @@ contTurnBoot = false;
     setTab("search");
     inp.value = b.dataset.q; render();
   });
-  apSel.addEventListener("change", ()=>{ boardEl.scrollTop = 0; renderBoard(); });
+  apSel.addEventListener("change", ()=>{ renderBoard(); scrollBoardNow(); });
   // UTCの時間帯へ移動。選んだら一覧をその時間の見出しまでスクロールし、選択肢は「UTC」に戻す(同じ時間をもう一度選べるように)
   const hourSel = document.getElementById("fltHourSel");
   function fillHourSel(hours, any){
     const p2 = (n)=>String(n).padStart(2,"0");
     hourSel.innerHTML = '<option value="">UTC</option>' + (any ? '<option value="now">今</option>' : "")
-      + hours.map(o=>'<option value="' + o.hh + '">' + p2(o.hh) + "Z（" + o.n + "）</option>").join("");
+      + hours.map(o=>'<option value="' + o.hh + '">' + p2(o.hh) + "Z</option>").join("");
     hourSel.disabled = !any;
   }
   // 見出しは sticky なので、その下の便の行を基準に、見出しの高さぶん上へスクロールする
@@ -6852,13 +6852,17 @@ contTurnBoot = false;
     const hd = boardEl.querySelector(".fltHour"), hdH = hd ? hd.offsetHeight : 0;
     boardEl.scrollTop += row.getBoundingClientRect().top - boardEl.getBoundingClientRect().top - hdH;
   }
+  // 今(10分前から)以降の最初の便へ。今日の便がもう無ければ最後の便へ
+  function scrollBoardNow(){
+    const now = Date.now();
+    const rowsT = Array.from(boardEl.querySelectorAll(".fltRow[data-t]"));
+    if(!rowsT.length){ boardEl.scrollTop = 0; return; }
+    scrollBoardToRow(rowsT.find(b=>+b.dataset.t >= now - 10*60000) || rowsT[rowsT.length-1]);
+  }
   hourSel.addEventListener("change", ()=>{
     const v = hourSel.value;
     if(v==="now"){
-      // 今(10分前から)以降の最初の便へ。今日の便がもう無ければ最後へ
-      const now = Date.now();
-      const row = Array.from(boardEl.querySelectorAll(".fltRow[data-t]")).find(b=>+b.dataset.t >= now - 10*60000);
-      if(row) scrollBoardToRow(row); else boardEl.scrollTop = boardEl.scrollHeight;
+      scrollBoardNow();
     } else if(v!==""){
       const hd = boardEl.querySelector('.fltHour[data-h="' + v + '"]');
       scrollBoardToRow(hd && hd.nextElementSibling);
@@ -6869,14 +6873,14 @@ contTurnBoot = false;
     const b = e.target.closest("button[data-v]"); if(!b) return;
     dir = b.dataset.v;
     document.querySelectorAll("#fltDir button").forEach(x=>x.classList.toggle("active", x===b));
-    boardEl.scrollTop = 0; renderBoard();
+    renderBoard(); scrollBoardNow();
   });
   function setTab(t){
     tab = t;
     tabsEl.querySelectorAll("button").forEach(x=>{ const on = x.dataset.t===t; x.classList.toggle("active", on); x.setAttribute("aria-selected", on ? "true" : "false"); });
     searchPane.hidden = t!=="search";
     boardPane.hidden = t!=="board";
-    if(t==="board"){ fillApSel(); renderBoard(); }
+    if(t==="board"){ fillApSel(); renderBoard(); scrollBoardNow(); }   // 一覧は今の時刻の位置から
   }
   tabsEl.addEventListener("click", (e)=>{ const b = e.target.closest("button[data-t]"); if(b) setTab(b.dataset.t); });
 
@@ -6896,8 +6900,8 @@ contTurnBoot = false;
     fillApSel();
     const cur = currentAppIcao();   // 一覧の空港は、開くたびにアプリで選んでいる空港にそろえる
     if(cur && Array.from(apSel.options).some(o=>o.value===cur)) apSel.value = cur;
-    render(); if(tab==="board") renderBoard();
-    load().then(()=>{ render(); if(tab==="board") renderBoard(); foot.innerHTML = footHtml(); });
+    render(); if(tab==="board"){ renderBoard(); scrollBoardNow(); }
+    load().then(()=>{ render(); if(tab==="board"){ renderBoard(); scrollBoardNow(); } foot.innerHTML = footHtml(); });
     if(tab==="search") setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(e){} }, 30);
   }
   function close(){
