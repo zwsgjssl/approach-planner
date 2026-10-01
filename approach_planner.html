@@ -290,6 +290,12 @@
   .fltBoardCtl{ display:flex; gap:8px; padding:0 16px 8px; flex-wrap:wrap; }
   .fltApSel{ flex:1 1 180px; min-width:0; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; font-size:16px; padding:6px 8px; min-height:44px; }
   .fltDir{ flex:0 0 auto; }
+  /* UTCの時間帯へ移動 */
+  .fltHourSel{ flex:0 0 auto; width:auto; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; font-size:16px; padding:6px 8px; min-height:44px;
+               font-family:ui-monospace, "SF Mono", Menlo, monospace; }
+  .fltHour{ position:sticky; top:0; z-index:1; background:var(--panel); color:var(--cyan); font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; letter-spacing:.5px;
+            padding:6px 4px 3px; border-bottom:1px solid var(--line); }
+  .fltRow .ap .apc{ font-family:ui-monospace, "SF Mono", Menlo, monospace; letter-spacing:.5px; }
   .fltDir button{ min-width:64px; }
   /* 出発・到着を一緒に表示するときの「出」「着」 */
   .fltRow .ap .dirTag{ display:inline-block; font-size:10px; line-height:1; padding:2px 3px; border-radius:3px; margin-right:4px; vertical-align:1px; border:1px solid currentColor; }
@@ -346,7 +352,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 288</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 290</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> 便名</span></button>
 </header>
@@ -372,6 +378,7 @@
           <button type="button" data-v="arr">到着</button>
           <button type="button" data-v="both">両方</button>
         </div>
+        <select id="fltHourSel" class="fltHourSel" aria-label="UTCの時間帯へ移動"></select>
       </div>
       <div class="fltBoardInfo" id="fltBoardInfo"></div>
       <div class="fltResults" id="fltBoard"></div>
@@ -6707,11 +6714,21 @@ contTurnBoot = false;
   function currentAppIcao(){
     try{ const m = /\((R[A-Z]{3})\)/.exec(AIRPORTS[state.airportKey].name||""); return m ? m[1] : null; }catch(e){ return null; }
   }
+  // 空港の選択肢は「HND 羽田」(3レター＋名前)。3レターは時刻表データ(db.ap)から取るので、読み込み前は4レター
+  function apSelLabel(c){
+    const a = db && db.ap && db.ap[c];
+    return ((a && a[0]) || c) + "  " + (JP_AP[c] || c);
+  }
+  let apSelIata = false;
   function fillApSel(){
-    if(apSel.options.length) return;
+    if(apSel.options.length){
+      if(!apSelIata && db && db.ap){ apSelIata = true; Array.from(apSel.options).forEach(o=>{ if(!o.disabled) o.textContent = apSelLabel(o.value); }); }
+      return;
+    }
+    if(db && db.ap) apSelIata = true;
     const first = appAirportIcaos();
     const rest = Object.keys(JP_AP).filter(c=>!first.includes(c)).sort((a,b)=>JP_AP[a].localeCompare(JP_AP[b], "ja"));
-    const add = (c)=>{ const o = document.createElement("option"); o.value = c; o.textContent = (JP_AP[c]||c) + "（" + c + "）"; apSel.appendChild(o); };
+    const add = (c)=>{ const o = document.createElement("option"); o.value = c; o.textContent = apSelLabel(c); apSel.appendChild(o); };
     first.forEach(add);
     const sep = document.createElement("option"); sep.disabled = true; sep.textContent = "──────────"; apSel.appendChild(sep);
     rest.forEach(add);
@@ -6727,12 +6744,16 @@ contTurnBoot = false;
     if(!r[8] || !r[9]) return true;          // 運航曜日が不明なら毎日表示
     return !!((r[8] >> wd(utcMidnight)) & 1);
   }
+  // ANA・JAL グループの9000番台の便名。時刻表が無い臨時便・回送・訓練便などで、同じ便名が日によって別の区間を飛ぶため一覧から外す
+  const ADHOC_OP = /^(ANA|AKX|JAL|JTA|JAC|NTH|JLJ)9\d{3}[A-Z]{0,2}$/, ADHOC_FN = /^(NH|EH|JL|NU|JC)9\d{3}[A-Z]{0,2}$/;
+  function isAdhoc9k(i){ return ADHOC_OP.test(db.f[i][0]) || ADHOC_FN.test(dispFn(i)); }
   function boardRows(ap, d){
     const D = jstToday();
     const w0 = D - 9*3600000, w1 = w0 + DAY;   // 日本時間の今日0時〜24時(UTCの時刻)
     const rows = [], noTime = [];
     db.f.forEach((r, i)=>{
       if(d==="dep" ? r[1]!==ap : r[2]!==ap) return;
+      if(isAdhoc9k(i)) return;   // ANA・JAL の9000番台(臨時・回送・訓練など)は一覧に出さない。便名検索では見つかる
       if(!r[5] || (d==="arr" && !r[6])){ if(operatesOn(r, D)) noTime.push({ i, r }); return; }
       const std = hm(r[5]);
       const dur = d==="arr" ? ((hm(r[6]) - std) % 1440 + 1440) % 1440 : 0;
@@ -6785,21 +6806,28 @@ contTurnBoot = false;
     boardInfo.textContent = "今日 " + (dt.getUTCMonth()+1) + "/" + dt.getUTCDate() + "（" + WD + "）日本時間0〜24時 ／ 時刻はUTC ／ " + cntTxt;
     const rowHtml = (x, tStr)=>{
       const r = x.r, other = x.d==="dep" ? r[2] : r[1];
-      const a = db.ap && db.ap[other], iata = a && a[0] ? a[0] : "";
-      // 国内は短い空港名＋3レター、海外は3レター(無ければ4レター)＋空港名(小さく)
-      const apTxt = JP_AP[other] ? esc(JP_AP[other]) + '<span class="code">' + esc(iata || other) + "</span>"
-        : esc(iata || other) + (a && a[1] ? '<span class="code">' + esc(a[1]) + "</span>" : "");
+      // 相手空港は3レター(IATA)だけ。無ければ4レター。押さえると(title)空港名
+      const apTxt = apHtml(other);
       const prev = r[10]===0 && !!r[5];   // 時刻がダイヤ改正前のもの(改正後まだ確かめられていない)
       const tag = dir==="both" ? '<span class="dirTag ' + x.d + '">' + (x.d==="dep" ? "出" : "着") + "</span>" : "";
-      return '<button type="button" class="fltRow" data-q="' + esc(r[0]) + '"><span class="tm' + (prev ? ' prev" title="前のダイヤの時刻' : "") + '">' + tStr + (prev ? "*" : "") + '</span><span class="fn' + fnCls(dispFn(x.i)) + '">' + esc(dispFn(x.i)) + "</span>"
+      return '<button type="button" class="fltRow" data-q="' + esc(r[0]) + '"' + (x.t ? ' data-t="' + x.t + '"' : "") + '><span class="tm' + (prev ? ' prev" title="前のダイヤの時刻' : "") + '">' + tStr + (prev ? "*" : "") + '</span><span class="fn' + fnCls(dispFn(x.i)) + '">' + esc(dispFn(x.i)) + "</span>"
         + '<span class="ap">' + tag + (x.d==="dep" ? "→ " : "← ") + apTxt + "</span>"
         + '<span class="ty">' + esc(r[3]||"") + "</span></button>";
     };
     const pad = (n)=>String(n).padStart(2,"0");
-    let h = rows.map(x=>{ const t = new Date(x.t); return rowHtml(x, pad(t.getUTCHours()) + pad(t.getUTCMinutes()) + "Z"); }).join("");
+    // UTCの1時間ごとに見出し(スクロールしても上に残る)を入れ、時間帯の選択肢を作る
+    let h = "", lastH = -1;
+    const hours = [];
+    rows.forEach(x=>{
+      const t = new Date(x.t), hh = t.getUTCHours();
+      if(hh!==lastH){ lastH = hh; hours.push({ hh, n:0 }); h += '<div class="fltHour" data-h="' + hh + '">' + pad(hh) + "00Z〜</div>"; }
+      hours[hours.length-1].n++;
+      h += rowHtml(x, pad(hh) + pad(t.getUTCMinutes()) + "Z");
+    });
+    fillHourSel(hours, rows.length > 0);
     if(noTime.length) h += '<div class="fltBoardSub">時刻未取得（次の全国一括取得で入ります）</div>' + noTime.map(x=>rowHtml(x, "----Z")).join("");
     if(rows.some(x=>x.r[10]===0)) h += '<div class="fltBoardSub">* 前のダイヤの時刻（ダイヤ改正後まだ確認できていない便）</div>';
-    if(!rows.length && !noTime.length) h = '<div class="fltMsg">この空港の' + (dir==="dep" ? "出発" : dir==="arr" ? "到着" : "発着") + "便はデータにありません。</div>";
+    if(!rows.length && !noTime.length){ fillHourSel([], false); h = '<div class="fltMsg">この空港の' + (dir==="dep" ? "出発" : dir==="arr" ? "到着" : "発着") + "便はデータにありません。</div>"; }
     boardEl.innerHTML = h;
   }
 
@@ -6810,6 +6838,33 @@ contTurnBoot = false;
     inp.value = b.dataset.q; render();
   });
   apSel.addEventListener("change", ()=>{ boardEl.scrollTop = 0; renderBoard(); });
+  // UTCの時間帯へ移動。選んだら一覧をその時間の見出しまでスクロールし、選択肢は「UTC」に戻す(同じ時間をもう一度選べるように)
+  const hourSel = document.getElementById("fltHourSel");
+  function fillHourSel(hours, any){
+    const p2 = (n)=>String(n).padStart(2,"0");
+    hourSel.innerHTML = '<option value="">UTC</option>' + (any ? '<option value="now">今</option>' : "")
+      + hours.map(o=>'<option value="' + o.hh + '">' + p2(o.hh) + "Z（" + o.n + "）</option>").join("");
+    hourSel.disabled = !any;
+  }
+  // 見出しは sticky なので、その下の便の行を基準に、見出しの高さぶん上へスクロールする
+  function scrollBoardToRow(row){
+    if(!row) return;
+    const hd = boardEl.querySelector(".fltHour"), hdH = hd ? hd.offsetHeight : 0;
+    boardEl.scrollTop += row.getBoundingClientRect().top - boardEl.getBoundingClientRect().top - hdH;
+  }
+  hourSel.addEventListener("change", ()=>{
+    const v = hourSel.value;
+    if(v==="now"){
+      // 今(10分前から)以降の最初の便へ。今日の便がもう無ければ最後へ
+      const now = Date.now();
+      const row = Array.from(boardEl.querySelectorAll(".fltRow[data-t]")).find(b=>+b.dataset.t >= now - 10*60000);
+      if(row) scrollBoardToRow(row); else boardEl.scrollTop = boardEl.scrollHeight;
+    } else if(v!==""){
+      const hd = boardEl.querySelector('.fltHour[data-h="' + v + '"]');
+      scrollBoardToRow(hd && hd.nextElementSibling);
+    }
+    hourSel.value = "";
+  });
   document.getElementById("fltDir").addEventListener("click", (e)=>{
     const b = e.target.closest("button[data-v]"); if(!b) return;
     dir = b.dataset.v;
