@@ -293,8 +293,10 @@
   /* UTCの時間帯へ移動 */
   .fltHourSel{ flex:0 0 auto; width:auto; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; font-size:16px; padding:6px 8px; min-height:44px;
                font-family:ui-monospace, "SF Mono", Menlo, monospace; }
-  .fltHour{ position:sticky; top:0; z-index:1; background:var(--panel); color:var(--cyan); font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; letter-spacing:.5px;
-            padding:6px 4px 3px; border-bottom:1px solid var(--line); }
+  /* 時間の見出しは便の行(時刻=シアン)と色・背景で区別する: 塗りの帯＋白の太字 */
+  .fltHour{ position:sticky; top:0; z-index:1; background:var(--panel2); color:var(--text); font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:12px; font-weight:700; letter-spacing:1px;
+            padding:5px 8px; margin:6px -4px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  .fltHour:first-child{ margin-top:0; }
   .fltRow .ap .apc{ font-family:ui-monospace, "SF Mono", Menlo, monospace; letter-spacing:.5px; }
   .fltDir button{ min-width:64px; }
   /* 出発・到着を一緒に表示するときの「出」「着」 */
@@ -352,17 +354,17 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 292</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 294</span></h1>
   <span class="sub" id="airportSub"></span>
-  <button type="button" id="fltBtn" class="fltBtn" aria-label="便名検索を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> 便名</span></button>
+  <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
 </header>
 
-<div class="fltOverlay" id="fltOverlay" role="dialog" aria-modal="true" aria-label="便名検索・発着一覧" hidden>
+<div class="fltOverlay" id="fltOverlay" role="dialog" aria-modal="true" aria-label="TFC SEARCH（便名検索・空港検索）" hidden>
   <div class="fltBox">
     <div class="fltHead">
       <div class="seg fltTabs" id="fltTabs" role="tablist">
         <button type="button" role="tab" data-t="search" class="active">便名検索</button>
-        <button type="button" role="tab" data-t="board">発着一覧</button>
+        <button type="button" role="tab" data-t="board">空港検索</button>
       </div>
       <button type="button" class="fltClose" id="fltClose" aria-label="閉じる">×</button>
     </div>
