@@ -288,7 +288,36 @@
   .fltPane{ display:flex; flex-direction:column; min-height:0; flex:1 1 auto; }
   .fltPane[hidden]{ display:none; }
   .fltBoardCtl{ display:flex; gap:8px; padding:0 16px 8px; flex-wrap:wrap; }
-  .fltApSel{ flex:1 1 180px; min-width:0; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; font-size:16px; padding:6px 8px; min-height:44px; }
+  /* 空港の入力(3レター/4レター/名前)。候補は入力欄の下に一覧で出す */
+  .fltApIn{ flex:1 1 120px; min-width:0; width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; font-size:18px; padding:6px 10px; min-height:44px;
+            font-family:ui-monospace, "SF Mono", Menlo, monospace; letter-spacing:1px; text-transform:uppercase; }
+  .fltApIn::placeholder{ text-transform:none; letter-spacing:0; color:var(--textdim); font-size:14px; }
+  .fltApIn:focus{ outline:none; border-color:var(--amber); }
+  .fltApIn.ok{ border-color:var(--cyan); }
+  .fltBoardCtl .fltApIn{ flex:1 1 140px; }
+  .fltRouteCtl{ flex-wrap:nowrap; align-items:center; }
+  .fltRouteCtl .fltApIn{ flex:1 1 0; }
+  .fltSwap{ flex:0 0 auto; min-width:44px; min-height:44px; background:var(--panel2); color:var(--cyan); border:1px solid var(--line); border-radius:8px; font-size:18px; cursor:pointer; }
+  .fltApList{ flex:0 0 auto; margin:0 16px 8px; border:1px solid var(--line); border-radius:8px; background:var(--panel2); max-height:40vh; overflow-y:auto; overscroll-behavior:contain; }
+  .fltApList[hidden]{ display:none; }
+  .fltApList button{ display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:8px; align-items:baseline; width:100%; text-align:left; background:transparent; color:var(--text);
+                     border:none; border-bottom:1px solid var(--line); padding:9px 10px; min-height:44px; font:inherit; font-size:14px; cursor:pointer; }
+  .fltApList button:last-child{ border-bottom:none; }
+  .fltApList button:active, .fltApList button.hl{ background:var(--line); }
+  .fltApList .ia{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-weight:700; color:var(--cyan); letter-spacing:.5px; }
+  .fltApList .nm{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fltApList .ic{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; color:var(--textdim); }
+  /* 便名の候補(入力に合わせて出す) */
+  .fltCand{ display:grid; grid-template-columns:82px minmax(0,1fr) auto; gap:8px; align-items:baseline; padding:8px 4px; border:none; border-bottom:1px solid var(--line);
+            background:transparent; color:var(--text); text-align:left; font:inherit; cursor:pointer; width:100%; min-height:40px; }
+  .fltCand:active{ background:var(--panel2); }
+  .fltCand .fn{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:15px; font-weight:700; color:var(--amber); }
+  .fltCand .fn.nh{ color:var(--nhBlue); } .fltCand .fn.jl{ color:var(--jlRed); }
+  .fltCand .rt{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fltCand .rt .more{ font-family:inherit; font-size:11px; color:var(--textdim); margin-left:4px; }
+  .fltCand .tm{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; color:var(--cyan); }
+  .fltCandList{ display:grid; }
+  .fltRow .ap .wd{ font-size:11px; color:var(--amber); margin-left:6px; }
   .fltDir{ flex:0 0 auto; }
   /* UTCの時間帯へ移動 */
   .fltHourSel{ flex:0 0 auto; width:auto; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px; font-size:16px; padding:6px 8px; min-height:44px;
@@ -318,7 +347,7 @@
   .fltRow .ap .code{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; color:var(--textdim); margin-left:4px; }
   .fltRow .ty{ font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; color:var(--textdim); }
   .fltBoardSub{ font-size:11px; color:var(--textdim); letter-spacing:.5px; padding:10px 4px 2px; }
-  #fltBoard{ gap:0; }
+  #fltBoard, #fltRoute{ gap:0; }
   .fltTitle{ font-size:15px; font-weight:600; letter-spacing:.3px; }
   .fltClose{ background:transparent; color:var(--textdim); border:none; font-size:26px; line-height:1; min-width:44px; min-height:44px; cursor:pointer; }
   .fltInput{ margin:4px 16px 10px; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:8px;
@@ -354,27 +383,28 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 294</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 296</span></h1>
   <span class="sub" id="airportSub"></span>
-  <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
+  <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
 </header>
 
-<div class="fltOverlay" id="fltOverlay" role="dialog" aria-modal="true" aria-label="TFC SEARCH（便名検索・空港検索）" hidden>
+<div class="fltOverlay" id="fltOverlay" role="dialog" aria-modal="true" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）" hidden>
   <div class="fltBox">
     <div class="fltHead">
       <div class="seg fltTabs" id="fltTabs" role="tablist">
         <button type="button" role="tab" data-t="search" class="active">便名検索</button>
         <button type="button" role="tab" data-t="board">空港検索</button>
+        <button type="button" role="tab" data-t="route">路線検索</button>
       </div>
       <button type="button" class="fltClose" id="fltClose" aria-label="閉じる">×</button>
     </div>
     <div class="fltPane" id="fltSearchPane">
-      <input id="fltInput" class="fltInput" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="例: ANA23 / NH23 / ALL NIPPON 23">
+      <input id="fltInput" class="fltInput" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="例: NH23 / ANA23 / ALL NIPPON 23">
       <div class="fltResults" id="fltResults" aria-live="polite"></div>
     </div>
     <div class="fltPane" id="fltBoardPane" hidden>
       <div class="fltBoardCtl">
-        <select id="fltApSel" class="fltApSel" aria-label="空港"></select>
+        <input id="fltApInput" class="fltApIn" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="空港 HND / RJTT" aria-label="空港（3レター・4レター・名前）">
         <div class="seg fltDir" id="fltDir">
           <button type="button" data-v="dep" class="active">出発</button>
           <button type="button" data-v="arr">到着</button>
@@ -382,8 +412,19 @@
         </div>
         <select id="fltHourSel" class="fltHourSel" aria-label="UTCの時間帯へ移動"></select>
       </div>
+      <div class="fltApList" id="fltApList" role="listbox" hidden></div>
       <div class="fltBoardInfo" id="fltBoardInfo"></div>
       <div class="fltResults" id="fltBoard"></div>
+    </div>
+    <div class="fltPane" id="fltRoutePane" hidden>
+      <div class="fltBoardCtl fltRouteCtl">
+        <input id="fltRtFrom" class="fltApIn" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="出発 HND" aria-label="出発空港（3レター・4レター・名前）">
+        <button type="button" class="fltSwap" id="fltRtSwap" aria-label="出発と到着を入れ替え">⇄</button>
+        <input id="fltRtTo" class="fltApIn" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="到着 ITM" aria-label="到着空港（3レター・4レター・名前）">
+      </div>
+      <div class="fltApList" id="fltRtList" role="listbox" hidden></div>
+      <div class="fltBoardInfo" id="fltRtInfo"></div>
+      <div class="fltResults" id="fltRoute"></div>
     </div>
     <div class="fltFoot" id="fltFoot"></div>
   </div>
@@ -6636,9 +6677,9 @@ contTurnBoot = false;
         const old = daysAgo(r[4]) > 60;
         h += '<div class="fltLeg"><div class="rt">' + apHtml(r[1]) + '<span class="arw">→</span>' + apHtml(r[2]) + "</div>";
         if(r[5]) h += '<div class="tms">STD ' + zt(r[5]) + '　→　STA ' + zt(r[6]) + (r[10]===0 ? '<span class="fltTag old">前のダイヤの時刻</span>' : "") + "</div>";
+        // 「何月何日の運航予定で確認」は出さない(ユーザー判断、build 296)。古い記録だけ札で知らせる
         const meta = [];
         if(r[3]) meta.push("機材 " + esc(r[3]));
-        meta.push(fmtDate(r[4]) + " の運航予定で確認");
         h += '<div class="meta">' + meta.join("・") + (old ? '<span class="fltTag old">古い記録</span>' : "") +
              (hit.recs.length>1 && i===0 ? '<span class="fltTag">最新</span>' : "") + "</div></div>";
       });
@@ -6651,80 +6692,158 @@ contTurnBoot = false;
     return h + "</div>";
   }
 
-  function suggestions(prefix){
-    if(!db || prefix.length < 3) return [];
-    const out = [];
-    for(const k in db.k){ if(k.startsWith(prefix)) out.push(k); }
-    if(out.length < 12 && db.vr){ for(const k in db.vr){ if(k.startsWith(prefix)) out.push(k); } }
-    const num = (k)=>{ const m = /(\d+)/.exec(k); return m ? +m[1] : 0; };
-    return [...new Set(out)].sort((a,b)=> a.length-b.length || num(a)-num(b)).slice(0,12);
+  // ---- 便名の候補(入力に合わせて出す) ----
+  // 入力 → 会社(ICAO)と番号の頭。mode は表示の形(IATA形式で入れたら NH23、ICAO形式なら ANA23 で候補を出す)
+  function fnPrefix(raw){
+    const c = String(raw||"").toUpperCase().replace(/[‐-―−ー\-\.\s]/g,"");
+    if(!c || !db) return null;
+    const z = (s)=> s.replace(/^0+(?=\d)/, "");
+    let m = /^([A-Z]{3})(?:(\d{1,4})([A-Z]{0,2}))?$/.exec(c);
+    if(m) return { icao:m[1], num:z(m[2]||""), sfx:m[3]||"", mode:"icao" };
+    m = /^([A-Z0-9]{2})(?:(\d{1,4})([A-Z]?))?$/.exec(c);
+    if(m && db.ia && db.ia[m[1]]) return { icao:db.ia[m[1]], ia:m[1], num:z(m[2]||""), sfx:m[3]||"", mode:"iata" };
+    m = /^([A-Z]+?)(\d{0,4})([A-Z]{0,2})$/.exec(c);
+    if(m && TELEPHONY[m[1]]) return { icao:TELEPHONY[m[1]], num:z(m[2]), sfx:m[3], mode:"icao" };
+    return null;
+  }
+  function fnCands(p, limit){
+    const list = [];
+    for(const k in db.k){
+      if(!k.startsWith(p.icao)) continue;
+      const m = /^(\d+)([A-Z]{0,2})$/.exec(k.slice(3));
+      if(!m || !m[1].startsWith(p.num) || (p.sfx && !m[2].startsWith(p.sfx))) continue;
+      list.push({ k, n:+m[1], s:m[2] });
+    }
+    list.sort((a,b)=> a.n-b.n || a.s.localeCompare(b.s));
+    return { total:list.length, list:list.slice(0, limit) };
+  }
+  // 候補の行: 便名・区間(新しい記録)・STD
+  function candHtml(list, p){
+    return '<div class="fltCandList">' + list.map(x=>{
+      const lbl = p.mode==="iata" ? p.ia + x.n + x.s : x.k;
+      const hit = lookup(x.k);
+      let rt = "", tm = "";
+      if(hit && hit.src==="a"){
+        const r = hit.recs[0];
+        rt = esc(apCode(r[1])) + " → " + esc(apCode(r[2])) + (hit.recs.length>1 ? '<span class="more">他' + (hit.recs.length-1) + "区間</span>" : "");
+        tm = r[5] ? zt(r[5]) : "";
+      }
+      return '<button type="button" class="fltCand" data-k="' + esc(x.k) + '" data-l="' + esc(lbl) + '"><span class="fn' + fnCls(lbl) + '">' + esc(lbl) + '</span><span class="rt">' + rt + '</span><span class="tm">' + tm + "</span></button>";
+    }).join("") + "</div>";
   }
 
   function render(){
     if(!db){ out.innerHTML = '<div class="fltMsg">' + esc(loadErr || "読み込み中…") + "</div>"; return; }
     const q = normalize(inp.value);
-    if(!q){ out.innerHTML = '<div class="fltMsg">便名（コールサイン）を入力してください。<br>ICAO形式（ANA23）・IATA形式（NH23）・呼出符号（ALL NIPPON 23）で探せます。</div>'; return; }
+    if(!q){ out.innerHTML = '<div class="fltMsg">便名（コールサイン）を入力してください。入力に合わせて候補が出ます。<br>IATA形式（NH23）・ICAO形式（ANA23）・呼出符号（ALL NIPPON 23）で探せます。</div>'; return; }
+    let h = "", shownKey = null;
     if(q.key){
       let hit = lookup(q.key), key = q.key, note = q.note || "";
       // 末尾の文字付き(JAL373C など)で見つからなければ、文字を除いて探す。
       // 文字付きの便名は元の便と区間が違うことがある(例: ANA185D 中部→羽田 = ホノルル発 ANA185 のダイバート後とみられる)ので、見つかればそちらを優先
       if(!hit){ const m = /^([A-Z]{3}\d+)[A-Z]{1,2}$/.exec(q.key); if(m){ const h2 = lookup(m[1]); if(h2){ hit = h2; key = m[1]; note = (note?note+"。":"") + q.key + " が無いため " + m[1] + " を表示"; } } }
-      if(hit){ out.innerHTML = cardHtml(key, hit, note); return; }
-      const sug = suggestions(q.key);
-      out.innerHTML = '<div class="fltMsg">' + esc(q.key) + " は見つかりませんでした。" +
-        "臨時便・新しい便は、翌日以降にデータへ追加されることがあります。</div>" + sugHtml(sug.filter(k=>k!==q.key));
-      return;
+      if(hit){ h = cardHtml(key, hit, note); shownKey = key; }
     }
-    // 途中まで(ANA / ANA2 など)
-    const pre = q.partial.replace(/^([A-Z]{3})0+(\d)/, "$1$2");
-    const sug = suggestions(pre);
-    out.innerHTML = sug.length ? '<div class="fltMsg">候補</div>' + sugHtml(sug) : '<div class="fltMsg">該当する便名がありません。</div>';
-  }
-  function sugHtml(list){
-    if(!list.length) return "";
-    return '<div class="fltSug">' + list.map(k=>'<button type="button" data-k="'+esc(k)+'">'+esc(k)+"</button>").join("") + "</div>";
+    // 入力の続きになる便名の候補(見つかった便のほかに)
+    const p = fnPrefix(inp.value);
+    if(p){
+      const lim = shownKey ? 10 : 30;
+      const c = fnCands(p, lim + 1);
+      const list = c.list.filter(x=>x.k!==shownKey).slice(0, lim);
+      const total = c.total - (shownKey && c.list.some(x=>x.k===shownKey) ? 1 : 0);
+      if(list.length){
+        h += '<div class="fltMsg">' + (shownKey ? "ほかの候補" : "候補") + (total > list.length ? "（" + total + "件中" + list.length + "件。番号を続けて入れると絞り込めます）" : "") + "</div>" + candHtml(list, p);
+      }
+    }
+    if(!h && !p && /^[A-Z0-9]$/i.test(inp.value.trim())) h = '<div class="fltMsg">航空会社の2文字（NH・JL など）か3文字（ANA・JAL など）まで入れると候補が出ます。</div>';
+    if(!h) h = '<div class="fltMsg">' + (q.key ? esc(q.key) + " は見つかりませんでした。臨時便・新しい便は、翌日以降にデータへ追加されることがあります。" : "該当する便名がありません。") + "</div>";
+    out.innerHTML = h;
   }
   out.addEventListener("click", (e)=>{
     const b = e.target.closest("button[data-k]");
     if(!b) return;
-    inp.value = b.dataset.k; render();
+    inp.value = b.dataset.l || b.dataset.k; render();
+    out.scrollTop = 0;
   });
+
+  // ---- 空港の入力(3レター/4レター/名前で探す。候補は入力欄の下に出す) ----
+  let apIata = null, apCount = null;   // 3レター→4レター、空港ごとの記録数(候補の並び順に使う)
+  function prepAp(){
+    if(apIata || !db) return;
+    apIata = {}; apCount = {};
+    for(const c in db.ap){ const a = db.ap[c]; if(a && a[0]) apIata[a[0]] = c; }
+    db.f.forEach(r=>{ apCount[r[1]] = (apCount[r[1]]||0)+1; apCount[r[2]] = (apCount[r[2]]||0)+1; });
+  }
+  function apCode(icao){ const a = db && db.ap && db.ap[icao]; return (a && a[0]) || icao; }
+  function resolveAp(v){
+    const s = String(v||"").toUpperCase().trim();
+    if(/^[A-Z0-9]{4}$/.test(s) && ((db && db.ap && db.ap[s]) || JP_AP[s])) return s;
+    if(/^[A-Z0-9]{3}$/.test(s)){ prepAp(); if(apIata && apIata[s]) return apIata[s]; }
+    return null;
+  }
+  function apCands(v){
+    const s = String(v||"").trim(), up = s.toUpperCase();
+    if(!db || !s) return [];
+    prepAp();
+    const res = [];
+    for(const c of new Set([...Object.keys(db.ap), ...Object.keys(JP_AP)])){
+      const ia = apCode(c), a = db.ap[c];
+      let sc = -1;
+      if(ia===up || c===up) sc = 0;
+      else if(ia.startsWith(up)) sc = 1;
+      else if(c.startsWith(up)) sc = 2;
+      else if((JP_AP[c] && JP_AP[c].toUpperCase().includes(up)) || (a && a[1] && a[1].toUpperCase().includes(up))) sc = 3;
+      if(sc>=0) res.push({ c, sc, n: apCount[c]||0 });
+    }
+    res.sort((a,b)=> a.sc-b.sc || b.n-a.n || apCode(a.c).localeCompare(apCode(b.c)));
+    return res.slice(0, 8);
+  }
+  // 入力欄と候補の一覧をつなぐ。決まったら onPick(4レター, 入力中か)
+  function apPicker(input, listEl, onPick){
+    let cands = [];
+    const hide = ()=>{ listEl.hidden = true; listEl.innerHTML = ""; };
+    const show = ()=>{
+      const v = input.value.trim(), ic = resolveAp(v);
+      input.classList.toggle("ok", !!ic);
+      cands = ic ? [] : apCands(v);
+      if(!cands.length || document.activeElement!==input){ if(listEl.dataset.owner===input.id) hide(); return; }
+      listEl.dataset.owner = input.id;
+      listEl.innerHTML = cands.map((x,i)=>'<button type="button" role="option" data-c="' + esc(x.c) + '"' + (i===0 ? ' class="hl"' : "") + '><span class="ia">' + esc(apCode(x.c)) +
+        '</span><span class="nm">' + esc(apName(x.c)) + '</span><span class="ic">' + esc(x.c) + "</span></button>").join("");
+      listEl.hidden = false;
+    };
+    const pick = (c)=>{ input.value = apCode(c); input.classList.add("ok"); hide(); input.blur(); onPick(c, false); };
+    input.addEventListener("input", ()=>{ show(); const ic = resolveAp(input.value); if(ic) onPick(ic, true); });
+    input.addEventListener("focus", ()=>{ try{ input.select(); }catch(e){} show(); });
+    input.addEventListener("blur", ()=>{ setTimeout(()=>{ if(document.activeElement!==input && listEl.dataset.owner===input.id) hide(); }, 150); });
+    listEl.addEventListener("click", (e)=>{
+      if(listEl.dataset.owner!==input.id) return;
+      const b = e.target.closest("button[data-c]"); if(b) pick(b.dataset.c);
+    });
+    input.addEventListener("keydown", (e)=>{
+      if(e.key!=="Enter") return;
+      e.preventDefault();
+      const ic = resolveAp(input.value);
+      if(ic) pick(ic); else if(cands.length) pick(cands[0].c);
+    });
+    return { show };
+  }
+  function bindApList(listEl){
+    listEl.addEventListener("pointerdown", (e)=>e.preventDefault());   // 候補を押しても入力欄のフォーカスを外さない(キーボードを閉じない)
+    listEl.addEventListener("mousedown", (e)=>e.preventDefault());
+  }
 
   // ---- 空港ごとの発着一覧(今日・日本時間の0時〜24時、時刻はUTC) ----
   const tabsEl = document.getElementById("fltTabs");
   const searchPane = document.getElementById("fltSearchPane");
   const boardPane = document.getElementById("fltBoardPane");
-  const apSel = document.getElementById("fltApSel");
+  const apIn = document.getElementById("fltApInput"), apListEl = document.getElementById("fltApList");
+  const routePane = document.getElementById("fltRoutePane");
   const boardEl = document.getElementById("fltBoard");
   const boardInfo = document.getElementById("fltBoardInfo");
-  let tab = "search", dir = "dep";
-  // アプリの空港を先頭に、残りの国内空港を名前順で
-  function appAirportIcaos(){
-    const out = [];
-    try{ for(const k in AIRPORTS){ const m = /\((R[A-Z]{3})\)/.exec(AIRPORTS[k].name||""); if(m) out.push(m[1]); } }catch(e){}
-    return out;
-  }
+  let tab = "search", dir = "dep", boardAp = null;
   function currentAppIcao(){
     try{ const m = /\((R[A-Z]{3})\)/.exec(AIRPORTS[state.airportKey].name||""); return m ? m[1] : null; }catch(e){ return null; }
-  }
-  // 空港の選択肢は「HND 羽田」(3レター＋名前)。3レターは時刻表データ(db.ap)から取るので、読み込み前は4レター
-  function apSelLabel(c){
-    const a = db && db.ap && db.ap[c];
-    return ((a && a[0]) || c) + "  " + (JP_AP[c] || c);
-  }
-  let apSelIata = false;
-  function fillApSel(){
-    if(apSel.options.length){
-      if(!apSelIata && db && db.ap){ apSelIata = true; Array.from(apSel.options).forEach(o=>{ if(!o.disabled) o.textContent = apSelLabel(o.value); }); }
-      return;
-    }
-    if(db && db.ap) apSelIata = true;
-    const first = appAirportIcaos();
-    const rest = Object.keys(JP_AP).filter(c=>!first.includes(c)).sort((a,b)=>JP_AP[a].localeCompare(JP_AP[b], "ja"));
-    const add = (c)=>{ const o = document.createElement("option"); o.value = c; o.textContent = apSelLabel(c); apSel.appendChild(o); };
-    first.forEach(add);
-    const sep = document.createElement("option"); sep.disabled = true; sep.textContent = "──────────"; apSel.appendChild(sep);
-    rest.forEach(add);
   }
   const DAY = 86400000;
   function jstToday(){
@@ -6743,11 +6862,12 @@ contTurnBoot = false;
   function boardRows(ap, d){
     const D = jstToday();
     const w0 = D - 9*3600000, w1 = w0 + DAY;   // 日本時間の今日0時〜24時(UTCの時刻)
-    const rows = [], noTime = [];
+    const rows = [], noTime = [], timedAny = [];
     db.f.forEach((r, i)=>{
       if(d==="dep" ? r[1]!==ap : r[2]!==ap) return;
       if(isAdhoc9k(i)) return;   // ANA・JAL の9000番台(臨時・回送・訓練など)は一覧に出さない。便名検索では見つかる
       if(!r[5] || (d==="arr" && !r[6])){ if(operatesOn(r, D)) noTime.push({ i, r }); return; }
+      timedAny.push(i);
       const std = hm(r[5]);
       const dur = d==="arr" ? ((hm(r[6]) - std) % 1440 + 1440) % 1440 : 0;
       for(const u of (d==="dep" ? [D-DAY, D] : [D-2*DAY, D-DAY, D])){
@@ -6768,6 +6888,8 @@ contTurnBoot = false;
       const k = baseFn(x.i)+"|"+other(x.r); timedKeys.add(k);
       const kt = k+"|"+x.t; if(seenT.has(kt)) return false; seenT.add(kt); return true;
     });
+    // 時刻のある記録がある便(今日は飛ばない曜日の便も)は、時刻の無い記録を出さない(時刻のある方が確か)
+    timedAny.forEach(i=>timedKeys.add(baseFn(i)+"|"+other(db.f[i])));
     noTime.sort((a,b)=> sfx(a.i)-sfx(b.i) || b.r[4].localeCompare(a.r[4]) || dispFn(a.i).localeCompare(dispFn(b.i)));
     const noTimeU = noTime.filter(x=>{
       const k = baseFn(x.i)+"|"+other(x.r);
@@ -6777,8 +6899,8 @@ contTurnBoot = false;
   }
   function renderBoard(){
     if(!db){ boardEl.innerHTML = '<div class="fltMsg">' + esc(loadErr || "読み込み中…") + "</div>"; boardInfo.textContent = ""; return; }
-    fillApSel();
-    const ap = apSel.value;
+    const ap = boardAp;
+    if(!ap){ boardInfo.textContent = ""; fillHourSel([], false); boardEl.innerHTML = '<div class="fltMsg">空港を入れてください（3レター・4レター・空港名）。海外の空港も選べます（日本発着の便だけ）。</div>'; return; }
     // 両方: 出発(STD)と到着(STA)を時刻順に混ぜて並べる。行ごとに出発/到着を持つ
     const dirs = dir==="both" ? ["dep","arr"] : [dir];
     let rows = [], noTime = [], D = 0;
@@ -6796,7 +6918,7 @@ contTurnBoot = false;
     const dt = new Date(D);
     const WD = ["日","月","火","水","木","金","土"][dt.getUTCDay()];
     const cntTxt = dir==="both" ? "出発 " + cnt.dep + "便・到着 " + cnt.arr + "便" : (dir==="dep" ? "出発" : "到着") + " " + rows.length + "便";
-    boardInfo.textContent = "今日 " + (dt.getUTCMonth()+1) + "/" + dt.getUTCDate() + "（" + WD + "）日本時間0〜24時 ／ 時刻はUTC ／ " + cntTxt;
+    boardInfo.textContent = apCode(ap) + " " + apName(ap) + " ／ 今日 " + (dt.getUTCMonth()+1) + "/" + dt.getUTCDate() + "（" + WD + "）日本時間0〜24時 ／ 時刻はUTC ／ " + cntTxt;
     const rowHtml = (x, tStr)=>{
       const r = x.r, other = x.d==="dep" ? r[2] : r[1];
       // 相手空港は3レター(IATA)だけ。無ければ4レター。押さえると(title)空港名
@@ -6830,7 +6952,8 @@ contTurnBoot = false;
     setTab("search");
     inp.value = b.dataset.q; render();
   });
-  apSel.addEventListener("change", ()=>{ renderBoard(); scrollBoardNow(); });
+  bindApList(apListEl);
+  apPicker(apIn, apListEl, (c)=>{ if(c===boardAp) return; boardAp = c; renderBoard(); scrollBoardNow(); });
   // UTCの時間帯へ移動。選んだら一覧をその時間の見出しまでスクロールし、選択肢は「UTC」に戻す(同じ時間をもう一度選べるように)
   const hourSel = document.getElementById("fltHourSel");
   function fillHourSel(hours, any){
@@ -6840,17 +6963,19 @@ contTurnBoot = false;
     hourSel.disabled = !any;
   }
   // 見出しは sticky なので、その下の便の行を基準に、見出しの高さぶん上へスクロールする
-  function scrollBoardToRow(row){
+  function scrollBoardToRow(row, el){
+    el = el || boardEl;
     if(!row) return;
-    const hd = boardEl.querySelector(".fltHour"), hdH = hd ? hd.offsetHeight : 0;
-    boardEl.scrollTop += row.getBoundingClientRect().top - boardEl.getBoundingClientRect().top - hdH;
+    const hd = el.querySelector(".fltHour"), hdH = hd ? hd.offsetHeight : 0;
+    el.scrollTop += row.getBoundingClientRect().top - el.getBoundingClientRect().top - hdH;
   }
   // 今(10分前から)以降の最初の便へ。今日の便がもう無ければ最後の便へ
-  function scrollBoardNow(){
+  function scrollBoardNow(el){
+    el = el || boardEl;
     const now = Date.now();
-    const rowsT = Array.from(boardEl.querySelectorAll(".fltRow[data-t]"));
-    if(!rowsT.length){ boardEl.scrollTop = 0; return; }
-    scrollBoardToRow(rowsT.find(b=>+b.dataset.t >= now - 10*60000) || rowsT[rowsT.length-1]);
+    const rowsT = Array.from(el.querySelectorAll(".fltRow[data-t]"));
+    if(!rowsT.length){ el.scrollTop = 0; return; }
+    scrollBoardToRow(rowsT.find(b=>+b.dataset.t >= now - 10*60000) || rowsT[rowsT.length-1], el);
   }
   hourSel.addEventListener("change", ()=>{
     const v = hourSel.value;
@@ -6868,12 +6993,86 @@ contTurnBoot = false;
     document.querySelectorAll("#fltDir button").forEach(x=>x.classList.toggle("active", x===b));
     renderBoard(); scrollBoardNow();
   });
+  // ---- 路線検索(出発空港→到着空港の、今日の便。国際線も) ----
+  const rtFrom = document.getElementById("fltRtFrom"), rtTo = document.getElementById("fltRtTo");
+  const rtListEl = document.getElementById("fltRtList"), routeEl = document.getElementById("fltRoute"), rtInfo = document.getElementById("fltRtInfo");
+  let rtA = null, rtB = null;
+  // 運航曜日(日本時間の出発日)。曜日が確かで、毎日ではない便だけ「月水金」のように返す
+  function wdLabel(r){
+    if(!r[8] || !r[9] || r[8]===127) return "";
+    let m = r[8];
+    if(r[5] && hm(r[5]) >= 15*60) m = ((m << 1) | (m >> 6)) & 127;   // UTCの15時以降に出発する便は、日本時間では翌日
+    return ["月","火","水","木","金","土","日"].filter((_,i)=> (m>>i)&1).join("");
+  }
+  function renderRoute(){
+    if(!db){ routeEl.innerHTML = '<div class="fltMsg">' + esc(loadErr || "読み込み中…") + "</div>"; rtInfo.textContent = ""; return; }
+    if(!rtA || !rtB){
+      rtInfo.textContent = "";
+      routeEl.innerHTML = '<div class="fltMsg">出発空港と到着空港を入れてください（3レター・4レター・空港名）。<br>国際線も探せます（例: NRT → LAX）。</div>';
+      return;
+    }
+    const b = boardRows(rtA, "dep");
+    const rows = b.rows.filter(x=>x.r[2]===rtB), noTime = b.noTime.filter(x=>x.r[2]===rtB);
+    // 今日は飛ばない便(運航曜日が分かっていて今日が含まれない便)。今日の一覧にある便と同じ便名は除く
+    const baseFn = (i)=> dispFn(i).replace(/(\d)[A-Z]{1,2}$/, "$1");
+    const todayFn = new Set(rows.concat(noTime).map(x=>baseFn(x.i)));
+    const off = [], seenOff = new Set();
+    db.f.forEach((r, i)=>{
+      if(r[1]!==rtA || r[2]!==rtB || !r[5] || isAdhoc9k(i)) return;
+      const k = baseFn(i);
+      if(todayFn.has(k) || seenOff.has(k + "|" + r[5])) return;
+      seenOff.add(k + "|" + r[5]); off.push({ i, r });
+    });
+    off.sort((a,b)=> hm(a.r[5]) - hm(b.r[5]) || dispFn(a.i).localeCompare(dispFn(b.i)));
+    const dt = new Date(b.D), WD = ["日","月","火","水","木","金","土"][dt.getUTCDay()];
+    rtInfo.textContent = apCode(rtA) + " → " + apCode(rtB) + " ／ 今日 " + (dt.getUTCMonth()+1) + "/" + dt.getUTCDate() + "（" + WD + "）日本時間0〜24時に出発 ／ 時刻はUTC（STD → STA） ／ " + rows.length + "便";
+    const pad = (n)=>String(n).padStart(2,"0");
+    const rowR = (x, tStr)=>{
+      const r = x.r, fn = dispFn(x.i), wdl = wdLabel(r), prev = r[10]===0 && !!r[5];
+      return '<button type="button" class="fltRow" data-q="' + esc(r[0]) + '"' + (x.t ? ' data-t="' + x.t + '"' : "") + '><span class="tm' + (prev ? ' prev" title="前のダイヤの時刻' : "") + '">' + tStr + (prev ? "*" : "") + "</span>"
+        + '<span class="fn' + fnCls(fn) + '">' + esc(fn) + '</span><span class="ap">→ <span class="apc">' + zt(r[6]) + "</span>" + (wdl ? '<span class="wd">' + wdl + "</span>" : "") + "</span>"
+        + '<span class="ty">' + esc(r[3]||"") + "</span></button>";
+    };
+    let h = rows.map(x=>{ const t = new Date(x.t); return rowR(x, pad(t.getUTCHours()) + pad(t.getUTCMinutes()) + "Z"); }).join("");
+    if(noTime.length) h += '<div class="fltBoardSub">時刻未取得（次の全国一括取得で入ります）</div>' + noTime.map(x=>rowR(x, "----Z")).join("");
+    if(off.length) h += '<div class="fltBoardSub">今日は運航しない便（曜日は日本時間の出発日）</div>' + off.map(x=>rowR(x, zt(x.r[5]))).join("");
+    if(rows.concat(off).some(x=>x.r[10]===0)) h += '<div class="fltBoardSub">* 前のダイヤの時刻（ダイヤ改正後まだ確認できていない便）</div>';
+    if(!rows.length && !noTime.length && !off.length){
+      const rev = db.f.some(r=>r[1]===rtB && r[2]===rtA);
+      h = '<div class="fltMsg">' + esc(apCode(rtA)) + " → " + esc(apCode(rtB)) + " の便はデータにありません。" + (rev ? "（逆向きの便はあります。⇄ で入れ替えられます）" : "") + "</div>";
+    }
+    routeEl.innerHTML = h;
+  }
+  routeEl.addEventListener("click", (e)=>{
+    const b = e.target.closest("button[data-q]");
+    if(!b) return;
+    setTab("search");
+    inp.value = b.dataset.q; render();
+  });
+  bindApList(rtListEl);
+  apPicker(rtFrom, rtListEl, (c, typing)=>{
+    rtA = c; renderRoute(); scrollBoardNow(routeEl);
+    if(!typing && !rtB) setTimeout(()=>{ try{ rtTo.focus(); }catch(e){} }, 30);   // 出発を選んだら到着の入力へ
+  });
+  apPicker(rtTo, rtListEl, (c)=>{ rtB = c; renderRoute(); scrollBoardNow(routeEl); });
+  document.getElementById("fltRtSwap").addEventListener("click", ()=>{
+    [rtA, rtB] = [rtB, rtA];
+    syncApInputs(); renderRoute(); scrollBoardNow(routeEl);
+  });
+  // 入力欄の表示を、決まっている空港の3レターにそろえる(読み込み前は4レター。入力中の欄はそのまま)
+  function syncApInputs(){
+    const set = (el, c)=>{ if(document.activeElement===el) return; el.value = c ? apCode(c) : ""; el.classList.toggle("ok", !!c); };
+    set(apIn, boardAp); set(rtFrom, rtA); set(rtTo, rtB);
+  }
+
   function setTab(t){
     tab = t;
     tabsEl.querySelectorAll("button").forEach(x=>{ const on = x.dataset.t===t; x.classList.toggle("active", on); x.setAttribute("aria-selected", on ? "true" : "false"); });
     searchPane.hidden = t!=="search";
     boardPane.hidden = t!=="board";
-    if(t==="board"){ fillApSel(); renderBoard(); scrollBoardNow(); }   // 一覧は今の時刻の位置から
+    routePane.hidden = t!=="route";
+    if(t==="board"){ renderBoard(); scrollBoardNow(); }   // 一覧は今の時刻の位置から
+    if(t==="route"){ renderRoute(); scrollBoardNow(routeEl); if(!rtA || !rtB) setTimeout(()=>{ try{ (!rtA ? rtFrom : rtTo).focus(); }catch(e){} }, 30); }
   }
   tabsEl.addEventListener("click", (e)=>{ const b = e.target.closest("button[data-t]"); if(b) setTab(b.dataset.t); });
 
@@ -6890,11 +7089,16 @@ contTurnBoot = false;
   function open(){
     ov.hidden = false;
     btn.setAttribute("aria-expanded","true");
-    fillApSel();
-    const cur = currentAppIcao();   // 一覧の空港は、開くたびにアプリで選んでいる空港にそろえる
-    if(cur && Array.from(apSel.options).some(o=>o.value===cur)) apSel.value = cur;
-    render(); if(tab==="board"){ renderBoard(); scrollBoardNow(); }
-    load().then(()=>{ render(); if(tab==="board"){ renderBoard(); scrollBoardNow(); } foot.innerHTML = footHtml(); });
+    const cur = currentAppIcao();   // 空港検索の空港は、開くたびにアプリで選んでいる空港にそろえる。路線検索の出発は最初だけ
+    if(cur) boardAp = cur;
+    if(cur && !rtA && !rtB) rtA = cur;
+    const redraw = ()=>{
+      syncApInputs(); render();
+      if(tab==="board"){ renderBoard(); scrollBoardNow(); }
+      if(tab==="route"){ renderRoute(); scrollBoardNow(routeEl); }
+    };
+    redraw();
+    load().then(()=>{ redraw(); foot.innerHTML = footHtml(); });
     if(tab==="search") setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(e){} }, 30);
   }
   function close(){
