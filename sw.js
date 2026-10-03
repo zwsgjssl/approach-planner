@@ -24,6 +24,9 @@ const STATIC_FILES = ["./manifest.webmanifest", "./icons/apple-touch-icon.png", 
 const AIRPORT_KEYS = ["chitose","hakodate","haneda","itami","takamatsu","matsuyama","hiroshima","fukuoka","kumamoto"];
 const FIRST_LOAD_TIMEOUT_MS = 30000;   // 保存済みの版が無い(初回)ときだけ、ネットワークを待つ上限
 const REVALIDATE_MIN_INTERVAL_MS = 10000;   // 起動時の二重確認を防ぐための最小間隔
+// build297: 機内モード(回線なし)のときは裏の通信をしない。iPadで機内モードのままアプリを開くたびに
+// 「データにアクセスするには、機内モードをオフにするか…」と出ていたため。保存済みのものだけで表示する。
+const isOffline = ()=>{ try{ return self.navigator && self.navigator.onLine===false; }catch(e){ return false; } };
 
 // ---- 中身の確認 ------------------------------------------------------------
 // アプリ本体: 見出しと build 番号があり、</html> で終わっている(=最後まで受信できている)こと
@@ -91,6 +94,7 @@ let revalInflight = null, revalStartedAt = 0, revalCtrl = null, revalOkAt = 0;
 //    (遅い回線で始まった確認が、回線が良くなった後の確認を塞がないように)
 //  - 最後に成功してから10秒以内は確認しない
 function revalidateHtml(force){
+  if(isOffline()) return Promise.resolve(null);
   if(revalInflight && Date.now()-revalStartedAt < 10000) return revalInflight;
   if(!force && Date.now()-revalOkAt < REVALIDATE_MIN_INTERVAL_MS) return Promise.resolve(null);
   if(revalCtrl){ try{ revalCtrl.abort(); }catch(err){} }
@@ -171,7 +175,7 @@ function fetchAndStoreMap(key){
 async function serveMap(e, req, key){
   const found = await matchAnyMap(req);
   if(found.hit){
-    if(!found.current) e.waitUntil(fetchAndStoreMap(key).then(()=>cleanupOldMapsIfComplete()));   // 古い地図を出しつつ、新しい地図を裏で取得
+    if(!found.current && !isOffline()) e.waitUntil(fetchAndStoreMap(key).then(()=>cleanupOldMapsIfComplete()));   // 古い地図を出しつつ、新しい地図を裏で取得
     return found.hit;
   }
   const text = await fetchAndStoreMap(key);
@@ -212,6 +216,7 @@ function fetchAndStoreFlightDb(){
 async function serveFlightDb(e, req){
   const c = await caches.open(DATA_CACHE);
   const hit = await c.match(req, { ignoreSearch:true });
+  if(hit && isOffline()) return hit;
   const net = fetchAndStoreFlightDb();
   if(hit){ try{ e.waitUntil(net); }catch(err){} return hit; }
   const text = await net;
@@ -268,6 +273,7 @@ self.addEventListener("message", (e)=>{
   } else if(d.type==="precache-maps"){
     // まだ今の保存番号で保存していない空港の地図を1つずつ保存する。途中で切れても保存できた分は残る。
     // 全部そろったら古い保存番号の地図を消す。進み具合はページに知らせる。
+    if(isOffline()) return;
     e.waitUntil((async ()=>{
       const cur = await caches.open(MAP_CACHE);
       for(const k of AIRPORT_KEYS){

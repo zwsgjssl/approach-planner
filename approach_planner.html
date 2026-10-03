@@ -383,7 +383,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 296</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 297</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
 </header>
@@ -6458,7 +6458,11 @@ contTurnBoot = false;
         if(el) el.textContent = "オフライン用の地図: " + d.saved + " / " + d.total + " 空港 保存済み" + (d.saved<d.total ? "（ネットにつながると続きを保存します）" : "");
       }
     });
+    // 機内モード(回線なし)のときは更新確認・地図の保存をしない。iPadで機内モードのまま開くたびに
+    // 「データにアクセスするには、機内モードをオフにするか…」と出ていたため(build297)。回線が戻ったら行う
+    const offline = ()=> navigator.onLine===false;
     function requestUpdateCheck(){
+      if(offline()) return;
       navigator.serviceWorker.ready.then(r=>{
         try{ const u = r.update(); if(u && u.catch) u.catch(()=>{}); }catch(err){}   // sw.js自体の更新確認
         if(r.active) r.active.postMessage({type:"check-update"});
@@ -6468,14 +6472,14 @@ contTurnBoot = false;
     { const mb = document.getElementById("menuBtn");
       if(mb) mb.addEventListener("click", ()=>{ navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:"maps-status"}); }).catch(()=>{}); }); }
     // 登録はloadを待たない(loadは地図データの読み込み後なので、遅い回線だと更新確認が始まらない)
-    const precacheMaps = ()=>{ navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:"precache-maps"}); }).catch(()=>{}); };
+    const precacheMaps = ()=>{ if(offline()) return; navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:"precache-maps"}); }).catch(()=>{}); };
     navigator.serviceWorker.register("sw.js").then(()=>{
       // 起動が落ち着いてから、全空港の地図データを裏で保存しておく(保存済みの空港は取り直さない)
       setTimeout(precacheMaps, 5000);
       requestUpdateCheck();
     }).catch(()=>{});
     // 回線が戻ったら / sw.jsが切り替わったら、未保存の地図の保存を再開する
-    window.addEventListener("online", ()=>setTimeout(precacheMaps, 2000));
+    window.addEventListener("online", ()=>setTimeout(()=>{ precacheMaps(); requestUpdateCheck(); }, 2000));
     navigator.serviceWorker.addEventListener("controllerchange", ()=>setTimeout(precacheMaps, 2000));
     // 保存データを消されにくくする(対応ブラウザのみ)
     try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(err){}
@@ -7173,11 +7177,15 @@ contTurnBoot = false;
     if(location.protocol!=="https:") return;
     if(!/\.github\.io$|\.pages\.dev$/.test(location.hostname)) return;
     if(window.top !== window) return;
-    const sc = document.createElement("script");
-    sc.async = true;
-    sc.src = "https://gc.zgo.at/count.js";
-    sc.setAttribute("data-goatcounter", "https://approachplanner.goatcounter.com/count");
-    document.head.appendChild(sc);
+    const add = ()=>{
+      const sc = document.createElement("script");
+      sc.async = true;
+      sc.src = "https://gc.zgo.at/count.js";
+      sc.setAttribute("data-goatcounter", "https://approachplanner.goatcounter.com/count");
+      document.head.appendChild(sc);
+    };
+    // 機内モードでは読み込まない(iPadの「機内モードをオフに…」の表示を出さないため)。回線が戻ったら1回だけ
+    if(navigator.onLine===false) window.addEventListener("online", add, { once:true }); else add();
   }catch(e){}
 })();
 </script>
