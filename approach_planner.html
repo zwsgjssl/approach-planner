@@ -385,8 +385,11 @@
   header .dpBtn:active{ background:var(--line); }
   header .dpBtn:not([hidden]) + .fltBtn{ margin-left:8px; }
   @media(max-width:560px){ header .dpBtn{ padding:6px 10px; } }
-  .dpOverlay{ position:fixed; inset:0; z-index:90; background:#eef2f5; display:flex; flex-direction:column;
-              padding:env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  .dpOverlay{ position:fixed; inset:0; z-index:90; background:#eef2f5; display:flex; flex-direction:column; }
+  /* build306: 画面の端の余白は降下プランナーの中で取る(親から dp-safe で値を渡す)。メニューが上まで届くように */
+  .dpSafe{ position:fixed; left:0; top:0; width:0; height:0; visibility:hidden; pointer-events:none;
+           padding:env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  .dpUnlock{ margin-top:max(24px, env(safe-area-inset-top, 0px)) !important; }
   .dpOverlay[hidden]{ display:none; }
   .dpBar{ display:flex; align-items:center; gap:10px; background:var(--panel); border-bottom:1px solid var(--line);
           padding:max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px max(14px, env(safe-area-inset-left)); }
@@ -395,7 +398,9 @@
   .dpBar button{ background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; font-size:14px; padding:6px 12px; min-height:40px; min-width:44px; cursor:pointer; }
   .dpBar button:active{ background:var(--line); }
   .dpBody{ flex:1 1 auto; min-height:0; position:relative; display:flex; }
-  .dpBody iframe{ flex:1 1 auto; width:100%; border:0; display:block; background:#eef2f5; }
+  .dpBody iframe{ flex:1 1 auto; width:100%; border:0; display:block; background:transparent; }
+  /* build305: 画面の上下(ステータスバー・ホームバーの分)の色を降下プランナーの背景に合わせる(暗い画面で白い帯が出ていた) */
+  @media (prefers-color-scheme: dark){ .dpOverlay{ background:#0c1117; } }
   .dpMsg{ margin:auto; padding:24px 16px; color:var(--textdim); text-align:center; max-width:420px; }
   .dpUnlock{ margin:auto; width:min(100% - 32px, 360px); display:grid; gap:12px; background:var(--panel); border:1px solid var(--line);
              border-radius:12px; padding:18px 16px; }
@@ -420,7 +425,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 304</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 306</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="dpBtn" class="dpBtn" aria-label="Map（降下プランナー）を開く" aria-haspopup="dialog" hidden>Map</button>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
@@ -437,6 +442,7 @@
       <p class="dpErr" id="dpErr" role="status" aria-live="polite"></p>
     </form>
     <iframe id="dpFrame" title="降下プランナー" hidden></iframe>
+    <div class="dpSafe" id="dpSafe"></div>
   </div>
 </div>
 
@@ -7241,13 +7247,22 @@ contTurnBoot = false;
   const show = what => {   // "msg" | "form" | "frame"
     msg.hidden = what !== "msg"; form.hidden = what !== "form"; frame.hidden = what !== "frame";
   };
+  // build306: 画面の端(ステータスバー・ホームバー)の余白を降下プランナーに渡す。iframe の中では env() が 0 になるため
+  function sendSafe(){
+    try{
+      const cs = getComputedStyle($("dpSafe")), px = v=>Math.round(parseFloat(v) || 0);
+      if(frame.contentWindow) frame.contentWindow.postMessage({ type:"dp-safe", t:px(cs.paddingTop), b:px(cs.paddingBottom), l:px(cs.paddingLeft), r:px(cs.paddingRight) }, "*");
+    }catch(e){}
+  }
+  window.addEventListener("resize", ()=>setTimeout(sendSafe, 200));
+  window.addEventListener("orientationchange", ()=>setTimeout(sendSafe, 400));
   function load(){
     if(loaded){ show("frame"); return; }
     msg.textContent = "読み込み中…"; show("msg");
     frame.onload = () => {
       let ok = false;
       try{ ok = !!(frame.contentDocument && frame.contentDocument.title === "降下プランナー"); }catch(e){}
-      if(ok){ loaded = true; show("frame"); }
+      if(ok){ loaded = true; show("frame"); sendSafe(); }
       else{
         msg.textContent = (navigator.onLine === false)
           ? "降下プランナーがこの端末に保存されていません。一度オンラインで開いてください。（押すと閉じます）"
@@ -7268,6 +7283,7 @@ contTurnBoot = false;
   });
   function openOv(){
     ov.hidden = false; document.body.classList.add("dpOpen");
+    if(loaded) setTimeout(sendSafe, 50);
     if(remembered()) load(); else askPass("");
   }
   function closeOv(){ ov.hidden = true; document.body.classList.remove("dpOpen"); try{ btn.focus(); }catch(e){} }
