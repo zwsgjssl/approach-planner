@@ -32,6 +32,7 @@ jobs:
           cp icons/*.png _site/icons/
           cp map_data_*.js _site/ 2>/dev/null || echo "map_data_*.js がありません(地図なしで公開します)"
           cp flightdb.json _site/ 2>/dev/null || echo "flightdb.json がありません(便名検索なしで公開します)"
+          cp descent_planner.html _site/ 2>/dev/null || echo "descent_planner.html がありません(降下プランナーなしで公開します)"
           ls -la _site
 
       - uses: actions/configure-pages@v5
