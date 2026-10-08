@@ -376,7 +376,7 @@
                   font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:14px; cursor:pointer; }
   .fltFoot{ color:var(--textdim); font-size:11px; line-height:1.5; padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px)); border-top:1px solid var(--line); margin-top:10px; }
 
-  /* 降下プランナー(build302。合言葉 787 で開く) */
+  /* 降下プランナー(build303。パスワード 787 で開く。上の帯なしで全画面) */
   header .dpBtn{
     margin-left:auto; align-self:center;
     background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px;
@@ -385,7 +385,8 @@
   header .dpBtn:active{ background:var(--line); }
   header .dpBtn:not([hidden]) + .fltBtn{ margin-left:8px; }
   @media(max-width:560px){ header .dpBtn{ padding:6px 10px; } }
-  .dpOverlay{ position:fixed; inset:0; z-index:90; background:var(--bg); display:flex; flex-direction:column; }
+  .dpOverlay{ position:fixed; inset:0; z-index:90; background:#eef2f5; display:flex; flex-direction:column;
+              padding:env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
   .dpOverlay[hidden]{ display:none; }
   .dpBar{ display:flex; align-items:center; gap:10px; background:var(--panel); border-bottom:1px solid var(--line);
           padding:max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px max(14px, env(safe-area-inset-left)); }
@@ -405,6 +406,7 @@
   .dpUnlock .dpChk input{ width:20px; height:20px; }
   .dpUnlock button{ min-height:44px; border-radius:8px; border:1px solid var(--amber); background:var(--amber); color:#1a1300; font-size:15px; font-weight:600; cursor:pointer; }
   .dpUnlock button:disabled{ opacity:.5; }
+  .dpUnlock .dpCancel{ background:var(--panel2); color:var(--text); border-color:var(--line); font-weight:400; }
   .dpErr{ min-height:1.4em; margin:0; font-size:13px; color:var(--amber); }
   body.dpOpen{ overflow:hidden; }
   .dpOverlay [hidden]{ display:none !important; }
@@ -418,25 +420,20 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 302</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 304</span></h1>
   <span class="sub" id="airportSub"></span>
-  <button type="button" id="dpBtn" class="dpBtn" aria-label="降下プランナーを開く" aria-haspopup="dialog" hidden>降下</button>
+  <button type="button" id="dpBtn" class="dpBtn" aria-label="Map（降下プランナー）を開く" aria-haspopup="dialog" hidden>Map</button>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
 </header>
 
 <div class="dpOverlay" id="dpOverlay" role="dialog" aria-modal="true" aria-label="降下プランナー" hidden>
-  <div class="dpBar">
-    <strong>降下プランナー</strong>
-    <span class="dpInfo" id="dpInfo"></span>
-    <button type="button" id="dpLock" hidden title="次に開くときはパスワードが必要になる">ロック</button>
-    <button type="button" id="dpClose" aria-label="閉じる">✕</button>
-  </div>
   <div class="dpBody">
     <p class="dpMsg" id="dpMsg">読み込み中…</p>
     <form class="dpUnlock" id="dpUnlock" autocomplete="on" hidden>
       <h2>パスワードを入力</h2>
       <label for="dpPass">パスワード<input type="password" id="dpPass" inputmode="numeric" autocomplete="off" required></label>
       <button type="submit" id="dpGo">開く</button>
+      <button type="button" id="dpCancel" class="dpCancel">閉じる</button>
       <p class="dpErr" id="dpErr" role="status" aria-live="polite"></p>
     </form>
     <iframe id="dpFrame" title="降下プランナー" hidden></iframe>
@@ -7227,7 +7224,8 @@ contTurnBoot = false;
 </script>
 <script>
 // build302: 降下プランナーを組み込み(暗号化なし)。本体は descent_planner.html(同じ場所に置く)。
-// 開くときに合言葉(787)を聞く。合っていればこの端末で覚え、次からは聞かない(「ロック」で忘れる)。
+// 開くときにパスワード(787)を聞く。合っていればこの端末で覚え、次からは聞かない。
+// build303: 上の帯(題名・ロック・✕)をやめて全画面に。閉じるのは降下プランナーの地図の ✕(iframe から postMessage {type:"dp-close"})。
 // ※ 合言葉は画面を開く前の確認だけ。データそのものは公開ファイルにそのまま入っている。
 (function(){
   const PASS = "787", KEY = "dp:ok";
@@ -7236,13 +7234,12 @@ contTurnBoot = false;
   if(!btn || !ov) return;
   btn.hidden = false;
   document.body.classList.add("hasDp");
-  const form = $("dpUnlock"), pass = $("dpPass"), err = $("dpErr"), frame = $("dpFrame"), msg = $("dpMsg"), lockBtn = $("dpLock");
+  const form = $("dpUnlock"), pass = $("dpPass"), err = $("dpErr"), frame = $("dpFrame"), msg = $("dpMsg");
   const remembered = () => { try{ return localStorage.getItem(KEY) === "1"; }catch(e){ return false; } };
   const remember = on => { try{ on ? localStorage.setItem(KEY, "1") : localStorage.removeItem(KEY); }catch(e){} };
   let loaded = false;
   const show = what => {   // "msg" | "form" | "frame"
     msg.hidden = what !== "msg"; form.hidden = what !== "form"; frame.hidden = what !== "frame";
-    lockBtn.hidden = !loaded;
   };
   function load(){
     if(loaded){ show("frame"); return; }
@@ -7253,8 +7250,8 @@ contTurnBoot = false;
       if(ok){ loaded = true; show("frame"); }
       else{
         msg.textContent = (navigator.onLine === false)
-          ? "降下プランナーがこの端末に保存されていません。一度オンラインで開いてください。"
-          : "降下プランナーを読み込めませんでした。";
+          ? "降下プランナーがこの端末に保存されていません。一度オンラインで開いてください。（押すと閉じます）"
+          : "降下プランナーを読み込めませんでした。（押すと閉じます）";
         show("msg");
       }
     };
@@ -7275,13 +7272,11 @@ contTurnBoot = false;
   }
   function closeOv(){ ov.hidden = true; document.body.classList.remove("dpOpen"); try{ btn.focus(); }catch(e){} }
   btn.addEventListener("click", openOv);
-  $("dpClose").addEventListener("click", closeOv);
+  $("dpCancel").addEventListener("click", closeOv);
+  msg.addEventListener("click", ()=>{ if(!loaded && /閉じます/.test(msg.textContent)) closeOv(); });   // 読み込めなかったときは文を押して閉じる
+  window.addEventListener("message", e=>{ if(e.source === frame.contentWindow && e.data && e.data.type === "dp-close") closeOv(); });
   ov.addEventListener("keydown", e => { if(e.key === "Escape") closeOv(); });
-  lockBtn.addEventListener("click", () => {
-    remember(false);
-    frame.onload = null; frame.src = "about:blank"; loaded = false;
-    askPass("ロックしました。");
-  });
+
 })();
 </script>
 <script>

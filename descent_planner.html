@@ -7,19 +7,19 @@
 /* Layout: controls on top, then map + table side by side on wide screens, stacked on phones. Cockpit-display palette. */
 :root{
   --bg:#eef2f5; --panel:#ffffff; --panel2:#f5f8fa; --line:#d3dbe2; --fg:#14202b; --dim:#5b6a78; --land:#8a9a6a;
-  --accent:#1d5fa6; --xfer:#d01c1c; --con:#2f9e1f; --ruler:#c2185b; --mva:#7d4a12; --aca:#2f6fb3; --ctr:#c2185b; --pca:#7a4fb5; --tca:#2e8b57; --path:#0f8a6a; --turn:#b06a00; --tod:#c0362c; --dct:#7a4fb5; --trk:#e06a00; --warn:#a15c00; --warnbg:#fbefdc; --err:#b3261e;
+  --accent:#1d5fa6; --xfer:#d01c1c; --con:#2f9e1f; --ruler:#c2185b; --mva:#7d4a12; --aca:#2f6fb3; --ctr:#c2185b; --pca:#7a4fb5; --tca:#2e8b57; --path:#0f8a6a; --turn:#b06a00; --tod:#c0362c; --dct:#7a4fb5; --trk:#ffffff; --trkEdge:rgba(20,32,43,.32); --warn:#a15c00; --warnbg:#fbefdc; --err:#b3261e;
   --font-body:"IBM Plex Sans JP", system-ui, -apple-system, "Hiragino Sans", sans-serif;
   --font-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#0c1117; --panel:#131b23; --panel2:#18222c; --line:#27333f; --fg:#e2e9ef; --dim:#8fa0af; --land:#9fb07e;
-  --accent:#6aa6ee; --xfer:#ff6b6b; --con:#8ee36b; --ruler:#f06292; --mva:#e0b27a; --aca:#7fb2ee; --ctr:#f48fb1; --pca:#c3a3f0; --tca:#7fd3a5; --path:#3fd0a4; --turn:#f0a640; --tod:#ff6b5e; --dct:#b892f0; --trk:#ffa94d; --warn:#e7a54a; --warnbg:#3a2a12; --err:#ff8a80; color-scheme:dark } }
+  --accent:#6aa6ee; --xfer:#ff6b6b; --con:#8ee36b; --ruler:#f06292; --mva:#e0b27a; --aca:#7fb2ee; --ctr:#f48fb1; --pca:#c3a3f0; --tca:#7fd3a5; --path:#3fd0a4; --turn:#f0a640; --tod:#ff6b5e; --dct:#b892f0; --trk:#ffffff; --trkEdge:rgba(0,0,0,.65); --warn:#e7a54a; --warnbg:#3a2a12; --err:#ff8a80; color-scheme:dark } }
 :root[data-theme="dark"]{
   --bg:#0c1117; --panel:#131b23; --panel2:#18222c; --line:#27333f; --fg:#e2e9ef; --dim:#8fa0af; --land:#9fb07e;
-  --accent:#6aa6ee; --xfer:#ff6b6b; --con:#8ee36b; --ruler:#f06292; --mva:#e0b27a; --aca:#7fb2ee; --ctr:#f48fb1; --pca:#c3a3f0; --tca:#7fd3a5; --path:#3fd0a4; --turn:#f0a640; --tod:#ff6b5e; --dct:#b892f0; --trk:#ffa94d; --warn:#e7a54a; --warnbg:#3a2a12; --err:#ff8a80; color-scheme:dark }
+  --accent:#6aa6ee; --xfer:#ff6b6b; --con:#8ee36b; --ruler:#f06292; --mva:#e0b27a; --aca:#7fb2ee; --ctr:#f48fb1; --pca:#c3a3f0; --tca:#7fd3a5; --path:#3fd0a4; --turn:#f0a640; --tod:#ff6b5e; --dct:#b892f0; --trk:#ffffff; --trkEdge:rgba(0,0,0,.65); --warn:#e7a54a; --warnbg:#3a2a12; --err:#ff8a80; color-scheme:dark }
 body{ background:var(--bg); color:var(--fg); font-family:var(--font-body); font-size:14px; line-height:1.5; }
-.wrap{ max-width:1280px; margin:0 auto; padding-inline:10px; padding-block:6px 24px; display:grid; gap:14px; transition:margin-left .22s ease; }
+.wrap{ max-width:1280px; margin:0 auto; padding-inline:10px; padding-block:6px; display:grid; gap:14px; transition:margin-left .22s ease; }
 /* ヘッダー(☰ と題名)。上に固定 */
 .ctlClose{ justify-self:start; background:var(--accent) !important; color:var(--panel) !important; border-color:var(--accent) !important; }
 .menuBtn{ background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:6px; font-size:19px; line-height:1; padding:6px 10px; cursor:pointer; min-width:44px; min-height:44px; }
@@ -133,6 +133,8 @@ svg.dsym, .map svg.dsym{ display:inline-block; width:1.55em; height:1em; vertica
 #dctMsg{ position:absolute; left:8px; top:8px; max-width:calc(100% - 16px); z-index:2; display:flex; flex-direction:column; gap:2px; font-size:13px; color:var(--fg);
   background:color-mix(in srgb, var(--panel) 92%, transparent); border:1px solid var(--line); border-radius:8px; padding:6px 10px; box-shadow:0 2px 8px rgba(0,0,0,.15); pointer-events:none; }
 #dctMsg:empty{ display:none; }
+#mapErr{ position:absolute; left:8px; bottom:26px; z-index:2; background:var(--panel); border:1px solid var(--err); border-radius:6px; padding:3px 8px; pointer-events:none; }
+#mapErr:empty{ display:none; }
 #probeMk{ position:absolute; right:8px; top:8px; z-index:3; box-shadow:0 2px 8px rgba(0,0,0,.2); }
 #dctMsg b{ font-family:var(--font-mono); color:var(--dct); }
 .err{ color:var(--err); font-size:12px; }
@@ -149,6 +151,7 @@ td.mea.low{ color:var(--err); font-weight:600; }
 .seg button{ font:inherit; font-size:12px; background:var(--panel2); color:var(--fg); border:none; padding:6px 12px; min-height:36px; cursor:pointer; }
 .seg button + button{ border-left:1px solid var(--line); }
 .seg button.on{ background:var(--accent); color:var(--panel); }
+#embClose{ margin-left:auto; }
 .maptools{ display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin-bottom:8px; font-size:12px; }
 .maptools label{ display:inline-flex; gap:6px; align-items:center; cursor:pointer; }
 .maptools input{ width:18px; height:18px; accent-color:var(--accent); }
@@ -195,11 +198,9 @@ td.mea.low{ color:var(--err); font-weight:600; }
         <label><input type="checkbox" id="coastChk"> 地図</label>
         <label><input type="checkbox" id="fixChk"> 経路外の FIX</label>
         <label id="trkLab" hidden><input type="checkbox" id="trkChk"> 実際の航跡</label>
-        <select id="trkV" hidden aria-label="航跡の見せ方"><option value="flow">流れ</option><option value="all">全部</option></select>
-        <select id="trkB" hidden aria-label="航跡の時間帯"><option value="">全時間帯</option><option>朝</option><option>昼</option><option>夕</option><option>夜</option></select><span class="msg" id="mvaTxt"></span></div>
-      <div class="mapwrap" id="mapwrap"><div id="map"></div><div class="msg" id="dctMsg"></div><button type="button" class="btn pri" id="probeMk" hidden>ここに FIX を作る</button><div class="info sheet" id="info" hidden></div></div>
-      <div class="sum" id="sum" style="margin:8px 0 0"></div>
-      <div class="msg" id="trkMsg"></div>
+        <select id="trkV" hidden aria-label="航跡の見せ方"><option value="flow">平均</option><option value="all">全部</option></select>
+        <select id="trkB" hidden aria-label="航跡の時間帯"><option value="">全時間帯</option><option>朝</option><option>昼</option><option>夕</option><option>夜</option></select><span class="msg" id="mvaTxt" hidden></span><button id="embClose" class="menuBtn" type="button" aria-label="降下プランナーを閉じる" hidden>✕</button></div>
+      <div class="mapwrap" id="mapwrap"><div id="map"></div><div class="msg" id="dctMsg"></div><div class="err" id="mapErr"></div><button type="button" class="btn pri" id="probeMk" hidden>ここに FIX を作る</button><div class="info sheet" id="info" hidden></div></div>
     </div>
   </div>
 </div>
@@ -884,7 +885,7 @@ function render(){
   $("rteErr").textContent = R.errs.join("　／　");
   if(B.notes.length) $("prMsg").textContent = ($("prMsg").textContent + "　" + B.notes.join("　")).trim();
   $("rtstr").textContent = (R.dep ? AP[R.dep][3] + "（" + R.dep + "）→ " : "") + (R.dest ? AP[R.dest][3] + "（" + R.dest + "）" : "到着の空港なし（最後のFIXで終わり）") + (R.notes.length ? "　※" + R.notes.join("、") : "");
-  if(pts.length < 2){ $("map").textContent = ""; $("sum").textContent = ""; $("dctMsg").textContent = ""; return; }
+  if(pts.length < 2){ $("map").textContent = ""; $("mapErr").textContent = ""; $("dctMsg").textContent = ""; return; }
   const ckey = R.dest || "_";
   ST.cons[ckey] = ST.cons[ckey] || {};
   const user = ST.cons[ckey];
@@ -897,11 +898,8 @@ function render(){
   const base = compute(pts, cons, []);
   const res = DCTS.length ? compute(pts, cons, DCTS) : base;
   lastRes = res;
-  // まとめ
-  const sum = $("sum"); sum.textContent = "";
-  const item = (lab, val)=>{ const s = el("span"); s.append(lab + " "); s.append(el("b", "", val)); sum.append(s); };
-  item("距離", fmtNM(res.total) + "NM");
-  if(R.errs.length){ const w = el("span","err","RTE にエラーがあります（☰ で確認）"); sum.append(w); }
+  // v107: 地図の下のまとめ(距離)はやめた。RTE のエラーだけ地図の左下に
+  $("mapErr").textContent = R.errs.length ? "RTE にエラーがあります（☰ で確認）" : "";
   // ヘッダーに今の経路
   { const sel = R.dest && PROC[R.dest] && procSel(R.dest);
     }
@@ -1025,34 +1023,7 @@ function trkBundle(list, dest){
 }
 // 実際の航跡で、経路のどの FIX を飛ばして(直行して)いたかを数える。FIX から 3NM 以内を通れば「通った」
 const TRK_PASS_NM = 4;   // 旋回の内側を通る(フライバイ)分を見込んで4NM
-function trkSummary(pts){
-  const m = $("trkMsg"); m.textContent = "";
-  if(!TRK_CUR) return;
-  const shown = trkShown(), use = shown.filter(f=>!f.x && !f.w), nw = shown.filter(f=>f.w && !f.x).length, nx = shown.length - use.length - nw;
-  const R = parseRte(ST.rte), rw = R.dest && procSel(R.dest).rwy;
-  const cond = [rw ? "RWY " + rw : "", ST.trkB || ""].filter(Boolean).join("・");
-  const head = "実際の航跡（" + (TRK_CUR.src || "FR24") + " " + TRK_CUR.from.slice(5).replace("-","/") + "〜" + TRK_CUR.to.slice(5).replace("-","/") + (TRK_CUR.all > TRK_CUR.n ? "、" + TRK_CUR.all + "便から選んだ" : "") + (cond ? "、" + cond : "") + "、" + use.length + "便" + (nx || nw ? "。" + [nx ? "いつもと違う飛び方 " + nx + "便" : "", nw ? "悪天の時間 " + nw + "便" : ""].filter(Boolean).join("・") + "は除外（地図の破線）" : "") + "）";
-  m.append(head);
-  if(ST.trk!==false && ST.trkV !== "all") m.append(" 便の流れ（近くを飛んだ航跡を束ねた。太いほど多くの便が通った）。");
-  if(/adsb/.test(TRK_CUR.src || "")) m.append(el("span", "lic", " © adsb.lol contributors（ODbL）"));   // adsb.lol のデータの利用条件(出典の表示)
-  if(!use.length || ST.trk===false) return;
-  const fx = pts.map((p, i)=>({ i, id:p.id, lat:p.lat, lon:p.lon })).filter(p=>!pts[p.i].ap);
-  const cnt = {};
-  use.forEach(f=>{
-    const passed = fx.filter(p=>f.p.some(q=>gc(p, { lat:q[0]/1e4, lon:q[1]/1e4 }) <= TRK_PASS_NM));
-    for(let k=1; k<passed.length; k++){
-      const a = passed[k-1], b = passed[k];
-      if(b.i > a.i + 1){ const key = a.id + " → " + b.id; cnt[key] = (cnt[key]||0) + 1; }
-    }
-  });
-  // 多い順に。便数の1割(最低2便)以上の直行を最大8つ、残りは件数だけ
-  const all = Object.entries(cnt).sort((A, B)=>B[1]-A[1]);
-  const lim = Math.max(2, Math.ceil(use.length*0.1));
-  const list = all.filter(([, n])=>n >= lim).slice(0, 8), rest = all.length - list.length;
-  m.append(el("br"), list.length ? "よくある直行: " : (all.length ? "よくある直行なし（1割以上の便が使った直行はない）" : "直行なし（どの便も経路の FIX を順に通過）"));
-  list.forEach(([k, n], q)=>{ m.append(el("b", "", k), " " + n + "/" + use.length + "便" + (q < list.length-1 ? "、" : "")); });
-  if(rest > 0) m.append("（ほかに " + rest + " 通りの直行が少しずつ）");
-}
+function trkSummary(pts){}   // v107: 航跡の説明・よくある直行の文はやめた(地図だけ)
 function showInfo(p, i, keep){
   if(!keep) PROBE = null;
   // DIRECT の「今いる場所」待ち: 押した FIX を今いる場所にして直行
@@ -1197,7 +1168,7 @@ function drawMap(pts, res, dest){
   { // 地図は横幅いっぱい・高さは画面に合わせる(1 単位 = 1px)
     const bw = $("map").clientWidth;
     const top = $("mapwrap").getBoundingClientRect().top + window.scrollY;   // 地図の上の端(道具の段の下)
-    const mh = Math.round(Math.max(360, Math.min(1400, window.innerHeight - top - 10)));
+    const mh = Math.round(Math.max(300, Math.min(1400, window.innerHeight - top - 22)));   // 下の余白(枠と外側)の分だけ引く。スクロールしないで1画面に
     if(bw && (Math.round(bw)!==drawMap.bw || mh!==drawMap.mh)){ drawMap.bw = Math.round(bw); drawMap.mh = mh; MW = Math.round(bw); MH = mh; }
     US = bw && bw < 600 ? 1.15 : 1; }
   lastMap = { pts, res, dest };
@@ -1299,8 +1270,9 @@ function drawMap(pts, res, dest){
     if(mode === "all"){
       shown.forEach(f=>{
         const d = pathD(f);
-        ts += (f.x || f.w) ? '<path d="'+d+'" fill="none" stroke="var(--trk)" stroke-width="'+f1(1*US)+'" stroke-dasharray="3 4" stroke-opacity=".45"/>'
-                  : '<path d="'+d+'" fill="none" stroke="var(--trk)" stroke-width="'+f1(1.6*US)+'" stroke-opacity=".38"/>';
+        // v105: 白い線(MVA の色と区別)。明るい地図でも見えるように下に細い縁取り
+        ts += (f.x || f.w) ? '<path d="'+d+'" fill="none" stroke="var(--trkEdge)" stroke-width="'+f1(2*US)+'" stroke-dasharray="3 4" stroke-opacity=".5"/><path d="'+d+'" fill="none" stroke="var(--trk)" stroke-width="'+f1(1*US)+'" stroke-dasharray="3 4" stroke-opacity=".8"/>'
+                  : '<path d="'+d+'" fill="none" stroke="var(--trkEdge)" stroke-width="'+f1(2.8*US)+'" stroke-opacity=".35"/><path d="'+d+'" fill="none" stroke="var(--trk)" stroke-width="'+f1(1.6*US)+'" stroke-opacity=".75"/>';
       });
     } else if(mode === "flow"){
       const B = trkBundle(use, dest);
@@ -1315,10 +1287,10 @@ function drawMap(pts, res, dest){
           }
         });
         segs.sort((a, b)=>b[0] - a[0]);
-        segs.forEach(([w, run])=>{
-          const d = "M" + run.map(q=>{ const c = P(q[0], q[1]); return f1(c[0]) + " " + f1(c[1]); }).join("L");
-          ts += '<path d="'+d+'" fill="none" stroke="var(--trk)" stroke-width="'+f1((1 + 0.55*w)*US)+'" stroke-opacity="'+(w >= 2 ? .85 : .5)+'"/>';
-        });
+        // 縁取り(全部描いてから)の上に白い線。縁は一番外側だけ見えるように、白より 1.6px 太く
+        const ds = segs.map(([w, run])=>[w, "M" + run.map(q=>{ const c = P(q[0], q[1]); return f1(c[0]) + " " + f1(c[1]); }).join("L")]);
+        ds.forEach(([w, d])=>{ ts += '<path d="'+d+'" fill="none" stroke="var(--trkEdge)" stroke-width="'+f1((2.2 + 0.55*w)*US)+'"/>'; });
+        ds.forEach(([w, d])=>{ ts += '<path d="'+d+'" fill="none" stroke="var(--trk)" stroke-width="'+f1((1 + 0.55*w)*US)+'" stroke-opacity="'+(w >= 2 ? .95 : .85)+'"/>'; });
         // v103: 割合(%)の字は出さない(太さだけ)
       }
     }
@@ -1479,6 +1451,7 @@ function drawMap(pts, res, dest){
   // 縮尺(きりのいい NM)
   const nice = [1,2,5,10,20,50,100,200].find(n=>n*pxNM >= 50) || 200;
   s += '<line x1="12" y1="'+(H-14)+'" x2="'+f1(12+nice*pxNM)+'" y2="'+(H-14)+'" stroke="var(--dim)" stroke-width="2"/><text x="12" y="'+(H-20)+'" class="lbl sm" fill="var(--dim)">'+nice+'NM</text>';
+  if(TRK_CUR && ST.trk!==false && /adsb/.test(TRK_CUR.src || "")) s += '<text x="'+(W-6)+'" y="'+(H-6)+'" text-anchor="end" class="lbl sm" fill="var(--dim)" font-size="9">© adsb.lol contributors (ODbL)</text>';   // adsb.lol のデータの出典(利用条件)
   s += "</svg>";
   $("map").innerHTML = s;
   $("probeMk").hidden = !(PROBE && PROBE.tok);
@@ -1509,7 +1482,7 @@ function rulerSvg(){
 function drawRuler(){ const g = document.getElementById("rulerG"); if(g) g.innerHTML = rulerSvg(); }
 let DRAW_MS = 50, LAST_DRAW = 0;   // 描き直しにかかった時間(端末の速さ)。速ければ指の操作中も描き直す
 function redrawMap(){ if(!lastMap) return; const t0 = performance.now(); drawMap(lastMap.pts, lastMap.res, lastMap.dest); LAST_DRAW = performance.now(); DRAW_MS = DRAW_MS*0.5 + (LAST_DRAW - t0)*0.5; }
-{ let rt = null, lw = 0; window.addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ const w = $("map").clientWidth; if(w && Math.abs(w-lw) > 2){ lw = w; redrawMap(); } }, 150); }); }
+{ let rt = null, lw = 0, lh = 0; window.addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ const w = $("map").clientWidth, h = window.innerHeight; if(w && (Math.abs(w-lw) > 2 || Math.abs(h-lh) > 2)){ lw = w; lh = h; redrawMap(); } }, 150); }); }
 // 画面上の点(svg 座標)を中心に拡大・縮小
 function zoomAt(f, sx, sy){
   if(!VIEW) return;
@@ -1775,6 +1748,8 @@ $("mvaChk").addEventListener("change", ()=>{ ST.mva = $("mvaChk").checked; save(
 $("airChk").addEventListener("change", ()=>{ ST.air = $("airChk").checked; save(); redrawMap(); });
 setView(ST.view || "arr");
 $("dctClear").addEventListener("click", ()=>{ DCTS = []; render(); });
+// v107: Approach Planner の中(iframe)で開いたときだけ ✕ を出して、親に閉じてもらう
+if(window.parent && window.parent !== window){ $("embClose").hidden = false; $("embClose").addEventListener("click", ()=>{ try{ window.parent.postMessage({ type:"dp-close" }, "*"); }catch(e){} }); }
 // v104: 経路を押した所に FIX を作る(名前は CDU と同じ「頭3文字+番号」)
 $("probeMk").addEventListener("click", ()=>{
   if(!PROBE || !PROBE.tok) return;
