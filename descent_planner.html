@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>降下プランナー</title><style>:root{color-scheme:light}body{margin:0;font-family:system-ui,-apple-system,sans-serif;font-size:14px;background:#eef2f5}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>降下プランナー</title><style>html:root{--safeT:env(safe-area-inset-top,0px);--safeB:env(safe-area-inset-bottom,0px);--safeL:env(safe-area-inset-left,0px);--safeR:env(safe-area-inset-right,0px)}:root{color-scheme:light}body{margin:0;font-family:system-ui,-apple-system,sans-serif;font-size:14px;background:#eef2f5}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
 <title>降下プランナー</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
@@ -18,16 +18,21 @@
 :root[data-theme="dark"]{
   --bg:#0c1117; --panel:#131b23; --panel2:#18222c; --line:#27333f; --fg:#e2e9ef; --dim:#8fa0af; --land:#9fb07e;
   --accent:#6aa6ee; --xfer:#ff6b6b; --con:#8ee36b; --ruler:#f06292; --mva:#e0b27a; --aca:#7fb2ee; --ctr:#f48fb1; --pca:#c3a3f0; --tca:#7fd3a5; --path:#3fd0a4; --turn:#f0a640; --tod:#ff6b5e; --dct:#b892f0; --trk:#ffffff; --trkEdge:rgba(0,0,0,.65); --warn:#e7a54a; --warnbg:#3a2a12; --err:#ff8a80; color-scheme:dark }
+/* v108: 入力欄が幅からはみ出さないように(枠と内側の余白を幅に含める) */
+*, *::before, *::after{ box-sizing:border-box; }
+textarea, input, select{ max-width:100%; }
+/* 画面の端(ステータスバー・ホームバー)の分の余白。Approach Planner の中(iframe)では親から値をもらう(dp-safe) */
+:root{ --safeT:0px; --safeB:0px; --safeL:0px; --safeR:0px; }
 body{ background:var(--bg); color:var(--fg); font-family:var(--font-body); font-size:14px; line-height:1.5; }
-.wrap{ max-width:1280px; margin:0 auto; padding-inline:10px; padding-block:6px; display:grid; gap:14px; transition:margin-left .22s ease; }
+.wrap{ max-width:1280px; margin:0 auto; padding:calc(6px + var(--safeT)) calc(10px + var(--safeR)) calc(6px + var(--safeB)) calc(10px + var(--safeL)); display:grid; gap:14px; transition:margin-left .22s ease; }
 /* ヘッダー(☰ と題名)。上に固定 */
 .ctlClose{ justify-self:start; background:var(--accent) !important; color:var(--panel) !important; border-color:var(--accent) !important; }
 .menuBtn{ background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:6px; font-size:19px; line-height:1; padding:6px 10px; cursor:pointer; min-width:44px; min-height:44px; }
 .menuBtn:active{ background:var(--line); }
 body.drawer-open .menuBtn{ background:var(--accent); color:var(--panel); border-color:var(--accent); }
 /* 設定の引き出し(☰で開く)。中だけスクロール */
-.controls{ position:fixed; top:env(safe-area-inset-top, 0px); left:0; bottom:0; width:min(88vw,360px); z-index:45; background:var(--bg);
-  display:grid; gap:10px; align-content:start; padding:12px 12px calc(16px + env(safe-area-inset-bottom,0px));
+.controls{ position:fixed; top:0; left:0; bottom:0; width:min(88vw,360px); z-index:45; background:var(--bg);
+  display:grid; gap:10px; align-content:start; padding:calc(13px + var(--safeT)) 12px calc(16px + var(--safeB)) calc(17px + var(--safeL));   /* ☰ が地図側の ☰ と同じ位置に来るように */
   overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
   border-right:1px solid var(--line); box-shadow:2px 0 14px rgba(0,0,0,.25);
   transform:translateX(-102%); transition:transform .22s ease; visibility:hidden; }
@@ -56,6 +61,7 @@ input[type=text]:focus, select:focus{ outline:2px solid var(--accent); outline-o
 @media (max-width:900px){ .main{ grid-template-columns:minmax(0,1fr); } }
 .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:6px; min-width:0; }
 #map{ touch-action:none; -webkit-touch-callout:none; }
+#map{ overflow:hidden; border-radius:8px; }
 .map svg{ width:100%; height:auto; display:block; background:var(--panel2); border-radius:8px; touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none; }
 .map svg:active{ cursor:grabbing; }
 .map .lbl{ font-family:var(--font-mono); font-size:calc(11px * var(--us, 1)); cursor:pointer; }
@@ -756,6 +762,18 @@ function appsFor(dest){
   const last = star ? star.legs[star.legs.length-1][0] : null;
   return PR.app.filter(a=>!star || star.rwy.includes(a.rwy)).map(a=>({ id:a.id, rwy:a.rwy, ok: !star || appConnects(a, last) }));
 }
+// v110: STAR を選んでいなくて、RTE とつながる STAR(RTE の FIX を通る STAR。RWY を選んでいればその RWY 用)が
+// 1つだけなら自動で選ぶ。自分で「— なし」を選んだときはしない(RTE を変えるとまた自動に)
+function autoStar(R){
+  const PR = R.dest && PROC[R.dest]; if(!PR || !R.pts.length) return;
+  const sel = procSel(R.dest);
+  if(sel.star || sel.noAuto) return;
+  const ids = new Set(R.pts.map(p=>p.id));
+  const c = PR.star.filter(x=>(!sel.rwy || x.rwy.includes(sel.rwy)) && x.legs.some(l=>ids.has(l[0])));
+  if(c.length !== 1) return;
+  sel.star = c[0].id; sel.app = sel.app && sel.app !== "-" ? sel.app : "";
+  fixSel(R.dest, false);
+}
 function renderProcBar(R){
   const bar = $("prBar"), PR = R.dest && PROC[R.dest];
   bar.hidden = !PR;
@@ -874,6 +892,7 @@ function render(){
   TRK_CUR = (R.dep && R.dest && TRK[R.dep + " " + R.dest]) || null;
   $("trkLab").hidden = !TRK_CUR; $("trkB").hidden = $("trkV").hidden = !TRK_CUR || ST.trk===false;
   if(R.dest && PROC[R.dest]) fixSel(R.dest, false);
+  autoStar(R);
   renderProcBar(R);
   const B = buildPath(R);
   // v104: 経路を押して作った FIX(ST.alg)。RTE の文字には入れない。RTE が変わったら消す
@@ -1018,7 +1037,30 @@ function trkBundle(list, dest){
   const lab = [];
   T.forEach(t=>{ for(let i=4; i<t.length; i+=8){ const c = t[i]; if(!inR(c) || Math.hypot(c[0], c[1]) < 8) continue; const q = ll(c); lab.push([q[0], q[1], t.fr[i]]); } });
   lab.sort((a, b)=>b[2] - a[2]);
-  TRK_BD_KEY = key; TRK_BD_VAL = { paths, lab };
+  // v109: 描くための線(太さの段ごとの切れ目)を先に作っておく。線は 0.15NM の誤差で間引く(Douglas-Peucker)。
+  // 地図を動かすたびに数千本の線を作り直していたのが重さの原因だった
+  const lvl = fr=>Math.max(0, Math.min(10, Math.round(fr*10)));
+  const dp = (a, i0, i1, keep)=>{   // a: [[x,y],...] NM
+    let mx = 0, mi = -1; const A = a[i0], Bq = a[i1], dx = Bq[0]-A[0], dy = Bq[1]-A[1], L = Math.hypot(dx, dy) || 1e-9;
+    for(let i=i0+1; i<i1; i++){ const d = Math.abs((a[i][0]-A[0])*dy - (a[i][1]-A[1])*dx)/L; if(d > mx){ mx = d; mi = i; } }
+    if(mx > 0.15){ keep[mi] = 1; dp(a, i0, mi, keep); dp(a, mi, i1, keep); }
+  };
+  const runs = [];
+  T.forEach(t=>{
+    let i0 = 0;
+    for(let i=1; i<t.length; i++){
+      const l0 = lvl(t.fr[i0]), l = lvl(t.fr[i]);
+      if(l !== l0 || i === t.length-1){
+        const seg = t.slice(i0, i+1), keep = new Uint8Array(seg.length); keep[0] = keep[seg.length-1] = 1;
+        if(seg.length > 2) dp(seg, 0, seg.length-1, keep);
+        const q = seg.filter((_, j)=>keep[j]).map(ll);
+        const la = q.map(x=>x[0]), lo = q.map(x=>x[1]);
+        runs.push({ w:l0, p:q, bb:[Math.min(...la), Math.max(...la), Math.min(...lo), Math.max(...lo)] });
+        i0 = i;
+      }
+    }
+  });
+  TRK_BD_KEY = key; TRK_BD_VAL = { paths, lab, runs };
   return TRK_BD_VAL;
 }
 // 実際の航跡で、経路のどの FIX を飛ばして(直行して)いたかを数える。FIX から 3NM 以内を通れば「通った」
@@ -1164,11 +1206,13 @@ function clipSeg(a, b, x0, y0, x1, y1){
   }
   return [a[0]+dx*t0, a[1]+dy*t0, a[0]+dx*t1, a[1]+dy*t1];
 }
+// CSS の --safeB などを px の数に
+function safePx(name){ const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isFinite(v) ? v : 0; }
 function drawMap(pts, res, dest){
   { // 地図は横幅いっぱい・高さは画面に合わせる(1 単位 = 1px)
     const bw = $("map").clientWidth;
     const top = $("mapwrap").getBoundingClientRect().top + window.scrollY;   // 地図の上の端(道具の段の下)
-    const mh = Math.round(Math.max(300, Math.min(1400, window.innerHeight - top - 22)));   // 下の余白(枠と外側)の分だけ引く。スクロールしないで1画面に
+    const mh = Math.round(Math.max(300, Math.min(1400, window.innerHeight - top - 22 - safePx("--safeB"))));   // 下の余白(枠と外側)の分だけ引く。スクロールしないで1画面に
     if(bw && (Math.round(bw)!==drawMap.bw || mh!==drawMap.mh)){ drawMap.bw = Math.round(bw); drawMap.mh = mh; MW = Math.round(bw); MH = mh; }
     US = bw && bw < 600 ? 1.15 : 1; }
   lastMap = { pts, res, dest };
@@ -1277,20 +1321,16 @@ function drawMap(pts, res, dest){
     } else if(mode === "flow"){
       const B = trkBundle(use, dest);
       if(B){
-        const lvl = fr=>Math.max(0, Math.min(10, Math.round(fr*10)));
-        const segs = [];
-        B.paths.forEach(pp=>{
-          let run = [pp[0]], w = lvl(pp[0][2]);
-          for(let i=1; i<pp.length; i++){
-            run.push(pp[i]); const l = lvl(pp[i][2]);
-            if(l !== w || i === pp.length-1){ segs.push([w, run]); run = [pp[i]]; w = l; }
-          }
+        // v109: 同じ太さの線は1本の path にまとめる(要素は最大 22 個)。画面から1画面分より外の線は描かない(動かしている間も見えるように1画面分は描く)
+        const m = Math.max(W, H), la0 = V.cy - (H + m - H/2)/sc, la1 = V.cy - (-m - H/2)/sc, lo0 = ((-m - W/2)/sc + V.cx)/V.cl, lo1 = ((W + m - W/2)/sc + V.cx)/V.cl;
+        const byW = new Array(11).fill("");
+        B.runs.forEach(r=>{
+          if(r.bb[1] < la0 || r.bb[0] > la1 || r.bb[3] < lo0 || r.bb[2] > lo1) return;
+          byW[r.w] += "M" + r.p.map(q=>{ const c = P(q[0], q[1]); return f1(c[0]) + " " + f1(c[1]); }).join("L");
         });
-        segs.sort((a, b)=>b[0] - a[0]);
-        // 縁取り(全部描いてから)の上に白い線。縁は一番外側だけ見えるように、白より 1.6px 太く
-        const ds = segs.map(([w, run])=>[w, "M" + run.map(q=>{ const c = P(q[0], q[1]); return f1(c[0]) + " " + f1(c[1]); }).join("L")]);
-        ds.forEach(([w, d])=>{ ts += '<path d="'+d+'" fill="none" stroke="var(--trkEdge)" stroke-width="'+f1((2.2 + 0.55*w)*US)+'"/>'; });
-        ds.forEach(([w, d])=>{ ts += '<path d="'+d+'" fill="none" stroke="var(--trk)" stroke-width="'+f1((1 + 0.55*w)*US)+'" stroke-opacity="'+(w >= 2 ? .95 : .85)+'"/>'; });
+        // 縁取り(全部描いてから)の上に白い線。縁は一番外側だけ見えるように、白より 1.2px 太く
+        for(let w=10; w>=0; w--) if(byW[w]) ts += '<path d="'+byW[w]+'" fill="none" stroke="var(--trkEdge)" stroke-width="'+f1((2.2 + 0.55*w)*US)+'"/>';
+        for(let w=10; w>=0; w--) if(byW[w]) ts += '<path d="'+byW[w]+'" fill="none" stroke="var(--trk)" stroke-width="'+f1((1 + 0.55*w)*US)+'" stroke-opacity="'+(w >= 2 ? .95 : .85)+'"/>';
         // v103: 割合(%)の字は出さない(太さだけ)
       }
     }
@@ -1493,19 +1533,25 @@ function zoomAt(f, sx, sy){
   redrawMap();
 }
 // 指の操作中は DOM を作り直さず、描いたときの図に transform をかけるだけ(軽い)。指を離したら描き直す
+// v109: 操作中は描いてある図(svg)を CSS の transform で動かす(GPU で動かすだけなので描き直しがなく滑らか)。
+// 画面の外にあった部分は次の描き直し(0.3秒ごと・指を離したとき)まで空白になる
 function previewView(){
-  const g = document.getElementById("mapG"); if(!g || !RV){ redrawMap(); return; }
-  const s = VIEW.k/RV.k, tx = MW/2 + (RV.cx - VIEW.cx)*VIEW.k, ty = MH/2 + (VIEW.cy - RV.cy)*VIEW.k;
-  g.setAttribute("transform", "translate("+tx.toFixed(2)+" "+ty.toFixed(2)+") scale("+s.toFixed(5)+") translate("+(-MW/2)+" "+(-MH/2)+")");
+  const sv = document.getElementById("mapSvg"); if(!sv || !RV){ redrawMap(); return; }
+  const s = VIEW.k/RV.k, px = sv.getBoundingClientRect().width/MW/(parseFloat(sv.dataset.s || "1"));
+  const tx = (MW/2 + (RV.cx - VIEW.cx)*VIEW.k - s*MW/2)*px, ty = (MH/2 + (VIEW.cy - RV.cy)*VIEW.k - s*MH/2)*px;
+  sv.dataset.s = String(s);
+  sv.style.transformOrigin = "0 0"; sv.style.willChange = "transform";
+  sv.style.transform = "translate(" + tx.toFixed(1) + "px," + ty.toFixed(1) + "px) scale(" + s.toFixed(5) + ")";
 }
 (function(){
   const box = $("map");
   const toSvg = (e)=>{ const r = box.getBoundingClientRect(); return [(e.clientX - r.left)*MW/r.width, (e.clientY - r.top)*MW/r.width]; };
   const world = (x, y)=>[VIEW.cx + (x - MW/2)/VIEW.k, VIEW.cy - (y - MH/2)/VIEW.k];
   const clampK = (k)=>Math.min(Math.max(k, 20), 3600);
-  // 操作中: 描き直しが速い端末(1回 35ms 未満)は毎フレーム描き直す。遅い端末は図を拡大縮小して見せ、0.12秒ごとに描き直す(数字がすぐ出る)
+  // 操作中: v109 描き直しがとても速い端末(1回 12ms 未満)だけ毎フレーム描き直す。それ以外は今の図を動かして(拡大縮小して)見せ、
+  // 描き直しは 0.3秒に1回と指を離したとき。iPad で毎フレーム描き直すとフレームが落ちていた
   let raf = 0; const preview = ()=>{ if(!raf) raf = requestAnimationFrame(()=>{ raf = 0;
-    if(DRAW_MS < 35 || performance.now() - LAST_DRAW > 120 + DRAW_MS*2) redrawMap(); else previewView(); }); };
+    if(DRAW_MS < 12 || performance.now() - LAST_DRAW > 300 + DRAW_MS*2) redrawMap(); else previewView(); }); };
   let idle = 0; const settle = (ms)=>{ clearTimeout(idle); idle = setTimeout(()=>{ cancelAnimationFrame(raf); raf = 0; redrawMap(); }, ms); };
   // ホイール(PC)
   box.addEventListener("wheel", (e)=>{
@@ -1705,7 +1751,7 @@ function setPair(){
 $("rte").addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); setRte(rteFromInput()); } });
 [["pSpd","spd"]].forEach(([id,k])=>{ $(id).value = ST[k]; $(id).addEventListener("change", ()=>{ ST[k] = $(id).value.trim(); render(); }); });
 function curDest(){ return parseRte(ST.rte).dest; }
-$("selStar").addEventListener("change", ()=>{ const d = curDest(); if(!d) return; const sel = procSel(d); sel.star = $("selStar").value; sel.app = ""; fixSel(d, true); DCTS = []; render(); });
+$("selStar").addEventListener("change", ()=>{ const d = curDest(); if(!d) return; const sel = procSel(d); sel.star = $("selStar").value; sel.noAuto = !sel.star; sel.app = ""; fixSel(d, true); DCTS = []; render(); });
 $("selRwy").addEventListener("change", ()=>{
   const d = curDest(); if(!d) return; const sel = procSel(d); sel.rwy = $("selRwy").value; sel.app = "";
   const st = PROC[d].star.find(x=>x.id===sel.star); if(st && sel.rwy && !st.rwy.includes(sel.rwy)) sel.star = "";
@@ -1748,6 +1794,13 @@ $("mvaChk").addEventListener("change", ()=>{ ST.mva = $("mvaChk").checked; save(
 $("airChk").addEventListener("change", ()=>{ ST.air = $("airChk").checked; save(); redrawMap(); });
 setView(ST.view || "arr");
 $("dctClear").addEventListener("click", ()=>{ DCTS = []; render(); });
+// v108: 親(Approach Planner)から画面の端の余白をもらう { type:"dp-safe", t, b, l, r }(px)
+window.addEventListener("message", e=>{
+  const d = e.data; if(!d || d.type !== "dp-safe") return;
+  const r = document.documentElement.style;
+  ["t","b","l","r"].forEach(k=>r.setProperty("--safe" + k.toUpperCase(), (+d[k] || 0) + "px"));
+  drawMap.bw = 0; redrawMap();
+});
 // v107: Approach Planner の中(iframe)で開いたときだけ ✕ を出して、親に閉じてもらう
 if(window.parent && window.parent !== window){ $("embClose").hidden = false; $("embClose").addEventListener("click", ()=>{ try{ window.parent.postMessage({ type:"dp-close" }, "*"); }catch(e){} }); }
 // v104: 経路を押した所に FIX を作る(名前は CDU と同じ「頭3文字+番号」)
