@@ -15,10 +15,12 @@
 //     本体(約400KB)を取り直さない(以前は起動ごとに2〜4回、丸ごと取り直していた)。
 //   - 地図の保存状況をページに返す(maps-status)。
 //   - 新しい版を保存したときは、アイコン・manifestも取り直す。
+// build302: 降下プランナー(descent_planner.html)を保存して、機内モードでも開けるようにした(一度オンラインで開いた後)。
 const APP_CACHE = "ap-app-v2";
 const MAP_CACHE = "ap-map-v1";
 const MAP_CACHE_PREFIX = "ap-map-";
-const DATA_CACHE = "ap-data-v1";   // 便名検索のデータ(flightdb.json)。アプリ本体の版と関係なく毎日更新される
+const DATA_CACHE = "ap-data-v1";
+const DP_CACHE = "ap-dp-v1";       // build302: 降下プランナー(descent_planner.html)。アプリ本体の版と関係なく更新される   // 便名検索のデータ(flightdb.json)。アプリ本体の版と関係なく毎日更新される
 const HTML_FILES = ["./", "./approach_planner.html"];
 const STATIC_FILES = ["./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/favicon-32.png", "./icons/favicon-16.png"];
 const AIRPORT_KEYS = ["chitose","hakodate","haneda","itami","takamatsu","matsuyama","hiroshima","fukuoka","kumamoto"];
@@ -78,7 +80,7 @@ self.addEventListener("install", (e)=>{
 self.addEventListener("activate", (e)=>{
   // 古いアプリ本体の保存分は消す。地図の保存分(ap-map-*)は、新しい地図がそろうまで消さない(build236)
   e.waitUntil(caches.keys().then(keys=>Promise.all(
-    keys.filter(k=>k!==APP_CACHE && k!==DATA_CACHE && !k.startsWith(MAP_CACHE_PREFIX)).map(k=>caches.delete(k))
+    keys.filter(k=>k!==APP_CACHE && k!==DATA_CACHE && k!==DP_CACHE && !k.startsWith(MAP_CACHE_PREFIX)).map(k=>caches.delete(k))
   )).then(()=>self.clients.claim()));
 });
 
@@ -224,6 +226,38 @@ async function serveFlightDb(e, req){
   return fetch(req);
 }
 
+// build302: 降下プランナー(descent_planner.html)。オンラインなら新しい版を最大3秒待ち、間に合わなければ保存済みを返す
+// (裏で取得は続け、最後まで受信できて中身が降下プランナーだと確認できたときだけ保存)。機内モードでは保存済みだけ。
+function isValidDp(text){ return text.indexOf("<title>降下プランナー</title>") >= 0 && /<\/html>\s*$/.test(text); }
+let dpInflight = null;
+function fetchAndStoreDp(){
+  if(dpInflight) return dpInflight;
+  const url = new URL("descent_planner.html", self.registration.scope).href;
+  dpInflight = (async ()=>{
+    try{
+      const res = await fetch(url, { cache:"no-cache" });
+      if(!isPlainOk(res)) return null;
+      const text = await res.text();
+      if(!isValidDp(text)) return null;
+      await (await caches.open(DP_CACHE)).put(url, htmlResponse(text));
+      return text;
+    }catch(err){ return null; }
+  })().finally(()=>{ dpInflight = null; });
+  return dpInflight;
+}
+async function serveDp(req, net){
+  const c = await caches.open(DP_CACHE);
+  const hit = await c.match(req, { ignoreSearch:true });
+  if(!net) return hit || fetch(req);
+  if(hit){
+    const t = await Promise.race([net, new Promise(r=>setTimeout(()=>r(null), 3000))]);
+    return t ? htmlResponse(t) : hit;
+  }
+  const text = await net;
+  if(text) return htmlResponse(text);
+  return fetch(req);
+}
+
 async function serveStatic(req){
   const c = await caches.open(APP_CACHE);
   const hit = await c.match(req, { ignoreSearch:true });
@@ -239,6 +273,13 @@ self.addEventListener("fetch", (e)=>{
   const m = isMapData(url);
   if(m){ e.respondWith(serveMap(e, req, m[1])); return; }
   if(url.pathname.endsWith("/flightdb.json")){ e.respondWith(serveFlightDb(e, req)); return; }
+  if(url.pathname.endsWith("/descent_planner.html")){
+    // アプリ本体の HTML より先に判定する。取得は同期的に開始して waitUntil に渡す(後から呼ぶと Safari で失敗する可能性があるため)
+    const net = isOffline() ? null : fetchAndStoreDp();
+    if(net){ try{ e.waitUntil(net); }catch(err){} }
+    e.respondWith(serveDp(req, net));
+    return;
+  }
   if(isHtml(req, url)){
     // 更新確認はここで同期的に裏へ回す(waitUntilを後から呼ぶとSafariで失敗する可能性があるため)
     const reval = revalidateHtml(false);

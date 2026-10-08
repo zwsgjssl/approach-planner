@@ -376,6 +376,41 @@
                   font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:14px; cursor:pointer; }
   .fltFoot{ color:var(--textdim); font-size:11px; line-height:1.5; padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px)); border-top:1px solid var(--line); margin-top:10px; }
 
+  /* 降下プランナー(build302。合言葉 787 で開く) */
+  header .dpBtn{
+    margin-left:auto; align-self:center;
+    background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px;
+    font-size:14px; padding:6px 12px; min-height:44px; cursor:pointer; white-space:nowrap;
+  }
+  header .dpBtn:active{ background:var(--line); }
+  header .dpBtn:not([hidden]) + .fltBtn{ margin-left:8px; }
+  @media(max-width:560px){ header .dpBtn{ padding:6px 10px; } }
+  .dpOverlay{ position:fixed; inset:0; z-index:90; background:var(--bg); display:flex; flex-direction:column; }
+  .dpOverlay[hidden]{ display:none; }
+  .dpBar{ display:flex; align-items:center; gap:10px; background:var(--panel); border-bottom:1px solid var(--line);
+          padding:max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px max(14px, env(safe-area-inset-left)); }
+  .dpBar strong{ font-size:15px; white-space:nowrap; }
+  .dpInfo{ font-size:11px; color:var(--textdim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; font-variant-numeric:tabular-nums; }
+  .dpBar button{ background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; font-size:14px; padding:6px 12px; min-height:40px; min-width:44px; cursor:pointer; }
+  .dpBar button:active{ background:var(--line); }
+  .dpBody{ flex:1 1 auto; min-height:0; position:relative; display:flex; }
+  .dpBody iframe{ flex:1 1 auto; width:100%; border:0; display:block; background:#eef2f5; }
+  .dpMsg{ margin:auto; padding:24px 16px; color:var(--textdim); text-align:center; max-width:420px; }
+  .dpUnlock{ margin:auto; width:min(100% - 32px, 360px); display:grid; gap:12px; background:var(--panel); border:1px solid var(--line);
+             border-radius:12px; padding:18px 16px; }
+  .dpUnlock h2{ font-size:16px; margin:0; }
+  .dpUnlock label{ display:grid; gap:4px; font-size:12px; color:var(--textdim); }
+  .dpUnlock input[type=password]{ font-size:16px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); }
+  .dpUnlock .dpChk{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text); }
+  .dpUnlock .dpChk input{ width:20px; height:20px; }
+  .dpUnlock button{ min-height:44px; border-radius:8px; border:1px solid var(--amber); background:var(--amber); color:#1a1300; font-size:15px; font-weight:600; cursor:pointer; }
+  .dpUnlock button:disabled{ opacity:.5; }
+  .dpErr{ min-height:1.4em; margin:0; font-size:13px; color:var(--amber); }
+  body.dpOpen{ overflow:hidden; }
+  .dpOverlay [hidden]{ display:none !important; }
+  .dpBar button{ white-space:nowrap; }
+  /* 狭い画面では降下ボタンのぶん空港名を隠して見出しを1行に収める */
+  @media(max-width:430px){ body.hasDp header .sub{ display:none; } }
 </style>
 </head>
 <body>
@@ -383,10 +418,30 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 297</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 302</span></h1>
   <span class="sub" id="airportSub"></span>
+  <button type="button" id="dpBtn" class="dpBtn" aria-label="降下プランナーを開く" aria-haspopup="dialog" hidden>降下</button>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
 </header>
+
+<div class="dpOverlay" id="dpOverlay" role="dialog" aria-modal="true" aria-label="降下プランナー" hidden>
+  <div class="dpBar">
+    <strong>降下プランナー</strong>
+    <span class="dpInfo" id="dpInfo"></span>
+    <button type="button" id="dpLock" hidden title="次に開くときはパスワードが必要になる">ロック</button>
+    <button type="button" id="dpClose" aria-label="閉じる">✕</button>
+  </div>
+  <div class="dpBody">
+    <p class="dpMsg" id="dpMsg">読み込み中…</p>
+    <form class="dpUnlock" id="dpUnlock" autocomplete="on" hidden>
+      <h2>パスワードを入力</h2>
+      <label for="dpPass">パスワード<input type="password" id="dpPass" inputmode="numeric" autocomplete="off" required></label>
+      <button type="submit" id="dpGo">開く</button>
+      <p class="dpErr" id="dpErr" role="status" aria-live="polite"></p>
+    </form>
+    <iframe id="dpFrame" title="降下プランナー" hidden></iframe>
+  </div>
+</div>
 
 <div class="fltOverlay" id="fltOverlay" role="dialog" aria-modal="true" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）" hidden>
   <div class="fltBox">
@@ -4312,7 +4367,7 @@ function renderDeparture(airport, rwyLabel){
   }
   if(sim.turnStartInfo){
     svg.appendChild(markerXY(sim.turnStartInfo, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"},
-      "Turn Start", counterRot));
+      "ISK D"+turnStartNM.toFixed(1), counterRot));   // DMEで決まる点は「ISK D1.8」の形で表示(build 300、ユーザー指定)
   }
   if(sim.trkStopInfo){
     svg.appendChild(markerXY(sim.trkStopInfo, refLat, refLon, {fill:"var(--cyan)", stroke:"var(--cyan)"},
@@ -4337,7 +4392,7 @@ function renderDeparture(airport, rwyLabel){
       ],
       markers: [
         {xy:iskXY, text:"ISK"}, {xy:iteXY, text:"ITE"}, {xy:startXY, text:"TKOF"},
-        ...(sim.turnStartInfo?[{xy:sim.turnStartInfo, text:"Turn Start"}]:[]),
+        ...(sim.turnStartInfo?[{xy:sim.turnStartInfo, text:"ISK D"+turnStartNM.toFixed(1)}]:[]),
         ...(sim.trkStopInfo?[{xy:sim.trkStopInfo, text:"TRK"+trkStopDeg+"°M"}]:[]),
         ...(sim.iteCrossInfo?[{xy:sim.iteCrossInfo, text:"ITE "+ITAMI_DEP_ITE_TARGET_NM+"NM"}]:[])
       ],
@@ -4638,7 +4693,7 @@ function renderLda(airport, rwyLabel){
   }
   svg.appendChild(polylineFromXY([turnEndXY, aimingPointXY], refLat, refLon, {stroke:ROUTE_STRAIGHT, "stroke-width":"3.5"}));
 
-  svg.appendChild(markerXY(turnStartXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "Turn Start", counterRot));
+  svg.appendChild(markerXY(turnStartXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, (Math.abs(turnStartDmeNm-mapDmeNm)<0.05 ? "" : proc.navaid+" D"+turnStartDmeNm.toFixed(1)), counterRot));   // DMEの旋回開始点(build 300)。MAPと同じ点ならMAPのラベルに任せる
   svg.appendChild(markerXY(turnEndXY, refLat, refLon, {fill:"var(--green)", stroke:"var(--green)"}, "on Final", counterRot));
 
   if(bankOutOfRange){
@@ -5750,7 +5805,7 @@ function renderMain(){
           Object.assign({"stroke-width":"2.5"}, groundLineAttrs(ROUTE_STRAIGHT))));
         svg.appendChild(markerXY(atDME(5.7), refLat, refLon, {fill:"var(--cyan)", stroke:"var(--cyan)"}, "SULUL D5.7", counterRot));
         const turnDME = Math.hypot(entry.entryCrossXY.x-tteXY.x, entry.entryCrossXY.y-tteXY.y)/NM;
-        svg.appendChild(markerXY(entry.entryCrossXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "Turn D"+turnDME.toFixed(1), counterRot));
+        svg.appendChild(markerXY(entry.entryCrossXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "TTE D"+turnDME.toFixed(1), counterRot));   // 旋回はオレンジの線で分かるので「Turn」は付けない(build 298)
       } else {
         // VOR 34L→16R: 333°Mインバウンドコースを画像の端からTTE VORを通り境界通過点まで実線で描く
         const dIn = vecFromBearing(vorProcedureData2.inboundCourseTrueDeg, 1);
@@ -5830,7 +5885,7 @@ function renderMain(){
         Object.assign({"stroke-width":"2.5"}, groundLineAttrs("var(--cyan)"))));
     }
     svg.appendChild(markerXY(pat.thrXY, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "TKOF", counterRot));
-    svg.appendChild(markerXY(departure.pStart, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, null, counterRot));
+    // 離陸後の旋回開始点(departure.pStart)は点を出さない(build 300)
   }
 
   // --- 経路まわりの最高標高(readout用) ---
@@ -5950,7 +6005,7 @@ function renderMain(){
     };
     const liftMark=(xy,color,label)=>liftMarkAt(xy, pat.altAtDist(closestPointArcLength(nearToFarFull, xy)), color, label);
     svg.appendChild(liftMark(todXY, "var(--red)", "TOD"));
-    svg.appendChild(liftMark(connectXY, "var(--yellow)", "Turn"));
+    // Final への旋回点は点も出さない(build 300、ユーザー指定。旋回は線の色で分かる)
     svg.appendChild(liftMark(abeamXY, "var(--green)", "Abeam"));
 
     // --- Traffic Pattern: 離陸区間も持ち上げて描く。上昇は直線で単純化(運用上の指定): 反対側滑走路端の2000ft手前から、
@@ -6010,7 +6065,7 @@ function renderMain(){
   svg.appendChild(markerXY(todXY, refLat, refLon, {fill:"var(--red)", stroke:"var(--red)"}, gl("TOD"), counterRot));
   svg.appendChild(markerXY(abeamXY, refLat, refLon, {fill:"var(--green)", stroke:"var(--green)"}, gl("Abeam"), counterRot));
   if(entryMarker) svg.appendChild(markerXY(entryMarker, refLat, refLon, {fill:"var(--text)", stroke:"var(--text)"}, "DW Entry", counterRot));
-  svg.appendChild(markerXY(connectXY, refLat, refLon, {fill:"var(--yellow)", stroke:"var(--yellow)"}, gl("Turn"), counterRot));
+  // Final への旋回点(connectXY)は点も表記も出さない(build 300、ユーザー指定。旋回は線の色で分かる)
 
   // --- 地図上の距離/高度ラベル: 描画経路(nearToFarFull)に沿って1NM刻み ---
   if(state.showAltLabels){
@@ -7168,6 +7223,65 @@ contTurnBoot = false;
     document.body.appendChild(ov);
     document.getElementById("installGuideClose").addEventListener("click", close);
   }catch(e){}
+})();
+</script>
+<script>
+// build302: 降下プランナーを組み込み(暗号化なし)。本体は descent_planner.html(同じ場所に置く)。
+// 開くときに合言葉(787)を聞く。合っていればこの端末で覚え、次からは聞かない(「ロック」で忘れる)。
+// ※ 合言葉は画面を開く前の確認だけ。データそのものは公開ファイルにそのまま入っている。
+(function(){
+  const PASS = "787", KEY = "dp:ok";
+  const $ = id => document.getElementById(id);
+  const btn = $("dpBtn"), ov = $("dpOverlay");
+  if(!btn || !ov) return;
+  btn.hidden = false;
+  document.body.classList.add("hasDp");
+  const form = $("dpUnlock"), pass = $("dpPass"), err = $("dpErr"), frame = $("dpFrame"), msg = $("dpMsg"), lockBtn = $("dpLock");
+  const remembered = () => { try{ return localStorage.getItem(KEY) === "1"; }catch(e){ return false; } };
+  const remember = on => { try{ on ? localStorage.setItem(KEY, "1") : localStorage.removeItem(KEY); }catch(e){} };
+  let loaded = false;
+  const show = what => {   // "msg" | "form" | "frame"
+    msg.hidden = what !== "msg"; form.hidden = what !== "form"; frame.hidden = what !== "frame";
+    lockBtn.hidden = !loaded;
+  };
+  function load(){
+    if(loaded){ show("frame"); return; }
+    msg.textContent = "読み込み中…"; show("msg");
+    frame.onload = () => {
+      let ok = false;
+      try{ ok = !!(frame.contentDocument && frame.contentDocument.title === "降下プランナー"); }catch(e){}
+      if(ok){ loaded = true; show("frame"); }
+      else{
+        msg.textContent = (navigator.onLine === false)
+          ? "降下プランナーがこの端末に保存されていません。一度オンラインで開いてください。"
+          : "降下プランナーを読み込めませんでした。";
+        show("msg");
+      }
+    };
+    frame.src = "descent_planner.html";
+  }
+  function askPass(e){
+    err.textContent = e || ""; pass.value = ""; show("form");
+    setTimeout(() => { try{ pass.focus(); }catch(x){} }, 50);
+  }
+  form.addEventListener("submit", ev => {
+    ev.preventDefault();
+    if(String(pass.value || "").normalize("NFKC").trim() !== PASS){ err.textContent = "パスワードが違います"; pass.select(); return; }
+    pass.value = ""; err.textContent = ""; remember(true); load();
+  });
+  function openOv(){
+    ov.hidden = false; document.body.classList.add("dpOpen");
+    if(remembered()) load(); else askPass("");
+  }
+  function closeOv(){ ov.hidden = true; document.body.classList.remove("dpOpen"); try{ btn.focus(); }catch(e){} }
+  btn.addEventListener("click", openOv);
+  $("dpClose").addEventListener("click", closeOv);
+  ov.addEventListener("keydown", e => { if(e.key === "Escape") closeOv(); });
+  lockBtn.addEventListener("click", () => {
+    remember(false);
+    frame.onload = null; frame.src = "about:blank"; loaded = false;
+    askPass("ロックしました。");
+  });
 })();
 </script>
 <script>
