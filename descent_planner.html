@@ -1069,40 +1069,39 @@ function trkBundle(list, dest){
     out.push(p[p.length-1].slice()); return out;
   });
   const inR = c=>Math.abs(c[0]) < R-3 && Math.abs(c[1]) < R-3;
-  // v111: 向きごとの密度で寄せる(8方位。自分の向き±1方位の便だけに引かれる)。以前は向きを見ずに寄せていたので、
-  // 180°旋回する進入(関西 24L・伊丹 ILS 32L など)でダウンウインドと最終進入が引き合って内側に寄っていた。
-  // なめらかにするのも縮まない方法(Taubin)に。メモリを抑えるため寄せるのは空港から RB NM 以内、升は CB NM
-  const RB = 180, CB = 0.6, NBd = Math.ceil(2*RB/CB), ND = 8;
-  const inB = c=>Math.abs(c[0]) < RB-3 && Math.abs(c[1]) < RB-3;
-  const gb = x=>(x + RB)/CB;
-  const dirOf = (t, i)=>{ const a = t[Math.max(0, i-1)], b = t[Math.min(t.length-1, i+1)]; return Math.round(((Math.atan2(b[0]-a[0], b[1]-a[1])*180/Math.PI + 360) % 360)/45) % ND; };
-  const dens = Array.from({ length:ND }, ()=>new Float32Array(NBd*NBd));
+  // v112: 寄せ方を変えた。密度の山へ寄せる方法(KDE)は、曲がっている所では曲線の内側のほうが近くに点が多くなるので、
+  // 向き別にしても旋回の内側へ引かれた。今は「真横」だけを見る: 各点について、ほかの便の点のうち向きが近く(±45°)、
+  // 進行方向にほぼ並んでいる(前後 0.6NM 以内)点の、横方向のずれの重み付き平均へ、横方向にだけ動かす。
+  // 前後を見ないので曲がり方による偏りが出ない。寄せるのは空港から RB NM 以内
+  const RB = 130, inB = c=>Math.abs(c[0]) < RB-3 && Math.abs(c[1]) < RB-3;
   const taubin = (t, lam)=>{ const o = t.map(c=>c.slice()); for(let i=1; i<t.length-1; i++){ t[i][0] = o[i][0] + lam*((o[i-1][0] + o[i+1][0])/2 - o[i][0]); t[i][1] = o[i][1] + lam*((o[i-1][1] + o[i+1][1])/2 - o[i][1]); } };
-  for(const h of [2.5, 2, 1.5, 1.2, 1, 1]){
-    dens.forEach(dd=>dd.fill(0)); const r = Math.ceil(h/CB);
-    for(const t of T){
-      const dirs = t.map((_, i)=>dirOf(t, i));
-      t.forEach((c, i)=>{
-        if(!inB(c)) return;
-        const cx = gb(c[0]), cy = gb(c[1]), ix = Math.round(cx), iy = Math.round(cy);
-        for(const dd of [dens[(dirs[i]+ND-1)%ND], dens[dirs[i]], dens[(dirs[i]+1)%ND]])
-          for(let dy=-r; dy<=r; dy++) for(let dx=-r; dx<=r; dx++){
-            const X = ix+dx, Y = iy+dy, d2 = ((X-cx)*(X-cx) + (Y-cy)*(Y-cy))*CB*CB/(h*h);
-            if(d2 < 1) dd[Y*NBd + X] += 1 - d2;
-          }
-      });
-    }
-    for(const t of T){
-      const dirs = t.map((_, i)=>dirOf(t, i));
+  for(const h of [2.5, 1.8, 1.3, 1]){
+    // 点の格子(1NM)。[便, 点, x, y, 向きの単位ベクトル]
+    const G = new Map(), key = (x, y)=>(Math.floor(x) + 500)*2000 + Math.floor(y) + 500;
+    const tan = T.map(t=>t.map((_, i)=>{ const a = t[Math.max(0, i-1)], b = t[Math.min(t.length-1, i+1)], L = Math.hypot(b[0]-a[0], b[1]-a[1]) || 1; return [(b[0]-a[0])/L, (b[1]-a[1])/L]; }));
+    T.forEach((t, j)=>t.forEach((c, i)=>{ if(!inB(c)) return; const k = key(c[0], c[1]); let L = G.get(k); if(!L) G.set(k, L = []); L.push(j, i); }));
+    const r = Math.ceil(h), mv = T.map(t=>t.map(()=>0));
+    T.forEach((t, j)=>{
       for(let i=1; i<t.length-1; i++){
         const c = t[i]; if(!inB(c)) continue;
-        const dd = dens[dirs[i]], X = Math.round(gb(c[0])), Y = Math.round(gb(c[1]));
-        const gx = dd[Y*NBd + X+1] - dd[Y*NBd + X-1], gy = dd[(Y+1)*NBd + X] - dd[(Y-1)*NBd + X], g = Math.hypot(gx, gy);
-        if(g < 1e-6) continue;
-        c[0] += gx/g*h*0.3; c[1] += gy/g*h*0.3;
+        const [tx, ty] = tan[j][i], nx = -ty, ny = tx;
+        let sw = 1, sp = 0;   // 自分(ずれ 0)も重み 1 で入れて動きすぎを抑える
+        const cx = Math.floor(c[0]), cy = Math.floor(c[1]);
+        for(let dx=-r; dx<=r; dx++) for(let dy=-r; dy<=r; dy++){
+          const L = G.get((cx + dx + 500)*2000 + cy + dy + 500); if(!L) continue;
+          for(let q=0; q<L.length; q+=2){
+            const jj = L[q]; if(jj === j) continue;
+            const ii = L[q+1], o = T[jj][ii], ot = tan[jj][ii];
+            if(tx*ot[0] + ty*ot[1] < 0.7) continue;            // 向きが 45°以上違う
+            const ddx = o[0] - c[0], ddy = o[1] - c[1], al = ddx*tx + ddy*ty, pe = ddx*nx + ddy*ny;
+            if(Math.abs(al) > 0.6 || Math.abs(pe) > h) continue; // 真横(前後 0.6NM 以内)で、横 h NM 以内
+            const w = 1 - (pe/h)*(pe/h); sw += w; sp += w*pe;
+          }
+        }
+        mv[j][i] = 0.6*sp/sw;   // 横のずれの平均の 6 割だけ動かす
       }
-      taubin(t, 0.5); taubin(t, -0.53);   // 縮まないようになめらかに(端は動かさない)
-    }
+    });
+    T.forEach((t, j)=>{ for(let i=1; i<t.length-1; i++){ const m = mv[j][i]; if(!m) continue; const [tx, ty] = tan[j][i]; t[i][0] += -ty*m; t[i][1] += tx*m; } taubin(t, 0.5); taubin(t, -0.53); });
   }
   // その場所(1NM の升とその周り)を同じ向き(±20°くらい)で通った便の数。向きも見るのは、太い流れから直角に分かれる枝の
   // 付け根まで太く描かないため
