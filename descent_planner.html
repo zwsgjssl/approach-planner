@@ -1,23 +1,15 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>降下プランナー</title><style>html:root{--safeT:env(safe-area-inset-top,0px);--safeB:env(safe-area-inset-bottom,0px);--safeL:env(safe-area-inset-left,0px);--safeR:env(safe-area-inset-right,0px)}:root{color-scheme:light}body{margin:0;font-family:system-ui,-apple-system,sans-serif;font-size:14px;background:#eef2f5}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
 <title>降下プランナー</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap">
 <style>
-/* Layout: controls on top, then map + table side by side on wide screens, stacked on phones. Cockpit-display palette. */
+/* v111: 色は Approach Planner と同じ暗い配色に統一(明るい表示はやめた)。文字も同じ端末の文字(オフラインでも同じ) */
 :root{
-  --bg:#eef2f5; --panel:#ffffff; --panel2:#f5f8fa; --line:#d3dbe2; --fg:#14202b; --dim:#5b6a78; --land:#8a9a6a;
-  --accent:#1d5fa6; --xfer:#d01c1c; --con:#2f9e1f; --ruler:#c2185b; --mva:#7d4a12; --aca:#2f6fb3; --ctr:#c2185b; --pca:#7a4fb5; --tca:#2e8b57; --path:#0f8a6a; --turn:#b06a00; --tod:#c0362c; --dct:#7a4fb5; --trk:#ffffff; --trkEdge:rgba(20,32,43,.32); --warn:#a15c00; --warnbg:#fbefdc; --err:#b3261e;
-  --font-body:"IBM Plex Sans JP", system-ui, -apple-system, "Hiragino Sans", sans-serif;
-  --font-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
-  color-scheme:light;
+  --bg:#0b0f14; --panel:#121821; --panel2:#1a222d; --line:#2a3542; --fg:#dbe6ee; --dim:#7d8b99; --land:#9fb07e;
+  --accent:#ffb100; --xfer:#ff5c5c; --con:#8ee36b; --ruler:#f06292; --mva:#e0b27a; --aca:#7fb2ee; --ctr:#f48fb1; --pca:#c3a3f0; --tca:#7fd3a5; --path:#33d9a0; --turn:#f0a640; --tod:#ff6b5e; --dct:#b892f0; --trk:#ffffff; --trkEdge:rgba(0,0,0,.65); --warn:#ffb100; --warnbg:#3a2a12; --err:#ff5c5c;
+  --font-body:-apple-system, "SF Pro Text", "Helvetica Neue", "Hiragino Sans", sans-serif;
+  --font-mono:ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#0c1117; --panel:#131b23; --panel2:#18222c; --line:#27333f; --fg:#e2e9ef; --dim:#8fa0af; --land:#9fb07e;
-  --accent:#6aa6ee; --xfer:#ff6b6b; --con:#8ee36b; --ruler:#f06292; --mva:#e0b27a; --aca:#7fb2ee; --ctr:#f48fb1; --pca:#c3a3f0; --tca:#7fd3a5; --path:#3fd0a4; --turn:#f0a640; --tod:#ff6b5e; --dct:#b892f0; --trk:#ffffff; --trkEdge:rgba(0,0,0,.65); --warn:#e7a54a; --warnbg:#3a2a12; --err:#ff8a80; color-scheme:dark } }
-:root[data-theme="dark"]{
-  --bg:#0c1117; --panel:#131b23; --panel2:#18222c; --line:#27333f; --fg:#e2e9ef; --dim:#8fa0af; --land:#9fb07e;
-  --accent:#6aa6ee; --xfer:#ff6b6b; --con:#8ee36b; --ruler:#f06292; --mva:#e0b27a; --aca:#7fb2ee; --ctr:#f48fb1; --pca:#c3a3f0; --tca:#7fd3a5; --path:#3fd0a4; --turn:#f0a640; --tod:#ff6b5e; --dct:#b892f0; --trk:#ffffff; --trkEdge:rgba(0,0,0,.65); --warn:#e7a54a; --warnbg:#3a2a12; --err:#ff8a80; color-scheme:dark }
 /* v108: 入力欄が幅からはみ出さないように(枠と内側の余白を幅に含める) */
 *, *::before, *::after{ box-sizing:border-box; }
 textarea, input, select{ max-width:100%; }
@@ -103,6 +95,15 @@ tr.cut td{ opacity:.35; }
 .sheet.mini{ top:auto; max-height:none; background:var(--warnbg); color:var(--warn); font-size:13px; }
 .sheet .k{ font-size:16px; display:inline-flex; align-items:baseline; gap:6px; }
 .sheet{ padding:8px 10px; gap:4px; }
+/* v111 VSD(選んだ 2 つの FIX の間の縦の断面)。地図の下に重ねる。出ている間は FIX のパネルをその上に */
+.vsd{ position:absolute; left:8px; right:8px; bottom:8px; height:min(230px, 40%); z-index:3; background:var(--panel); border:1px solid var(--line); border-radius:10px;
+      box-shadow:0 6px 24px rgba(0,0,0,.3); padding:4px 6px 2px; display:flex; flex-direction:column; }
+.vsd .vh{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim); }
+.vsd .vh b{ color:var(--fg); font-family:var(--font-mono); }
+.vsd .vh button{ margin-left:auto; min-height:30px; }
+.vsd svg{ flex:1 1 auto; width:100%; min-height:0; display:block; }
+.vsd text{ font-family:var(--font-mono); font-size:10px; }
+.mapwrap.vsdOn .sheet{ bottom:calc(min(230px, 40%) + 16px); }
 .sheet .kana{ font-size:11px; font-weight:400; color:var(--dim); }
 .sheet .fxhead{ justify-content:flex-start; }
 .sheet .fxhead .onp{ font-family:var(--font-mono); color:var(--path); font-size:12px; } .onp .calc{ font-weight:400; } .onp b{ font-weight:800; font-size:15px; color:var(--con); }
@@ -157,7 +158,12 @@ td.mea.low{ color:var(--err); font-weight:600; }
 .seg button{ font:inherit; font-size:12px; background:var(--panel2); color:var(--fg); border:none; padding:6px 12px; min-height:36px; cursor:pointer; }
 .seg button + button{ border-left:1px solid var(--line); }
 .seg button.on{ background:var(--accent); color:var(--panel); }
-#embClose{ margin-left:auto; }
+/* v111: Approach Planner の中で開いたときの右上の TFC SEARCH(Approach Planner と同じ見た目・位置) */
+#embFlt{ margin-left:auto; font-size:14px; padding:6px 12px; white-space:nowrap; }
+@media (max-width:560px){ #embFlt .fltBtnTx{ display:none; } #embFlt{ padding:6px 10px; } }
+/* メニューの一番上の「Approach Planner / Map」の切り替え */
+.appSw{ display:flex; width:100%; }
+.appSw button{ flex:1; min-height:44px; font-size:13.5px; }
 .maptools{ display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin-bottom:8px; font-size:12px; }
 .maptools label{ display:inline-flex; gap:6px; align-items:center; cursor:pointer; }
 .maptools input{ width:18px; height:18px; accent-color:var(--accent); }
@@ -166,6 +172,7 @@ td.mea.low{ color:var(--err); font-weight:600; }
 
 <nav class="controls" id="controls" aria-label="設定">
   <button type="button" class="menuBtn ctlClose" id="ctlClose" aria-label="設定を閉じる">☰</button>
+  <div class="seg appSw" id="appSw" role="group" aria-label="画面の切り替え" hidden><button type="button" id="swAp">Approach Planner</button><button type="button" class="on" aria-pressed="true">Map</button></div>
   <div class="bar">
     <div class="fld"><label for="pDep">出発</label><input type="text" id="pDep" class="w5" maxlength="4" data-ascii inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="HND"></div>
     <div class="fld"><label for="pArr">到着</label><input type="text" id="pArr" class="w5" maxlength="4" data-ascii inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="FUK"></div>
@@ -205,8 +212,8 @@ td.mea.low{ color:var(--err); font-weight:600; }
         <label><input type="checkbox" id="fixChk"> 経路外の FIX</label>
         <label id="trkLab" hidden><input type="checkbox" id="trkChk"> 実際の航跡</label>
         <select id="trkV" hidden aria-label="航跡の見せ方"><option value="flow">平均</option><option value="all">全部</option></select>
-        <select id="trkB" hidden aria-label="航跡の時間帯"><option value="">全時間帯</option><option>朝</option><option>昼</option><option>夕</option><option>夜</option></select><span class="msg" id="mvaTxt" hidden></span><button id="embClose" class="menuBtn" type="button" aria-label="降下プランナーを閉じる" hidden>✕</button></div>
-      <div class="mapwrap" id="mapwrap"><div id="map"></div><div class="msg" id="dctMsg"></div><div class="err" id="mapErr"></div><button type="button" class="btn pri" id="probeMk" hidden>ここに FIX を作る</button><div class="info sheet" id="info" hidden></div></div>
+        <select id="trkB" hidden aria-label="航跡の時間帯"><option value="">全時間帯</option><option>朝</option><option>昼</option><option>夕</option><option>夜</option></select><span class="msg" id="mvaTxt" hidden></span><button id="embFlt" class="menuBtn fltBtn" type="button" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）を開く" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button></div>
+      <div class="mapwrap" id="mapwrap"><div id="map"></div><div class="msg" id="dctMsg"></div><div class="err" id="mapErr"></div><button type="button" class="btn pri" id="probeMk" hidden>ここに FIX を作る</button><div class="info sheet" id="info" hidden></div><div class="vsd" id="vsd" hidden></div></div>
     </div>
   </div>
 </div>
@@ -726,6 +733,77 @@ function compute(pts, cons, dcts){
   return { use, legD, x, s:sShow, C, alt, hr, note, cut, total:x[0], low, mvaPt, mvaLow, prof, ten };
 }
 
+// ---- v111 VSD(縦の断面) ----
+let VSD = { a:null, b:null };
+function drawVsd(){
+  const box = $("vsd"), wrap = $("mapwrap");
+  const res = lastRes, pts = lastPts;
+  // RTE などが変わって点の並びが変わったら、名前で探し直す
+  if(VSD.b!=null && VSD.ids && pts && (pts[VSD.a]||{}).id !== VSD.ids[0]){ VSD.a = pts.findIndex(p=>p.id===VSD.ids[0]); VSD.b = pts.findIndex(p=>p.id===VSD.ids[1]); if(VSD.a < 0 || VSD.b < 0) VSD = { a:null, b:null }; }
+  if(!res || VSD.a==null || VSD.b==null){ box.hidden = true; wrap.classList.remove("vsdOn"); return; }
+  const ka = res.use.findIndex(u=>u.i>=VSD.a), kb = (()=>{ let k = -1; res.use.forEach((u, j)=>{ if(u.i<=VSD.b) k = j; }); return k; })();
+  if(ka < 0 || kb <= ka){ box.hidden = true; wrap.classList.remove("vsdOn"); return; }
+  box.hidden = false; wrap.classList.add("vsdOn"); box.textContent = "";
+  const X = []; let acc = 0; for(let k=ka; k<=kb; k++){ if(k > ka) acc += res.legD[k]; X.push(acc); }
+  const L = acc || 1;
+  const altAt = (k)=>res.alt[k]!=null ? res.alt[k] : (res.hr && res.hr[k]!=null ? Math.min(res.hr[k], 41000) : null);
+  // 計画の高度: 区間ごとの高さの並び(prof、点 k から手前の距離)を距離 X に直す
+  const path = [];
+  for(let k=ka+1; k<=kb; k++){
+    const x1 = X[k-ka], P0 = res.prof[k];
+    if(P0 && P0.length){ for(let q=P0.length-1; q>=0; q--){ const [b, h] = P0[q]; if(b <= res.legD[k] + 1e-6) path.push([x1 - b, h]); } }
+    else { const h0 = altAt(k-1), h1 = altAt(k); if(h0!=null) path.push([X[k-1-ka], h0]); if(h1!=null) path.push([x1, h1]); }
+  }
+  // MVA(0.5NM ごと)
+  const mva = [];
+  for(let k=ka+1; k<=kb; k++){
+    const A = res.use[k-1], B = res.use[k], d = res.legD[k], m = Math.max(1, Math.ceil(d/0.5));
+    for(let q=0; q<=m; q++){ const f = q/m; mva.push([X[k-1-ka] + d*f, mvaAt(A.lat + (B.lat-A.lat)*f, A.lon + (B.lon-A.lon)*f)]); }
+  }
+  const hs = path.map(p=>p[1]).concat(mva.map(m=>m[1]||0));
+  for(let k=ka; k<=kb; k++){ const c = res.C[k] || {}; [c.at, c.lo, c.hi].forEach(v=>{ if(v!=null) hs.push(v); }); }
+  const top = Math.ceil((Math.max(1000, ...hs) + 1500)/1000)*1000, bot = 0;
+  // 見出し
+  const vh = el("div","vh"); vh.append("VSD "); vh.append(el("b","", res.use[ka].id + " → " + res.use[kb].id)); vh.append(" " + L.toFixed(1) + "NM");
+  const x = el("button","btn sm","✕"); x.type = "button"; x.setAttribute("aria-label","VSD を閉じる"); x.addEventListener("click", ()=>{ VSD = { a:null, b:null }; drawVsd(); redrawMap(); });
+  vh.append(x); box.append(vh);
+  // 図(幅と高さは箱に合わせる)
+  const W = Math.max(200, box.clientWidth - 12), H = Math.max(110, box.clientHeight - 34), ml = 44, mr = 10, mt = 8, mb = 26;
+  const sx = d=>ml + (W - ml - mr)*d/L, sy = h=>mt + (H - mt - mb)*(1 - (h - bot)/(top - bot));
+  const f1 = v=>v.toFixed(1);
+  let g = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="縦の断面">';
+  // 高度の目盛り(きりのいい間隔)
+  const step = [1000, 2000, 5000, 10000].find(v=>(top - bot)/v <= 6) || 10000;
+  for(let h=bot; h<=top; h+=step){ g += '<line x1="'+ml+'" x2="'+(W-mr)+'" y1="'+f1(sy(h))+'" y2="'+f1(sy(h))+'" stroke="var(--line)" stroke-width="1"/><text x="'+(ml-4)+'" y="'+f1(sy(h)+3)+'" text-anchor="end" fill="var(--dim)">'+(h>=TA ? "FL"+Math.round(h/100) : h)+'</text>'; }
+  // MVA(階段・塗り)
+  if(mva.some(m=>m[1]!=null)){
+    let d = "M" + f1(sx(0)) + " " + f1(sy(bot)), prev = null;
+    mva.forEach(([x0, v])=>{ const h = v==null ? bot : v; if(prev!=null && h!==prev) d += "L" + f1(sx(x0)) + " " + f1(sy(prev)); d += "L" + f1(sx(x0)) + " " + f1(sy(h)); prev = h; });
+    d += "L" + f1(sx(L)) + " " + f1(sy(bot)) + "Z";
+    g += '<path d="'+d+'" fill="var(--mva)" fill-opacity=".28" stroke="var(--mva)" stroke-width="1"/>';
+  }
+  // MEA(区間の上に破線)
+  for(let k=ka+1; k<=kb; k++){ const m = res.use[k].mea; if(m && res.use[k-1].i===res.use[k].i-1) g += '<line x1="'+f1(sx(X[k-1-ka]))+'" x2="'+f1(sx(X[k-ka]))+'" y1="'+f1(sy(m))+'" y2="'+f1(sy(m))+'" stroke="var(--dim)" stroke-dasharray="4 3" stroke-width="1.2"/>'; }
+  // 計画のパス
+  if(path.length > 1) g += '<path d="M'+path.map(p=>f1(sx(p[0]))+" "+f1(sy(p[1]))).join("L")+'" fill="none" stroke="var(--path)" stroke-width="2.5" stroke-linejoin="round"/>';
+  // FIX(縦線・名前・制限・計画の高度)
+  let lastLx = -1e9;
+  for(let k=ka; k<=kb; k++){
+    const xx = sx(X[k-ka]), c = res.C[k] || {}, h = altAt(k), u = res.use[k];
+    g += '<line x1="'+f1(xx)+'" x2="'+f1(xx)+'" y1="'+mt+'" y2="'+f1(sy(bot))+'" stroke="var(--line)" stroke-width="1"/>';
+    if(c.at!=null) g += '<line x1="'+f1(xx-7)+'" x2="'+f1(xx+7)+'" y1="'+f1(sy(c.at))+'" y2="'+f1(sy(c.at))+'" stroke="var(--con)" stroke-width="2.5"/>';
+    if(c.lo!=null) g += '<path d="M'+f1(xx-6)+' '+f1(sy(c.lo)+7)+'L'+f1(xx)+' '+f1(sy(c.lo))+'L'+f1(xx+6)+' '+f1(sy(c.lo)+7)+'" fill="none" stroke="var(--con)" stroke-width="2"/>';
+    if(c.hi!=null) g += '<path d="M'+f1(xx-6)+' '+f1(sy(c.hi)-7)+'L'+f1(xx)+' '+f1(sy(c.hi))+'L'+f1(xx+6)+' '+f1(sy(c.hi)-7)+'" fill="none" stroke="var(--con)" stroke-width="2"/>';
+    if(h!=null) g += '<circle cx="'+f1(xx)+'" cy="'+f1(sy(h))+'" r="2.8" fill="var(--path)"/>';
+    if(xx - lastLx > 44 || k===kb){
+      const an = k===ka ? "start" : k===kb ? "end" : "middle";
+      g += '<text x="'+f1(xx)+'" y="'+f1(H-14)+'" text-anchor="'+an+'" fill="var(--fg)">'+u.id+'</text><text x="'+f1(xx)+'" y="'+f1(H-3)+'" text-anchor="'+an+'" fill="var(--path)">'+(h!=null ? cduAlt(h) : "")+'</text>';
+      lastLx = xx;
+    }
+  }
+  g += '</svg>';
+  box.insertAdjacentHTML("beforeend", g);
+}
 // ---- 画面 ----
 function setRte(v, force){
   const nv = String(v||"").toUpperCase().replace(/\s+/g," ").trim();
@@ -898,6 +976,8 @@ function render(){
   // v104: 経路を押して作った FIX(ST.alg)。RTE の文字には入れない。RTE が変わったら消す
   if(ST.alg && ST.alg.r !== ST.rte) ST.alg = null;
   if(ST.alg) ST.alg.t.forEach(t=>{ const m = ALONG_RE.exec(t); if(m) R.along.push({ ref:m[1], d:+m[2], tok:t, user:1 }); });
+  if(ST.ins && ST.ins.r !== ST.rte) ST.ins = null;
+  if(ST.ins && ST.ins.t.length) applyIns(B.pts, ST.ins.t, R.dest, R.errs);
   if(R.along.length){ applyAlong(B.pts, R.along, R.errs); const last = B.pts[B.pts.length-1]; if(last && !last.mvaAp) last.mvaAp = R.dest; }
   const pts = B.pts;
   lastPts = pts;
@@ -950,6 +1030,7 @@ function render(){
     }
   }
   drawMap(pts, res, R.dest);
+  drawVsd();
   trkSummary(pts);
   if(SELFIX!=null){ if(pts[SELFIX] && pts[SELFIX].id===SELFIX_ID) showInfo(pts[SELFIX], SELFIX, true); else { SELFIX = null; DCTPICK = null; DCTFROM = null; $("info").hidden = true; } }
   save();
@@ -988,30 +1069,39 @@ function trkBundle(list, dest){
     out.push(p[p.length-1].slice()); return out;
   });
   const inR = c=>Math.abs(c[0]) < R-3 && Math.abs(c[1]) < R-3;
-  const gx_ = x=>(x + R)/C;
-  const dens = new Float32Array(N*N);
+  // v111: 向きごとの密度で寄せる(8方位。自分の向き±1方位の便だけに引かれる)。以前は向きを見ずに寄せていたので、
+  // 180°旋回する進入(関西 24L・伊丹 ILS 32L など)でダウンウインドと最終進入が引き合って内側に寄っていた。
+  // なめらかにするのも縮まない方法(Taubin)に。メモリを抑えるため寄せるのは空港から RB NM 以内、升は CB NM
+  const RB = 180, CB = 0.6, NBd = Math.ceil(2*RB/CB), ND = 8;
+  const inB = c=>Math.abs(c[0]) < RB-3 && Math.abs(c[1]) < RB-3;
+  const gb = x=>(x + RB)/CB;
+  const dirOf = (t, i)=>{ const a = t[Math.max(0, i-1)], b = t[Math.min(t.length-1, i+1)]; return Math.round(((Math.atan2(b[0]-a[0], b[1]-a[1])*180/Math.PI + 360) % 360)/45) % ND; };
+  const dens = Array.from({ length:ND }, ()=>new Float32Array(NBd*NBd));
+  const taubin = (t, lam)=>{ const o = t.map(c=>c.slice()); for(let i=1; i<t.length-1; i++){ t[i][0] = o[i][0] + lam*((o[i-1][0] + o[i+1][0])/2 - o[i][0]); t[i][1] = o[i][1] + lam*((o[i-1][1] + o[i+1][1])/2 - o[i][1]); } };
   for(const h of [2.5, 2, 1.5, 1.2, 1, 1]){
-    dens.fill(0); const r = Math.ceil(h/C);
-    for(const t of T) for(const c of t){
-      if(!inR(c)) continue;
-      const cx = gx_(c[0]), cy = gx_(c[1]), ix = Math.round(cx), iy = Math.round(cy);
-      for(let dy=-r; dy<=r; dy++) for(let dx=-r; dx<=r; dx++){
-        const X = ix+dx, Y = iy+dy, d2 = ((X-cx)*(X-cx) + (Y-cy)*(Y-cy))*C*C/(h*h);
-        if(d2 < 1) dens[Y*N + X] += 1 - d2;
-      }
+    dens.forEach(dd=>dd.fill(0)); const r = Math.ceil(h/CB);
+    for(const t of T){
+      const dirs = t.map((_, i)=>dirOf(t, i));
+      t.forEach((c, i)=>{
+        if(!inB(c)) return;
+        const cx = gb(c[0]), cy = gb(c[1]), ix = Math.round(cx), iy = Math.round(cy);
+        for(const dd of [dens[(dirs[i]+ND-1)%ND], dens[dirs[i]], dens[(dirs[i]+1)%ND]])
+          for(let dy=-r; dy<=r; dy++) for(let dx=-r; dx<=r; dx++){
+            const X = ix+dx, Y = iy+dy, d2 = ((X-cx)*(X-cx) + (Y-cy)*(Y-cy))*CB*CB/(h*h);
+            if(d2 < 1) dd[Y*NBd + X] += 1 - d2;
+          }
+      });
     }
     for(const t of T){
+      const dirs = t.map((_, i)=>dirOf(t, i));
       for(let i=1; i<t.length-1; i++){
-        const c = t[i]; if(!inR(c)) continue;
-        const X = Math.round(gx_(c[0])), Y = Math.round(gx_(c[1]));
-        const gx = dens[Y*N + X+1] - dens[Y*N + X-1], gy = dens[(Y+1)*N + X] - dens[(Y-1)*N + X], g = Math.hypot(gx, gy);
+        const c = t[i]; if(!inB(c)) continue;
+        const dd = dens[dirs[i]], X = Math.round(gb(c[0])), Y = Math.round(gb(c[1]));
+        const gx = dd[Y*NBd + X+1] - dd[Y*NBd + X-1], gy = dd[(Y+1)*NBd + X] - dd[(Y-1)*NBd + X], g = Math.hypot(gx, gy);
         if(g < 1e-6) continue;
         c[0] += gx/g*h*0.3; c[1] += gy/g*h*0.3;
       }
-      for(let k=0; k<2; k++) for(let i=1; i<t.length-1; i++){   // 線をなめらかに(端は動かさない)
-        const a = t[i-1], b = t[i], c = t[i+1];
-        b[0] = 0.25*a[0] + 0.5*b[0] + 0.25*c[0]; b[1] = 0.25*a[1] + 0.5*b[1] + 0.25*c[1];
-      }
+      taubin(t, 0.5); taubin(t, -0.53);   // 縮まないようになめらかに(端は動かさない)
     }
   }
   // その場所(1NM の升とその周り)を同じ向き(±20°くらい)で通った便の数。向きも見るのは、太い流れから直角に分かれる枝の
@@ -1137,6 +1227,15 @@ function showInfo(p, i, keep){
     ed.append(b2);
   }
   if(DCTS.some(d=>d.from <= i && d.to >= i)){ const b3 = dEl("button","btn sm"," 解除"); b3.title = "この FIX にかかる DIRECT をやめる"; b3.type = "button"; b3.addEventListener("click", ()=>{ removeDirectsAt(i); DCTPICK = null; DCTFROM = null; render(); }); ed.append(b3); }
+  // v111 VSD: 1 回目に押した FIX から 2 回目に押した FIX まで
+  { const toEnd = VSD.a!=null && VSD.b==null && VSD.a!==i;
+    const bv = el("button","btn sm" + (VSD.a===i || VSD.b===i ? " pri" : ""), toEnd ? "VSD ここまで" : "VSD ここから"); bv.type = "button";
+    bv.title = toEnd ? lastPts[VSD.a].id + " からここまでの縦の断面を出す" : "縦の断面(VSD)の始まり。次に終わりの FIX を押す";
+    bv.addEventListener("click", ()=>{
+      if(toEnd){ VSD.b = i; if(VSD.b < VSD.a){ const t = VSD.a; VSD.a = VSD.b; VSD.b = t; } VSD.ids = [lastPts[VSD.a].id, lastPts[VSD.b].id]; closeSheet(); drawVsd(); }
+      else { VSD = { a:i, b:null }; drawVsd(); showInfo(p, i, true); flash("VSD の終わりの FIX を押して「VSD ここまで」"); }
+    });
+    ed.append(bv); }
   // そのほか(制限なし・AIP に戻す・経路上に FIX を作る)は「…」の中
   const more = el("button","btn sm", ST.fxMore ? "▴" : "…"); more.type = "button"; more.title = "そのほかの操作"; more.setAttribute("aria-expanded", ST.fxMore ? "true" : "false");
   more.addEventListener("click", ()=>{ ST.fxMore = !ST.fxMore; save(); showInfo(p, i, true); });
@@ -1147,6 +1246,11 @@ function showInfo(p, i, keep){
   if(d!==undefined) mo.append(el("span","msg", own===undefined ? "AIP " + d : "AIP " + d + " を書き換え中"));
   if(d!==undefined && own!==undefined){ const r = el("button","btn sm","AIP に戻す"); r.type = "button"; r.addEventListener("click", ()=>setCons(p.id, d)); mo.append(r); }
   if(cur){ const c = el("button","btn sm","制限なし"); c.type = "button"; c.addEventListener("click", ()=>setCons(p.id, "")); mo.append(c); }
+  if(p.ins){
+    const del = el("button","btn sm","経路から外す"); del.type = "button";
+    del.addEventListener("click", ()=>{ SELFIX = null; ST.ins.t = ST.ins.t.filter(x=>x!==p.id); closeSheet(); save(); render(); });
+    mo.append(el("span","msg","経路外から入れた FIX"), del);
+  }
   if(p.along){
     mo.append(el("span","msg", p.along.ref + " の " + Math.abs(p.along.d) + "NM " + (p.along.d < 0 ? "手前" : "先")));
     const del = el("button","btn sm","この FIX を消す"); del.type = "button";
@@ -1265,6 +1369,7 @@ function drawMap(pts, res, dest){
   if(AG && ST.air!==false){
     let ln = "";
     AG.a.forEach(a=>{
+      if(a.k === "PCA") return;   // v111: PCA は出さない
       const sr = a.ring.map(([la,lo])=>P(la,lo));
       const d = "M" + sr.map(c=>f1(c[0]) + " " + f1(c[1])).join("L") + "Z";
       const col = AIRCOL[a.k] || "var(--aca)";
@@ -1343,10 +1448,10 @@ function drawMap(pts, res, dest){
     const k = res.use.findIndex(u=>u.i===i), low = k>=0 && (res.low[k] || res.mvaLow[k]);
     s += '<line x1="'+f1(a[0])+'" y1="'+f1(a[1])+'" x2="'+f1(b[0])+'" y2="'+f1(b[1])+'" stroke="var('+(off?'--line':(low?'--err':'--path'))+')" stroke-width="'+((off?2:3)*US).toFixed(1)+'" stroke-linecap="round"/>';
   }
-  for(let k=1; k<res.use.length; k++){   // DIRECT の区間(間の点を飛ばしたところ)を破線で
+  for(let k=1; k<res.use.length; k++){   // DIRECT の区間(間の点を飛ばしたところ)。v111: ほかの経路と同じ色の実線(低ければ赤)
     if(res.use[k].i === res.use[k-1].i + 1) continue;
-    const a = P(res.use[k-1].lat, res.use[k-1].lon), b = P(res.use[k].lat, res.use[k].lon);
-    s += '<line x1="'+f1(a[0])+'" y1="'+f1(a[1])+'" x2="'+f1(b[0])+'" y2="'+f1(b[1])+'" stroke="var(--dct)" stroke-width="2.5" stroke-dasharray="6 4"/>';
+    const a = P(res.use[k-1].lat, res.use[k-1].lon), b = P(res.use[k].lat, res.use[k].lon), low = res.low[k] || res.mvaLow[k];
+    s += '<line x1="'+f1(a[0])+'" y1="'+f1(a[1])+'" x2="'+f1(b[0])+'" y2="'+f1(b[1])+'" stroke="var('+(low?'--err':'--path')+')" stroke-width="'+(3*US).toFixed(1)+'" stroke-linecap="round"/>';
   }
   // MEA を航空路の上に(同じ航空路で同じ MEA が続くところは真ん中に1つ)
   const meaLab = [];
@@ -1789,6 +1894,31 @@ function showOtherFix(id){
   if(p[3]) box.append(el("div","", (p[4] ? p[4] + " " : "") + p[3]));
   { const xl = d && xferOf(d)[id]; if(xl) box.append(el("div","xf", "管制移管 " + xl.map(q=>q.a + (q.r ? "（" + q.r + "）" : "")).join("／"))); }
   box.append(el("div","msg","経路にない FIX です"));
+  // v111: 経路に入れる(一番遠回りにならない区間に差し込む)。RTE の文字には入れず ST.ins に持つ(RTE を変えたら消える)
+  const add = el("button","btn sm pri","経路に入れる"); add.type = "button";
+  add.addEventListener("click", ()=>{
+    if(!ST.ins || ST.ins.r !== ST.rte) ST.ins = { r:ST.rte, t:[] };
+    if(!ST.ins.t.includes(id)) ST.ins.t.push(id);
+    closeSheet(); save(); render();
+  });
+  const ed = el("div","fxedit"); ed.append(add); box.append(ed);
+}
+// 経路の点の並び pts に、経路外の FIX(ids)を足す。足したときに増える距離が一番小さい区間に入れる(到着空港の手前まで)
+function applyIns(pts, ids, dest, errs){
+  ids.forEach(id=>{
+    if(pts.some(p=>p.id===id)) return;
+    const q = pt(id, dest); if(!q){ errs.push(id + " の座標がありません"); return; }
+    let best = null;
+    for(let i=1; i<pts.length; i++){
+      if(pts[i].ap && i < pts.length-1) continue;
+      const add = gc(pts[i-1], q) + gc(q, pts[i]) - gc(pts[i-1], pts[i]);
+      if(!best || add < best[0]) best = [add, i];
+    }
+    if(!best) return;
+    const nx = pts[best[1]];
+    Object.assign(q, { awy:"DCT", pr:nx.pr, inApp:nx.inApp, gpa:nx.gpa, ins:true });
+    pts.splice(best[1], 0, q);
+  });
 }
 $("mvaChk").addEventListener("change", ()=>{ ST.mva = $("mvaChk").checked; save(); redrawMap(); });
 $("airChk").addEventListener("change", ()=>{ ST.air = $("airChk").checked; save(); redrawMap(); });
@@ -1802,7 +1932,13 @@ window.addEventListener("message", e=>{
   drawMap.bw = 0; redrawMap();
 });
 // v107: Approach Planner の中(iframe)で開いたときだけ ✕ を出して、親に閉じてもらう
-if(window.parent && window.parent !== window){ $("embClose").hidden = false; $("embClose").addEventListener("click", ()=>{ try{ window.parent.postMessage({ type:"dp-close" }, "*"); }catch(e){} }); }
+// v111: メニューの「Approach Planner」で戻る(親に閉じてもらう)。右上の ✈ は親の TFC SEARCH を開く
+if(window.parent && window.parent !== window){
+  const post = t=>{ try{ window.parent.postMessage({ type:t }, "*"); }catch(e){} };
+  $("appSw").hidden = false; $("embFlt").hidden = false;
+  $("swAp").addEventListener("click", ()=>{ $("ctlClose").click(); post("dp-close"); });
+  $("embFlt").addEventListener("click", ()=>post("dp-flt"));
+}
 // v104: 経路を押した所に FIX を作る(名前は CDU と同じ「頭3文字+番号」)
 $("probeMk").addEventListener("click", ()=>{
   if(!PROBE || !PROBE.tok) return;

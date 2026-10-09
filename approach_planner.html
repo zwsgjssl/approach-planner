@@ -418,6 +418,9 @@
   .dpBar button{ white-space:nowrap; }
   /* 狭い画面では降下ボタンのぶん空港名を隠して見出しを1行に収める */
   @media(max-width:430px){ body.hasDp header .sub{ display:none; } }
+  /* build307: TFC SEARCH を Map の上にも開けるように(Map は z-index 90) */
+  .fltOverlay{ z-index:95 !important; }
+  .controls .appSw{ margin-bottom:2px; min-height:46px; height:46px; flex:none; display:flex; overflow:hidden; }
 </style>
 </head>
 <body>
@@ -425,7 +428,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 306</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 307</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="dpBtn" class="dpBtn" aria-label="Map（降下プランナー）を開く" aria-haspopup="dialog" hidden>Map</button>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
@@ -7238,8 +7241,15 @@ contTurnBoot = false;
   const $ = id => document.getElementById(id);
   const btn = $("dpBtn"), ov = $("dpOverlay");
   if(!btn || !ov) return;
-  btn.hidden = false;
-  document.body.classList.add("hasDp");
+  // build307: 見出しの「Map」はやめて、メニュー(☰)の一番上の「Approach Planner / Map」で切り替える
+  btn.hidden = true;
+  { const ctl = $("controls");
+    if(ctl){
+      const sw = document.createElement("div"); sw.className = "seg appSw"; sw.setAttribute("role","group"); sw.setAttribute("aria-label","画面の切り替え");
+      sw.innerHTML = '<button type="button" class="active" aria-pressed="true">Approach Planner</button><button type="button" id="swMap">Map</button>';
+      ctl.insertBefore(sw, ctl.firstChild);
+      sw.querySelector("#swMap").addEventListener("click", ()=>{ if(ctl.classList.contains("open")) $("menuBtn").click(); openOv(); });
+    } }
   const form = $("dpUnlock"), pass = $("dpPass"), err = $("dpErr"), frame = $("dpFrame"), msg = $("dpMsg");
   const remembered = () => { try{ return localStorage.getItem(KEY) === "1"; }catch(e){ return false; } };
   const remember = on => { try{ on ? localStorage.setItem(KEY, "1") : localStorage.removeItem(KEY); }catch(e){} };
@@ -7290,7 +7300,11 @@ contTurnBoot = false;
   btn.addEventListener("click", openOv);
   $("dpCancel").addEventListener("click", closeOv);
   msg.addEventListener("click", ()=>{ if(!loaded && /閉じます/.test(msg.textContent)) closeOv(); });   // 読み込めなかったときは文を押して閉じる
-  window.addEventListener("message", e=>{ if(e.source === frame.contentWindow && e.data && e.data.type === "dp-close") closeOv(); });
+  window.addEventListener("message", e=>{
+    if(e.source !== frame.contentWindow || !e.data) return;
+    if(e.data.type === "dp-close") closeOv();
+    if(e.data.type === "dp-flt"){ const f = $("fltBtn"); if(f) f.click(); }   // Map の右上の TFC SEARCH(Map の上に開く)
+  });
   ov.addEventListener("keydown", e => { if(e.key === "Escape") closeOv(); });
 
 })();
