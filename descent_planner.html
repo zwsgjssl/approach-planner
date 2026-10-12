@@ -16,7 +16,7 @@ textarea, input, select{ max-width:100%; }
 /* 画面の端(ステータスバー・ホームバー)の分の余白。Approach Planner の中(iframe)では親から値をもらう(dp-safe) */
 :root{ --safeT:0px; --safeB:0px; --safeL:0px; --safeR:0px; }
 body{ background:var(--bg); color:var(--fg); font-family:var(--font-body); font-size:14px; line-height:1.5; }
-.wrap{ max-width:1280px; margin:0 auto; padding:calc(6px + var(--safeT)) calc(10px + var(--safeR)) calc(6px + var(--safeB)) calc(10px + var(--safeL)); display:grid; gap:14px; transition:margin-left .22s ease; }
+.wrap{ max-width:none; margin:0 auto; padding:var(--safeT) var(--safeR) var(--safeB) var(--safeL); display:grid; gap:14px; transition:margin-left .22s ease; }
 /* ヘッダー(☰ と題名)。上に固定 */
 .ctlClose{ justify-self:start; background:var(--accent) !important; color:var(--panel) !important; border-color:var(--accent) !important; }
 .menuBtn{ background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:6px; font-size:19px; line-height:1; padding:6px 10px; cursor:pointer; min-width:44px; min-height:44px; }
@@ -53,8 +53,10 @@ input[type=text]:focus, select:focus{ outline:2px solid var(--accent); outline-o
 @media (max-width:900px){ .main{ grid-template-columns:minmax(0,1fr); } }
 .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:6px; min-width:0; }
 #map{ touch-action:none; -webkit-touch-callout:none; }
-#map{ overflow:hidden; border-radius:8px; }
-.map svg{ width:100%; height:auto; display:block; background:var(--panel2); border-radius:8px; touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none; }
+#map{ overflow:hidden; border-radius:0; }
+.card.map{ border:0; border-radius:0; padding:0; }   /* v118: 地図は枠なしで画面いっぱい */
+.card.map .maptools{ padding:4px 6px; }
+.map svg{ width:100%; height:auto; display:block; background:var(--panel2); border-radius:0; touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none; }
 .map svg:active{ cursor:grabbing; }
 .map .lbl{ font-family:var(--font-mono); font-size:calc(11px * var(--us, 1)); cursor:pointer; }
 .map .lbl.sm{ font-size:calc(10px * var(--us, 1)); }
@@ -101,9 +103,28 @@ tr.cut td{ opacity:.35; }
 .vsd .vh{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim); }
 .vsd .vh b{ color:var(--fg); font-family:var(--font-mono); }
 .vsd .vh button{ margin-left:auto; min-height:30px; }
-.vsd svg{ flex:1 1 auto; width:100%; min-height:0; display:block; }
+.vsd svg{ --fg:#d9e1ea; --dim:#8f9cad; --line:rgba(255,255,255,.2); --con:#ff8a80; background:#05080c; border-radius:6px; flex:1 1 auto; width:100%; min-height:0; display:block; touch-action:pan-y; user-select:none; -webkit-user-select:none; }
 .vsd text{ font-family:var(--font-mono); font-size:10px; }
 .mapwrap.vsdOn .sheet{ bottom:calc(min(230px, 40%) + 16px); }
+/* v113 VSD に風・シア(気象庁 MSM / Open-Meteo) */
+/* v114 風・シアの時刻を選べるように(直近から 12 時間先まで、MSM の 3 時間ごと) / VSD は横向きの全画面 */
+/* v115 VSD は 出発空港→RTE→到着空港 の直線(STAR なし)。風・シアだけ。ピンチ・ドラッグで拡大・移動 */
+.vsd .vh{ flex-wrap:wrap; row-gap:2px; }
+.vsd .vh .seg button{ margin-left:0; min-height:28px; padding:2px 10px; font-size:12px; }
+.vsd .vh select{ font:inherit; font-size:12px; color:var(--fg); background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:2px 4px; min-height:28px; }
+.vsd .vh input[type=time]{ font:inherit; font-size:12px; font-family:var(--font-mono); color:var(--fg); background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:2px 4px; min-height:28px; }
+.vsd.full{ position:fixed; left:0; top:0; width:100vw; height:100vh; bottom:auto; right:auto; z-index:9000; border-radius:0; border:0; box-shadow:none; padding:calc(4px + var(--safeT)) calc(8px + var(--safeR)) calc(2px + var(--safeB)) calc(8px + var(--safeL)); }
+.vsd.full.rot{ transform-origin:0 0; padding:6px 10px 4px; }
+.vsd .vpick{ position:absolute; z-index:20; display:grid; gap:2px; padding:4px; max-height:calc(100% - 60px); overflow-y:auto; -webkit-overflow-scrolling:touch; background:var(--panel); border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.5); min-width:120px; }
+.vsd .vpickI{ min-height:40px; padding:4px 14px; text-align:left; font-size:14px; background:transparent; color:var(--fg); border:0; border-radius:6px; white-space:nowrap; }
+.vsd .vpickI.on{ background:var(--accent); color:var(--panel); font-weight:600; }
+.vsd .vpickB::after{ content:" ▾"; opacity:.7; }
+.vsd .vh .vpickB{ margin-left:0; }
+.swapBtn{ align-self:end; min-width:44px; min-height:36px; font-size:17px; padding:0 8px; }
+.vsd .vh .fsb{ margin-left:auto; }
+.vsd .vh .fsb + button{ margin-left:6px; }
+.vsd .vh .wxs{ font-size:11px; color:var(--dim); }
+.vsd .vh .wxs.err{ color:var(--con); }
 .sheet .kana{ font-size:11px; font-weight:400; color:var(--dim); }
 .sheet .fxhead{ justify-content:flex-start; }
 .sheet .fxhead .onp{ font-family:var(--font-mono); color:var(--path); font-size:12px; } .onp .calc{ font-weight:400; } .onp b{ font-weight:800; font-size:15px; color:var(--con); }
@@ -142,6 +163,14 @@ svg.dsym, .map svg.dsym{ display:inline-block; width:1.55em; height:1em; vertica
 #dctMsg:empty{ display:none; }
 #mapErr{ position:absolute; left:8px; bottom:26px; z-index:2; background:var(--panel); border:1px solid var(--err); border-radius:6px; padding:3px 8px; pointer-events:none; }
 #mapErr:empty{ display:none; }
+/* v154 上空の高度のスライダー(地図の右。上が高い) */
+.flSl{ position:absolute; right:calc(6px + var(--safeR)); top:54px; width:46px; height:min(300px, calc(55% - 60px)); z-index:2; touch-action:none; user-select:none; -webkit-user-select:none; cursor:ns-resize; }
+.flSl .flTrack{ position:absolute; left:15px; top:0; bottom:0; width:6px; margin-left:-3px; border-radius:3px; background:rgba(11,15,20,.7); box-shadow:0 0 0 1px rgba(255,255,255,.35); }
+.flSl .flTick{ position:absolute; left:22px; font-size:9px; line-height:10px; margin-top:-5px; color:#e7edf3; text-shadow:0 0 3px #05080c, 0 0 3px #05080c; pointer-events:none; }
+.flSl .flTick::before{ content:""; position:absolute; left:-9px; top:4px; width:6px; height:1px; background:rgba(255,255,255,.7); }
+.flSl .flThumb{ position:absolute; left:15px; width:20px; height:20px; margin:-10px 0 0 -10px; border-radius:50%; background:var(--accent); border:2px solid #05080c; box-shadow:0 1px 4px rgba(0,0,0,.5); pointer-events:none; }
+.flSl .flLab{ position:absolute; right:30px; margin-top:-10px; height:20px; line-height:20px; padding:0 6px; border-radius:5px; background:var(--accent); color:var(--panel); font-size:12px; font-weight:700; white-space:nowrap; pointer-events:none; }
+.flSl:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
 #probeMk{ position:absolute; right:8px; top:8px; z-index:3; box-shadow:0 2px 8px rgba(0,0,0,.2); }
 #dctMsg b{ font-family:var(--font-mono); color:var(--dct); }
 .err{ color:var(--err); font-size:12px; }
@@ -168,6 +197,12 @@ td.mea.low{ color:var(--err); font-weight:600; }
 .maptools label{ display:inline-flex; gap:6px; align-items:center; cursor:pointer; }
 .maptools input{ width:18px; height:18px; accent-color:var(--accent); }
 .sw{ display:inline-block; width:14px; height:3px; vertical-align:middle; margin-right:4px; }
+/* v129 平面図の上空(高度を選んで風・VWS・Ri を地図に重ねる) */
+.upBar{ display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px 6px; }
+.upBar select{ font:inherit; font-size:12px; color:var(--fg); background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:2px 4px; min-height:30px; }
+.upBar .seg button{ min-height:30px; padding:2px 10px; }
+.upBar .wxs{ font-size:11px; color:var(--dim); }
+.upBar .wxiRange{ width:150px; min-height:30px; accent-color:var(--accent); } .upBar .wxiT{ min-width:5.5em; color:var(--fg); } .upBar .wxs.err{ color:var(--err); }
 </style>
 
 <nav class="controls" id="controls" aria-label="設定">
@@ -175,6 +210,7 @@ td.mea.low{ color:var(--err); font-weight:600; }
   <div class="seg appSw" id="appSw" role="group" aria-label="画面の切り替え" hidden><button type="button" id="swAp">Approach Planner</button><button type="button" class="on" aria-pressed="true">Map</button></div>
   <div class="bar">
     <div class="fld"><label for="pDep">出発</label><input type="text" id="pDep" class="w5" maxlength="4" data-ascii inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="HND"></div>
+    <button type="button" class="btn sm swapBtn" id="pSwap" aria-label="出発と到着を入れ替える" title="出発と到着を入れ替える"><svg viewBox="0 0 24 24" width="22" height="22" style="width:22px;height:22px;display:block;background:none" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/></svg></button>
     <div class="fld"><label for="pArr">到着</label><input type="text" id="pArr" class="w5" maxlength="4" data-ascii inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="FUK"></div>
     <div class="fld"><label for="selRt">RTE</label><select id="selRt"></select></div>
     <div class="fld" style="flex:1 1 100%"><label for="rte">フライトプラン（出発・到着の空港は入れない。航空路、FIX、DCT。STARのFIXもそのまま続けて入れられます）</label>
@@ -206,9 +242,12 @@ td.mea.low{ color:var(--err); font-weight:600; }
     <div class="card map">
       <div class="maptools"><button id="menuBtn" class="menuBtn" type="button" aria-label="設定を開閉" aria-expanded="false" aria-controls="controls">☰</button><div class="seg" role="group" aria-label="地図の範囲" hidden><button type="button" id="vAll">全体</button><button type="button" id="vArr">到着周辺</button></div>
         <div class="seg" role="group" aria-label="拡大縮小" hidden><button type="button" id="zOut" aria-label="縮小">−</button><button type="button" id="zIn" aria-label="拡大">＋</button></div>
+        <button type="button" class="btn sm" id="vsdBtn" aria-label="出発空港から到着空港までの縦の断面図を開く">断面図</button>
+        <span id="upBar" class="upBar"></span>
+        <span id="wxiBar" class="upBar"></span>
+        <button type="button" class="btn sm" id="wxSaveBtn" aria-label="UKMET を端末に保存(断面図・上空はこの保存から描く)">WX保存</button>
         <label><input type="checkbox" id="mvaChk"> MVA</label>
         <label><input type="checkbox" id="airChk"> 空域</label>
-        <label><input type="checkbox" id="coastChk"> 地図</label>
         <label><input type="checkbox" id="fixChk"> 経路外の FIX</label>
         <label id="trkLab" hidden><input type="checkbox" id="trkChk"> 実際の航跡</label>
         <select id="trkV" hidden aria-label="航跡の見せ方"><option value="flow">平均</option><option value="all">全部</option></select>
@@ -254,8 +293,9 @@ function xferOf(dest){
 }
 
 // ---- 保存(この端末だけ) ----
-let ST = { rte:"RJTT GUSRO Y20 KIRIN RJFF", cons:{}, spd:"290", pr:{}, view:"arr", mva:true, allFix:false };
+let ST = { rte:"RJTT GUSRO Y20 KIRIN RJFF", cons:{}, spd:"290", pr:{}, view:"all", mva:true, allFix:false };
 try{ const s = JSON.parse(localStorage.getItem("dp:v2")||"null"); if(s) ST = Object.assign(ST, s); }catch(e){}
+ST.trk = false;   // v123: 地図を開いたときは「実際の航跡」はオフから(前回オンにしていても。ユーザー指定)
 if(!ST.spd || ST.spd==="280") ST.spd = "290";   // 前の初期値 280 のままなら 290 に
 delete ST.gs;
 // 動作確認用：開くたびに羽田→福岡(KIRIN E / RNP 16L)から始める。やめるときは TEST_START を null に
@@ -341,17 +381,27 @@ const COAST = (DATA.coast || []).map(enc=>{
   let la0=90, la1=-90, lo0=180, lo1=-180; r.forEach(([a,b])=>{ la0=Math.min(la0,a); la1=Math.max(la1,a); lo0=Math.min(lo0,b); lo1=Math.max(lo1,b); });
   return { r, bb:[la0, la1, lo0, lo1] };
 });
-function coastSvg(P, W, H){
+// v179 ユーザー「平面のスクロールは地図が描写されているところまでしかできないように」→ 海岸線のデータの範囲(COAST_BB)から外へは動かせない
+const COAST_BB = COAST.length ? COAST.reduce((m, g)=>[Math.min(m[0], g.bb[0]), Math.max(m[1], g.bb[1]), Math.min(m[2], g.bb[2]), Math.max(m[3], g.bb[3])], [90, -90, 180, -180]) : null;
+function clampView(){
+  if(!VIEW || !COAST_BB) return;
+  const [la0, la1, lo0, lo1] = COAST_BB, hw = MW/2/VIEW.k, hh = MH/2/VIEW.k, x0 = lo0*VIEW.cl, x1 = lo1*VIEW.cl;
+  VIEW.cx = x1 - x0 <= 2*hw ? (x0 + x1)/2 : Math.min(Math.max(VIEW.cx, x0 + hw), x1 - hw);
+  VIEW.cy = la1 - la0 <= 2*hh ? (la0 + la1)/2 : Math.min(Math.max(VIEW.cy, la0 + hh), la1 - hh);
+}
+function coastSvg(P, W, H, OX, OY, line){
+  OX = OX || 0; OY = OY || 0;   // v139 のりしろ(v137)の分も描く
   let d = "";
   COAST.forEach(g=>{
     const a = P(g.bb[1], g.bb[2]), b = P(g.bb[0], g.bb[3]);   // 左上・右下
-    if(b[0] < 0 || a[0] > W || b[1] < 0 || a[1] > H) return;
+    if(b[0] < -OX || a[0] > W + OX || b[1] < -OY || a[1] > H + OY) return;
     let last = null;
     g.r.forEach(([la, lo], q)=>{ const c = P(la, lo), x = Math.round(c[0]*2)/2, y = Math.round(c[1]*2)/2;
       if(q && last && Math.abs(x-last[0]) < 0.8 && Math.abs(y-last[1]) < 0.8) return;   // 画面で近すぎる点は飛ばす
       d += (q ? "L" : "M") + x + " " + y; last = [x, y]; });
     d += "Z";
   });
+  if(line) return d ? '<path d="'+d+'" fill="none" stroke="#05080c" stroke-opacity=".55" stroke-width="2.4" stroke-linejoin="round" pointer-events="none"/><path d="'+d+'" fill="none" stroke="#f2f6f9" stroke-opacity=".8" stroke-width="1" stroke-linejoin="round" pointer-events="none"/>' : "";   // v145 衛星・レーダーの上に引く海岸線(白い線に黒い縁)
   return d ? '<path d="'+d+'" fill="var(--land)" fill-opacity=".22" fill-rule="evenodd" stroke="none" pointer-events="none"/>' : "";
 }
 // 空域(ACA の段・CTR・PCA・TCA)。p は緯度経度×1e4 の差分
@@ -733,76 +783,1676 @@ function compute(pts, cons, dcts){
   return { use, legD, x, s:sShow, C, alt, hr, note, cut, total:x[0], low, mvaPt, mvaLow, prof, ten };
 }
 
-// ---- v111 VSD(縦の断面) ----
-let VSD = { a:null, b:null };
-function drawVsd(){
-  const box = $("vsd"), wrap = $("mapwrap");
-  const res = lastRes, pts = lastPts;
-  // RTE などが変わって点の並びが変わったら、名前で探し直す
-  if(VSD.b!=null && VSD.ids && pts && (pts[VSD.a]||{}).id !== VSD.ids[0]){ VSD.a = pts.findIndex(p=>p.id===VSD.ids[0]); VSD.b = pts.findIndex(p=>p.id===VSD.ids[1]); if(VSD.a < 0 || VSD.b < 0) VSD = { a:null, b:null }; }
-  if(!res || VSD.a==null || VSD.b==null){ box.hidden = true; wrap.classList.remove("vsdOn"); return; }
-  const ka = res.use.findIndex(u=>u.i>=VSD.a), kb = (()=>{ let k = -1; res.use.forEach((u, j)=>{ if(u.i<=VSD.b) k = j; }); return k; })();
-  if(ka < 0 || kb <= ka){ box.hidden = true; wrap.classList.remove("vsdOn"); return; }
-  box.hidden = false; wrap.classList.add("vsdOn"); box.textContent = "";
-  const X = []; let acc = 0; for(let k=ka; k<=kb; k++){ if(k > ka) acc += res.legD[k]; X.push(acc); }
-  const L = acc || 1;
-  const altAt = (k)=>res.alt[k]!=null ? res.alt[k] : (res.hr && res.hr[k]!=null ? Math.min(res.hr[k], 41000) : null);
-  // 計画の高度: 区間ごとの高さの並び(prof、点 k から手前の距離)を距離 X に直す
-  const path = [];
-  for(let k=ka+1; k<=kb; k++){
-    const x1 = X[k-ka], P0 = res.prof[k];
-    if(P0 && P0.length){ for(let q=P0.length-1; q>=0; q--){ const [b, h] = P0[q]; if(b <= res.legD[k] + 1e-6) path.push([x1 - b, h]); } }
-    else { const h0 = altAt(k-1), h1 = altAt(k); if(h0!=null) path.push([X[k-1-ka], h0]); if(h1!=null) path.push([x1, h1]); }
+// ---- v113 風・シア(気象庁 MSM を Open-Meteo 経由で。取得は Cloudflare の /api/wind) ----
+const WX = { mode:"off", model:"ukmo",   // v164 model は常に "ukmo"(MSM は廃止)
+  wind:true, vws:true, trop:true, ri:true, cat:"ri", cld:true, tms:null, key:"", reqKey:"", busy:false, err:"", data:null };
+const FT_M = 3.28084;
+const wxAny = ()=>WX.wind || WX.vws || WX.trop || WX.ri || WX.cld;   // v124: 風・VWS・圏界面・Ri(v125)のどれかが ON(どれかが ON なら風のデータを取る)
+const HR = 3600e3;
+// 風を見る時刻(UTC)。MSM の気圧面は 3 時間ごと(00・03・06…21Z)なので、その時刻だけを選ぶ。1 つ前の時刻から 9 時間先まで(v143)
+const H3 = 3*HR;
+function wxOpts(){ const now = Date.now(), a = []; for(let t = Math.floor(now/H3)*H3 - H3, t1 = Math.ceil((now + 9*HR)/H3)*H3; t <= t1; t += H3) a.push(t); return a; }   // v140 1 つ前(3 時間前)の時刻から、v143 9 時間先まで
+function wxTime(){
+  const now = Date.now();
+  if(!WX.tms || WX.tms < now - 7*HR){ const o = wxOpts(); WX.tms = o.reduce((m, t)=> Math.abs(t - now) < Math.abs(m - now) ? t : m, o[0]); }
+  return WX.tms;
+}
+const wxLab = (t) => { const d = new Date(t), h = Math.round((t - Date.now())/HR);
+  return pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + "Z" + (t <= Date.now() - H3 ? "(前)" : t <= Date.now() ? "(直近)" : "(+" + Math.max(1, h) + "h)"); };
+const pad2 = n => String(n).padStart(2,"0");
+// 経路の点 P(空港・FIX)を結ぶ直線を約 15NM ごとの点に分ける(最大 40 点)。x は始まりからの距離(NM)。X は P の各点の距離
+function wxSamples(P, X, L){
+  const step = Math.max(15, L/36), S = [];
+  for(let k=1; k<P.length; k++){
+    const A = P[k-1], B = P[k], d = X[k] - X[k-1], m = Math.max(1, Math.ceil(d/step));
+    for(let q=(k===1 ? 0 : 1); q<=m; q++){ const f = q/m; S.push({ x:X[k-1] + d*f, lat:A.lat + (B.lat-A.lat)*f, lon:A.lon + (B.lon-A.lon)*f }); }
   }
-  // MVA(0.5NM ごと)
-  const mva = [];
-  for(let k=ka+1; k<=kb; k++){
-    const A = res.use[k-1], B = res.use[k], d = res.legD[k], m = Math.max(1, Math.ceil(d/0.5));
-    for(let q=0; q<=m; q++){ const f = q/m; mva.push([X[k-1-ka] + d*f, mvaAt(A.lat + (B.lat-A.lat)*f, A.lon + (B.lon-A.lon)*f)]); }
+  while(S.length > 40){ for(let i=S.length-2; i>0; i-=2) S.splice(i, 1); }
+  return S;
+}
+async function loadWx(key, S, tms){
+  WX.reqKey = key; WX.busy = true; WX.err = "";
+  try{
+    const u = "api/wind?t=" + new Date(tms).toISOString().slice(0,16) + "&pts=" + S.map(s=>s.lat.toFixed(3) + "," + s.lon.toFixed(3)).join(";");
+    const r = await fetch(u, { cache:"no-store" });
+    let j = null; try{ j = await r.json(); }catch(e){}
+    if(!r.ok || !j || !j.ok || !j.pts || j.pts.length !== S.length) throw new Error((j && j.error) || (r.status === 404 ? "この画面からは風を取れません(Cloudflare 版のみ)" : "取得できません(HTTP " + r.status + ")"));
+    if(j.fmt !== 2) throw new Error("サーバーの worker/wind.js が古いです。wind.js・terrain.js・index.js を新しい版に入れ替えてください");
+    if(WX.reqKey !== key) return;
+    WX.data = j;
+  }catch(e){
+    if(WX.reqKey !== key) return;
+    WX.data = null; WX.err = (navigator.onLine === false) ? "オフラインでは風を取れません" : (e instanceof TypeError ? "通信できません" : String(e.message || e));
+  }finally{
+    if(WX.reqKey === key){ WX.busy = false; WX.key = key; drawVsd(); }
   }
-  const hs = path.map(p=>p[1]).concat(mva.map(m=>m[1]||0));
-  for(let k=ka; k<=kb; k++){ const c = res.C[k] || {}; [c.at, c.lo, c.hi].forEach(v=>{ if(v!=null) hs.push(v); }); }
-  const top = Math.ceil((Math.max(1000, ...hs) + 1500)/1000)*1000, bot = 0;
-  // 見出し
-  const vh = el("div","vh"); vh.append("VSD "); vh.append(el("b","", res.use[ka].id + " → " + res.use[kb].id)); vh.append(" " + L.toFixed(1) + "NM");
-  const x = el("button","btn sm","✕"); x.type = "button"; x.setAttribute("aria-label","VSD を閉じる"); x.addEventListener("click", ()=>{ VSD = { a:null, b:null }; drawVsd(); redrawMap(); });
-  vh.append(x); box.append(vh);
-  // 図(幅と高さは箱に合わせる)
-  const W = Math.max(200, box.clientWidth - 12), H = Math.max(110, box.clientHeight - 34), ml = 44, mr = 10, mt = 8, mb = 26;
-  const sx = d=>ml + (W - ml - mr)*d/L, sy = h=>mt + (H - mt - mb)*(1 - (h - bot)/(top - bot));
+}
+// v127 UKMET(Met Office 全球 10km、自前の Actions → KV → /api/ukmo)。Ri と TROP はこちらで描く(上空が 25hPa おきで細かく、圏界面は UKMET 自身の値)。
+// 取れないとき(まだデータが無い・オフラインなど)は MSM から計算する(今まで通り)。形は /api/wind と同じ fmt 2 + 各点の tp(圏界面 hPa)
+const UK = { key:"", reqKey:"", busy:false, err:"", data:null };
+async function loadUk(key, S, tms){
+  // v156 ユーザー「WX保存を押したとき以外は自動で通信しないでほしい(機内 Wi-Fi で勝手に通信されると困る)」→ UKMET は WX保存したデータだけで描く(通信しない)
+  UK.reqKey = key; UK.busy = true; UK.err = "";
+  try{
+    await null;   // drawVsd の途中から呼ばれるので、いったん返してから(すぐ終わると drawVsd の中で drawVsd が走って VSD が 2 つ描かれる)
+    if(!WXOFF.meta) throw new Error("WX保存がありません(「WX保存」を押すと保存して表示します)");
+    const j = await wxoffRoute(tms, S.map(s=>[s.lat, s.lon]));
+    if(UK.reqKey !== key) return;
+    UK.data = j;
+  }catch(e){
+    if(UK.reqKey !== key) return;
+    UK.data = null; UK.err = String(e.message || e);
+  }finally{
+    if(UK.reqKey === key){ UK.busy = false; UK.key = key; drawVsd(); }
+  }
+}
+// ---- v129 平面図(地図)の上空。選んだ高度の UKMET の格子(/api/ukmo_grid)から、風(矢羽根・等風速線)・VWS・Ri を地図に重ねる ----
+// v132 揺れの指標(Ri・Ellrod TI1/TI2・NCSU1)。どれか 1 つを塗る。TI・NCSU1 は UKMET だけ(水平の微分が要るので、tools/ukmo_build.py が格子で計算して KV に置く)。
+//   TI1 = VWS×DEF、TI2 = VWS×(DEF−DIV)(Ellrod & Knapp 1992、1e-7 s⁻²)。v134 しきい値 4・6・8(6 = Met Office が自分のモデルで TI1 に使っているしきい値 0.6×10⁻⁶ s⁻²。
+//   Met Office の比較では TI1 が TI2 よりわずかに良い)。EKI = TI1 + 発散の 6 時間の変化×0.1(Ellrod-Knox、Knox ほか 2006 の D-DVSI)。
+//   NCSU1 = max(u∂u/∂x+v∂v/∂y, 0)×|∇ζ|/max(Ri,1e-5)(Kaplan ほか 2006、s⁻³)。決まったしきい値が無いので仮(1e-12・3e-12・1e-11)。Actions のログの分布を見て決め直す
+const CATS = {
+  ri:  { lab:"Ri" },
+  ti1: { lab:"TI1", th:[4, 6, 8], col:["#0f4448", "#18797d", "#36c0bd"], line:"#a8f0ec", leg:"青緑=TI1 4・6・8(×1e-7/s²)", tl:t=>String(t) },
+  ti2: { lab:"TI2", th:[4, 6, 8], col:["#0f4448", "#18797d", "#36c0bd"], line:"#a8f0ec", leg:"青緑=TI2 4・6・8(×1e-7/s²)", tl:t=>String(t) },
+  eki: { lab:"EKI", th:[4, 6, 8], col:["#0f4448", "#18797d", "#36c0bd"], line:"#a8f0ec", leg:"青緑=EKI 4・6・8(×1e-7/s²)", tl:t=>String(t) },
+  // v136 CCAT(Claude が組み立てた合成指標。tools/ukmo_build.py の説明): 1/Ri・TI1・前線形成・ラグランジュのロスビー数・NCSU1 を、それぞれ日本付近の UKMET の
+  //   気候値(過去の回の移動平均)で EDR 相当に直し、重みつき 2 乗平均。しきい値は NCAR の GTG と同じ EDR 0.15・0.22・0.34。実際の揺れで確かめていない試作
+  cc:  { lab:"CCAT", th:[0.15, 0.22, 0.34], col:["#4a4000", "#8c7600", "#e8c600"], line:"#fff1a0", leg:"黄=CCAT EDR 0.15・0.22・0.34(試作)", tl:t=>String(t), sc:1000 },
+  nc:  { lab:"NCSU1", th:[-12, -11.5, -11], col:["#5c3410", "#9b5a17", "#e0913a"], line:"#ffd2a0", leg:"橙=NCSU1 1e-12・3e-12・1e-11/s³(仮)", tl:t=>t === -12 ? "1e-12" : t === -11 ? "1e-11" : "3e-12" },
+};
+// v151 ユーザー「TI1 と Ri だけでいい」→ 選べるのは Ri・TI1・なし だけ(TI2・EKI・NCSU1・CCAT の描き方 CATS とデータはそのまま残す。戻すときはここに足す)
+const CAT_OPTS = [["ri","Ri"],["ti1","TI1"],["","なし"]];
+function catSelect(cur, onChange, label){
+  const s = document.createElement("select"); s.setAttribute("aria-label", label || "揺れの指標"); s.className = "catSel";
+  CAT_OPTS.forEach(([v, t])=>{ const o = document.createElement("option"); o.value = v; o.textContent = t; if(v === cur) o.selected = true; s.append(o); });
+  s.title = "揺れの指標(Ri・Ellrod TI1。TI1 は UKMET だけ)";
+  s.addEventListener("change", ()=>onChange(s.value)); return s;
+}
+// v152 ユーザー「上空のスイッチ無しで、最初から風・VWS などのスイッチを出す。既定は全部オフ」→ 上空のボタンは無し。UP.on は「風・VWS・指標のどれかが入っている」
+const UP = { get on(){ return !!(this.wind || this.vws || this.cat); }, fl:350, wind:false, vws:false, ct:false, cat:"", tms:null, key:"", reqKey:"", busy:false, err:"", data:null, timer:0 };
+const UP_FLS = [50, 100, 150, 180, 200, 220, 240, 260, 280, 300, 320, 340, 350, 360, 370, 380, 390, 400, 410, 430];
+function upTime(){ const now = Date.now(); if(!UP.tms || UP.tms < now - 7*HR){ const o = wxOpts(); UP.tms = o.reduce((m, t)=> Math.abs(t - now) < Math.abs(m - now) ? t : m, o[0]); } return UP.tms; }
+// v149 平面図の上空は、元の格子(約 10km)を 64×64 点ごとに区切った「1 枚」で取って並べる。間引かない・まとめない
+//   (前は拡大率に合わせて格子を箱でまとめていたので、ズームアウトすると箱の平均になって風・VWS の最大値が小さくなり、線の形も変わっていた。
+//    今はどの拡大率でも同じ格子点の同じ値 → 最大値も線の形もズームで変わらない)。1 枚ごとに worker の覚え(5 分)と端末の覚え(10 分)が効く
+const UP_TILE = 64;
+const UPT = { grid:{ lat0:20, dlat:30/319, ny:320, lon0:118, dlon:34/241, nx:242 }, tc:new Map() };   // grid は最初の 1 枚が届いたら本物に置き換わる
+// v149b ユーザー「最初に元の格子で 1 回計算したら、ズームイン・アウトで計算し直さずにそのまま表示」→ 見えている範囲に関係なく UKMET の切り出し全体(全部の枚)を 1 回取って、
+//   線・塗りも 1 回だけ作る(upGeo は同じデータなら作り直さない)。ズーム・パンは描く位置(transform)が変わるだけで、取り直しも計算し直しもしない。
+//   取り直すのは 時刻・FL・指標・雲頂 を変えたときと、30 分ごと(新しい回に入れ替えるため)だけ
+// v155 ユーザー「次の高度にスライドしたら瞬時に描画してほしい」→ 平面図は、選んだ時刻の UKMET の立体のデータ(全 25 層・日本付近。WX保存と同じもの、
+//   /api/ukmo_off、精度そのままの圧縮)を 1 回だけ取り、どの高度の格子も端末で計算する(upPlane。worker の ukmoGrid と同じ式、TI1 は ukmo_build.py と同じ式)。
+//   高度ごとの線・塗り(upEntry)は作ったら覚えておき、手が空いたら全部の高度を先に作っておく(upPre)→ スライドしたらすぐ出る。
+//   取り直すのは 時刻を変えたときと 30 分ごと(新しい回)だけ。WX保存に同じ回・時刻があれば通信しない。通信できなければ WX保存から
+function upWant(V, W, H){
+  const t = new Date(upTime()).toISOString().slice(0, 16);
+  return { t, key:t + "|" + Math.floor(Date.now()/(30*60e3)) };
+}
+const UPV = { info:null, at:0, mem:new Map(), P:null, cache:new Map(), pre:0, node:null, nodeE:null };
+async function upVolPair(tms){
+  // v156 通信しない: WX保存したデータだけ(v163 通信していたころの道は消した)
+  if(!WXOFF.meta) throw new Error("WX保存がありません(「WX保存」を押すと保存して表示します)");
+  const P = await wxoffPair(tms); return { ...P, tms, id:"off|" + P.M.run_id + "|" + tms, offline:true };
+}
+// TI1(1e-7 s⁻²)を気圧面 L の全部の格子点で(ukmo_build.py の cat_indices と同じ: 水平は np.gradient と同じ差分、鉛直は上下の面、厚さは測高公式)
+function upTiLevel(P, L){
+  P.ti = P.ti || []; if(P.ti[L]) return P.ti[L];
+  const { M, a, b, f } = P, g = M.grid, nx = g.nx, ny = g.ny, N = nx*ny, nL = M.lv.length, lv = M.lv, ND = -32768;
+  const val = (Lv, c)=>{ const o = new Float32Array(N), base = (Lv*3 + c)*N; for(let i=0; i<N; i++){ const p = a.A[base + i], q = b.A[base + i]; o[i] = p === ND || q === ND ? NaN : (p + (q - p)*f)/10; } return o; };
+  const lo = Math.max(0, L - 1), hi = Math.min(nL - 1, L + 1), u = val(L, 1), v = val(L, 2), uL = val(lo, 1), vL = val(lo, 2), uH = val(hi, 1), vH = val(hi, 2);
+  const Ts = []; for(let kk=lo; kk<=hi; kk++) Ts.push(val(kk, 0));
+  const LN = []; for(let kk=lo; kk<hi; kk++) LN.push(29.2712/2*Math.log(lv[kk]/lv[kk + 1]));
+  const out = new Float32Array(N), R = 6371000, RAD = Math.PI/180, dy = R*g.dlat*RAD, KTm = 0.514444;
+  for(let y=0; y<ny; y++){
+    const dx = R*Math.cos((g.lat0 + y*g.dlat)*RAD)*g.dlon*RAD, ym = Math.max(0, y - 1), yp = Math.min(ny - 1, y + 1), dyy = (yp - ym)*dy;
+    for(let x=0; x<nx; x++){
+      const i = y*nx + x, xm = Math.max(0, x - 1), xp = Math.min(nx - 1, x + 1), dxx = (xp - xm)*dx;
+      const dudx = (u[y*nx + xp] - u[y*nx + xm])*KTm/dxx, dvdx = (v[y*nx + xp] - v[y*nx + xm])*KTm/dxx, dudy = (u[yp*nx + x] - u[ym*nx + x])*KTm/dyy, dvdy = (v[yp*nx + x] - v[ym*nx + x])*KTm/dyy;
+      let dz = 0; for(let kk=0; kk<LN.length; kk++) dz += LN[kk]*(Ts[kk][i] + Ts[kk + 1][i] + 546.3);
+      out[i] = Math.hypot(uH[i] - uL[i], vH[i] - vL[i])*KTm/dz*Math.hypot(dudx - dvdy, dvdx + dudy)*1e7;   // 欠けが混じれば NaN
+    }
+  }
+  P.ti[L] = out; return out;
+}
+// その高度の格子(切り出し全体、元の格子のまま)。値の形は worker の ukmoGrid と同じ(u・v・vws は 10 倍、q = 1/Ri の 100 倍、ti1 は 10 倍)。欠けは null
+function upPlane(P, fl, xw){
+  const { M, a, b, f } = P, g = M.grid, lv = M.lv, nL = lv.length, N = g.ny*g.nx, ND = -32768;
+  const isaP = x=>1013.25*Math.pow(1 - x*100/145366.45, 1/0.190284), isaFt = q=>145366.45*(1 - Math.pow(q/1013.25, 0.190284)), p = isaP(fl);
+  let k = -1; for(let j=0; j<nL - 1; j++) if(lv[j] >= p && p >= lv[j + 1]){ k = j; break; }
+  if(k < 0) throw new Error("FL" + fl + " は UKMET の層の外です");
+  const w = Math.log(lv[k]/p)/Math.log(lv[k]/lv[k + 1]), VS = 10000/(isaFt(lv[k + 1]) - isaFt(lv[k]));
+  const KT = 0.514444, K2 = KT*KT/100, PA = Math.pow(1000/lv[k], 0.2857), PB = Math.pow(1000/lv[k + 1], 0.2857), LNP = 29.2712*Math.log(lv[k]/lv[k + 1])/2, G9 = 9.80665;
+  const A = a.A, B = b.A, fa = 1 - f, fb = f, o0 = k*3*N, o1 = (k + 1)*3*N;
+  const U = new Array(N), V = new Array(N), VW = new Array(N), Q = new Array(N), TI = xw === "ti1" ? [upTiLevel(P, k), upTiLevel(P, k + 1)] : null, X = TI ? new Array(N) : null;
+  for(let i=0; i<N; i++){
+    const a0 = A[o0 + i], a1 = A[o0 + N + i], a2 = A[o0 + 2*N + i], b0 = A[o1 + i], b1 = A[o1 + N + i], b2 = A[o1 + 2*N + i];
+    const c0 = B[o0 + i], c1 = B[o0 + N + i], c2 = B[o0 + 2*N + i], d0 = B[o1 + i], d1 = B[o1 + N + i], d2 = B[o1 + 2*N + i];
+    if(a0 === ND || a1 === ND || a2 === ND || b0 === ND || b1 === ND || b2 === ND || c0 === ND || c1 === ND || c2 === ND || d0 === ND || d1 === ND || d2 === ND){ U[i] = V[i] = VW[i] = Q[i] = null; if(X) X[i] = null; continue; }
+    const T0 = a0*fa + c0*fb, u0 = a1*fa + c1*fb, v0 = a2*fa + c2*fb, T1 = b0*fa + d0*fb, u1 = b1*fa + d1*fb, v1 = b2*fa + d2*fb, du = u1 - u0, dw = v1 - v0, dv2 = du*du + dw*dw;
+    U[i] = Math.round(u0 + du*w); V[i] = Math.round(v0 + dw*w); VW[i] = Math.round(Math.sqrt(dv2)*VS/10);
+    const Ta = T0/10 + 273.15, Tb = T1/10 + 273.15, dz = LNP*(Ta + Tb), tha = Ta*PA, thb = Tb*PB, N2 = G9*(thb - tha)/((tha + thb)/2*dz), q = N2 > 1e-7 ? dv2*K2/(dz*dz)/N2 : 99;
+    Q[i] = Math.round(Math.min(99, q)*100);
+    if(X){ const t0 = TI[0][i], t1 = TI[1][i], tv = t0*(1 - w) + t1*w; X[i] = isFinite(tv) ? Math.round(Math.max(0, Math.min(3276, tv))*10) : null; }
+  }
+  const d = { ok:true, model:"ukmo", run:M.run, t:new Date(P.tms).toISOString().slice(0, 16) + "Z", fl, p:Math.round(p*10)/10, layer:[lv[k], lv[k + 1]],
+    lat0:g.lat0, dlat:g.dlat, ny:g.ny, lon0:g.lon0, dlon:g.dlon, nx:g.nx, gy0:0, gx0:0, step:1, u:U, v:V, vws:VW, q:Q, ixv:1, ix:true, offline:P.offline, attribution:M.attribution };
+  if(X) d[xw] = X;
+  return d;
+}
+// 高度ごとの線・塗り(作ったら覚える)。覚えるのは軽い形だけ(矢羽根用の u・v は int16、-32768 = 欠け)
+const upSetKey = cl=>[UP.cat, UP.vws, UP.wind, cl].join("|");
+function upEntry(fl, cl){
+  const P = UPV.P; if(!P) return null;
+  const key = P.id + "|" + fl + "|" + upSetKey(cl); let E = UPV.cache.get(key);
+  if(E){ UPV.cache.delete(key); UPV.cache.set(key, E); if(E.err) throw new Error(E.err); return E; }
+  const xw = UP.cat && UP.cat !== "ri" ? UP.cat : "";
+  try{
+    const full = upPlane(P, fl, xw), geo = upGeoBuild(full, cl), ND = -32768;
+    const d = { ...full, u:Int16Array.from(full.u, v=>v == null ? ND : v), v:Int16Array.from(full.v, v=>v == null ? ND : v), xs:xw ? { [xw]:true } : {} };
+    delete d.vws; delete d.q; if(xw) delete d[xw];
+    E = { d, geo };
+  }catch(e){ E = { err:String(e.message || e) }; }
+  UPV.cache.set(key, E); while(UPV.cache.size > 46) UPV.cache.delete(UPV.cache.keys().next().value);   // v163 全部の FL(44)+α
+  if(E.err) throw new Error(E.err);
+  return E;
+}
+// 手が空いたら、今の高度の上下から順に全部の高度を先に作っておく(1 回に 1 つ。スライダーを動かしている間は休む)
+let FLDRAG = false, MAPACT = 0;   // v163 MAPACT = 地図を最後に動かした時刻(動かしている間は先に作るのを休む)
+function upPreSchedule(ms){ clearTimeout(UPV.pre); UPV.pre = setTimeout(()=>{ if(window.requestIdleCallback) requestIdleCallback(upPreStep, { timeout:1500 }); else upPreStep(); }, ms == null ? 150 : ms); }
+function upPreStep(){
+  if(!UP.on || !UPV.P || !VIEW) return;
+  if(FLDRAG || performance.now() - MAPACT < 600){ upPreSchedule(400); return; }   // v163 スライダー・地図を動かしている間は休む
+  const P = UPV.P, cl = VIEW.cl, sk = upSetKey(cl);
+  for(let dd=10; dd<=FL_MAX - FL_MIN; dd+=10) for(const f of [UP.fl + dd, UP.fl - dd]){
+    if(f < FL_MIN || f > FL_MAX || UPV.cache.has(P.id + "|" + f + "|" + sk)) continue;
+    try{ upEntry(f, cl); }catch(_){}
+    upPreSchedule(40); return;
+  }
+}
+async function upLoad(w){
+  UP.reqKey = w.key; UP.busy = true; UP.err = ""; if(!UPV.P) redrawMap();   // 最初の読み込みだけ「読み込み中…」を出す
+  try{
+    const P = await upVolPair(Date.parse(w.t + ":00Z"));
+    if(UP.reqKey !== w.key) return;
+    if(!UPV.P || UPV.P.id !== P.id){ UPV.P = P; UPV.cache.clear(); UPV.node = null; UPV.nodeE = null; }
+  }catch(e){
+    if(UP.reqKey !== w.key) return;
+    UP.err = String(e.message || e); if(UPV.P){ UPV.P = null; UPV.cache.clear(); }
+  }finally{
+    if(UP.reqKey === w.key){ UP.busy = false; UP.key = w.key; redrawMap(); upPreSchedule(); }
+  }
+}
+// (v149〜v154 の 1 枚ずつ取る道 upTileGet・upAssemble は v155 で外した。worker の &tile= は残っている)
+// ---- v144 端末に保存した UKMET(オフライン用)----
+// 「WX保存」で、今の 3 時間前〜9 時間後の時刻の元データ(気温・風・圏界面・湿度。全 25 層・日本付近)を、大きさを確かめてもらってからダウンロードして
+// IndexedDB に保存する(worker の /api/ukmo_off。gzip で精度はそのまま。展開して KV と同じ並びに戻す)。
+// 通信できないときだけ、VSD・平面図の上空をこの保存から端末で計算して描く(worker の ukmoApi・ukmoGrid と同じ計算)。
+// 揺れの指標は端末で計算できる TI1・TI2・Ri だけ(NCSU1・EKI・CCAT はオンラインのときだけ)
+const WXOFF = { meta:null, jmeta:null, mem:new Map(), busy:false, prog:"" };   // v158 jmeta = 保存した気象庁の画像
+const wxIdb = (()=>{ let p = null;
+  const open = ()=>p || (p = new Promise((res, rej)=>{ const r = indexedDB.open("dpwx", 1); r.onupgradeneeded = ()=>r.result.createObjectStore("kv"); r.onsuccess = ()=>res(r.result); r.onerror = ()=>rej(r.error); }));
+  const tx = (m, f)=>open().then(db=>new Promise((res, rej)=>{ const t = db.transaction("kv", m), q = f(t.objectStore("kv")); t.oncomplete = ()=>res(q && q.result); t.onerror = ()=>rej(t.error); t.onabort = ()=>rej(t.error); }));
+  return { get:k=>tx("readonly", s=>s.get(k)), put:(k, v)=>tx("readwrite", s=>s.put(v, k)), del:k=>tx("readwrite", s=>s.delete(k)), keys:()=>tx("readonly", s=>s.getAllKeys()) }; })();
+try{ wxIdb.get("jmeta").then(m=>{ WXOFF.jmeta = m || null; if(m && WXI.on) wxiTimes(true); }).catch(()=>{}); }catch(_){}
+try{ wxIdb.get("meta").then(m=>{ WXOFF.meta = m || null; if(m && m.grid && m.grid.ny) UPT.grid = { lat0:m.grid.lat0, dlat:m.grid.dlat, ny:m.grid.ny, lon0:m.grid.lon0, dlon:m.grid.dlon, nx:m.grid.nx }; wxSaveRender(); if(m && (VSD_ON || UP.on)) wxAfterSave(); }).catch(()=>{}); }catch(_){}
+// 保存したデータを展開(gzip → 行ごとの差を足し戻す。下位バイト → 上位バイトの並びを戻す)
+async function wxoffSlice(key){
+  if(WXOFF.mem.has(key)) return WXOFF.mem.get(key);
+  const buf = await wxIdb.get(key); if(!buf) return null;
+  const o = await wxDecode(buf); WXOFF.mem.set(key, o); while(WXOFF.mem.size > 3) WXOFF.mem.delete(WXOFF.mem.keys().next().value);
+  return o;
+}
+// v155 展開だけ(平面図がオンラインで同じデータを使うので分けた)
+async function wxDecode(buf){
+  const d = new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
+  if(String.fromCharCode(d[0], d[1], d[2], d[3]) !== "UKO1") throw new Error("保存したデータの形が違います");
+  const hv = new DataView(d.buffer, d.byteOffset + 4, 12), nA = hv.getUint32(0, true), nB = hv.getUint32(4, true), nx = hv.getUint32(8, true);
+  const lo = d.subarray(16, 16 + nA), hi = d.subarray(16 + nA, 16 + 2*nA), rb = d.subarray(16 + 2*nA, 16 + 2*nA + nB);
+  const A = new Int16Array(nA), R = new Uint8Array(nB);
+  for(let r=0; r<nA; r+=nx){ let acc = 0; for(let i=r, e=r+nx; i<e; i++){ acc = (acc + (lo[i] | (hi[i] << 8))) & 0xffff; A[i] = acc > 32767 ? acc - 65536 : acc; } }
+  for(let r=0; r<nB; r+=nx){ let acc = 0; for(let i=r, e=r+nx; i<e; i++){ acc = (acc + rb[i]) & 255; R[i] = acc; } }
+  return { A, R };
+}
+// 時刻 → 前後の 2 つと重み
+async function wxoffPair(tms){
+  const M = WXOFF.meta; if(!M) throw new Error("WX が保存されていません");
+  const S = M.slices.map(s=>({ ...s, ms:Date.parse(s.t) })).sort((a, b)=>a.ms - b.ms);
+  if(tms < S[0].ms - 1.5*HR || tms > S[S.length-1].ms + 1.5*HR) throw new Error("保存した時刻(" + S[0].t.slice(11,16) + "〜" + S[S.length-1].t.slice(11,16) + "Z)の外です");
+  let i1 = S.findIndex(s=>s.ms >= tms); if(i1 < 0) i1 = S.length - 1;
+  const i0 = Math.max(0, S[i1].ms > tms ? i1 - 1 : i1), f = S[i1].ms === S[i0].ms ? 0 : Math.min(1, Math.max(0, (tms - S[i0].ms)/(S[i1].ms - S[i0].ms)));
+  const [a, b] = await Promise.all([wxoffSlice(S[i0].key), i1 === i0 ? null : wxoffSlice(S[i1].key)]);
+  if(!a || (i1 !== i0 && !b)) throw new Error("保存したデータが読めません");
+  return { M, a, b:b || a, f };
+}
+// TI1・TI2(1e-7 s⁻²)を格子点 (iy, ix) の気圧面 L で(ukmo_build.py の cat_indices と同じ式。水平は中心差分、鉛直は上下の面)
+function wxoffTI(P, L, iy, ix){
+  const { M, a, b, f } = P, g = M.grid, nx = g.nx, ny = g.ny, N = nx*ny, nL = M.lv.length, KTm = 0.514444/10, ND = -32768;
+  const val = (Lv, c, y, x)=>{ y = Math.max(0, Math.min(ny - 1, y)); x = Math.max(0, Math.min(nx - 1, x)); const i = (Lv*3 + c)*N + y*nx + x, p = a.A[i], q = b.A[i]; return p === ND || q === ND ? NaN : p + (q - p)*f; };
+  const lat = g.lat0 + iy*g.dlat, dy = 6371000*g.dlat*Math.PI/180, dx = 6371000*Math.cos(lat*Math.PI/180)*g.dlon*Math.PI/180;
+  // v163 端の格子は片側の差(np.gradient・upTiLevel と同じ)
+  const xm = Math.max(0, ix - 1), xp = Math.min(nx - 1, ix + 1), ym = Math.max(0, iy - 1), yp = Math.min(ny - 1, iy + 1), ddx = (xp - xm)*dx, ddy = (yp - ym)*dy;
+  const dudx = (val(L, 1, iy, xp) - val(L, 1, iy, xm))*KTm/ddx, dudy = (val(L, 1, yp, ix) - val(L, 1, ym, ix))*KTm/ddy;
+  const dvdx = (val(L, 2, iy, xp) - val(L, 2, iy, xm))*KTm/ddx, dvdy = (val(L, 2, yp, ix) - val(L, 2, ym, ix))*KTm/ddy;
+  const lo = Math.max(0, L - 1), hi = Math.min(nL - 1, L + 1); let dz = 0;
+  for(let k=lo; k<hi; k++){ const Ta = val(k, 0, iy, ix)/10 + 273.15, Tb = val(k + 1, 0, iy, ix)/10 + 273.15; dz += 29.2712*(Ta + Tb)/2*Math.log(M.lv[k]/M.lv[k + 1]); }
+  const vws = Math.hypot(val(hi, 1, iy, ix) - val(lo, 1, iy, ix), val(hi, 2, iy, ix) - val(lo, 2, iy, ix))*KTm/dz;
+  const DEF = Math.hypot(dudx - dvdy, dvdx + dudy), DIV = dudx + dvdy;
+  return [vws*DEF*1e7, vws*Math.max(DEF - DIV, 0)*1e7];
+}
+// /api/ukmo と同じ形を端末で(経路の点)
+async function wxoffRoute(tms, pts){
+  const P = await wxoffPair(tms), { M, a, b, f } = P, g = M.grid, nL = M.lv.length, N = g.ny*g.nx;
+  const bil = (arr, base, fy, fx, nd, sc)=>{ const y0 = Math.floor(fy), x0 = Math.floor(fx), ty = fy - y0, tx = fx - x0, y1 = Math.min(y0 + 1, g.ny - 1), x1 = Math.min(x0 + 1, g.nx - 1);
+    const q = [arr[base + y0*g.nx + x0], arr[base + y0*g.nx + x1], arr[base + y1*g.nx + x0], arr[base + y1*g.nx + x1]]; if(q.some(v=>v === nd)) return null;
+    return ((q[0]*(1 - tx) + q[1]*tx)*(1 - ty) + (q[2]*(1 - tx) + q[3]*tx)*ty)/sc; };
+  const tv = (base, fy, fx, R)=>{ const p = bil(R ? a.R : a.A, base, fy, fx, R ? 255 : -32768, R ? 1 : 10), q = bil(R ? b.R : b.A, base, fy, fx, R ? 255 : -32768, R ? 1 : 10); return p == null || q == null ? p : p + (q - p)*f; };
+  const out = pts.map(([la, lo])=>{
+    const fy = (la - g.lat0)/g.dlat, fx = (lo - g.lon0)/g.dlon;
+    if(fy < 0 || fx < 0 || fy > g.ny - 1 || fx > g.nx - 1) return { lat:la, lon:lo, out:true, v:null };
+    const v = M.lv.map((p, L)=>{ const T = tv((L*3)*N, fy, fx), u = tv((L*3 + 1)*N, fy, fx), w = tv((L*3 + 2)*N, fy, fx); if(T == null || u == null || w == null) return null;
+      return [Math.round(Math.hypot(u, w)*10)/10, Math.round((Math.atan2(-u, -w)*180/Math.PI + 360) % 360), Math.round(T*10)/10]; });
+    const tp = tv(nL*3*N, fy, fx), rh = M.lv.map((p, L)=>{ const r = tv(L*N, fy, fx, true); return r == null ? null : Math.round(r); });
+    // v163 TI は周りの 4 点から双線形に(worker と同じ。前は一番近い 1 点)
+    const y0 = Math.floor(fy), x0 = Math.floor(fx), y1 = Math.min(y0 + 1, g.ny - 1), x1 = Math.min(x0 + 1, g.nx - 1), ty = fy - y0, tx = fx - x0;
+    const x = M.lv.map((p, L)=>{ const q = [wxoffTI(P, L, y0, x0), wxoffTI(P, L, y0, x1), wxoffTI(P, L, y1, x0), wxoffTI(P, L, y1, x1)];
+      const t = [0, 1].map(c=>(q[0][c]*(1 - tx) + q[1][c]*tx)*(1 - ty) + (q[2][c]*(1 - tx) + q[3][c]*tx)*ty);
+      return isFinite(t[0]) ? [Math.round(t[0]*10)/10, Math.round(t[1]*10)/10, null, null, null] : null; });
+    return { lat:la, lon:lo, out:false, v, tp:tp == null ? null : Math.round(tp*10)/10, rh, x };
+  });
+  return { ok:true, fmt:2, model:"ukmo", run:M.run, t:new Date(tms).toISOString().slice(0, 16) + "Z", lv:M.lv, pts:out, ix:true, rh:true, offline:true, attribution:M.attribution };
+}
+// /api/ukmo_grid と同じ形を端末で(平面図)
+async function wxoffGrid(tms, fl, bb, r, xw, ct, ti){   // v149 ti = [行の始め, 終わり, 列の始め, 終わり](元の格子の番号、間引かない)
+  const P = await wxoffPair(tms), { M, a, b, f } = P, g = M.grid, lv = M.lv, nL = lv.length, plane = g.ny*g.nx;
+  const isaP = fl=>1013.25*Math.pow(1 - fl*100/145366.45, 1/0.190284), isaFt = p=>145366.45*(1 - Math.pow(p/1013.25, 0.190284)), p = isaP(fl);
+  let k = -1; for(let j=0; j<nL-1; j++) if(lv[j] >= p && p >= lv[j + 1]){ k = j; break; }
+  if(k < 0) throw new Error("FL" + fl + " は UKMET の層の外です");
+  const w = Math.log(lv[k]/p)/Math.log(lv[k]/lv[k + 1]), VS = 10000/(isaFt(lv[k + 1]) - isaFt(lv[k]));
+  const yA0 = ti ? Math.max(0, ti[0]) : Math.max(0, Math.floor((bb[0] - g.lat0)/g.dlat)), yB = ti ? Math.min(g.ny - 1, ti[1]) : Math.min(g.ny - 1, Math.ceil((bb[1] - g.lat0)/g.dlat));
+  const xA0 = ti ? Math.max(0, ti[2]) : Math.max(0, Math.floor((bb[2] - g.lon0)/g.dlon)), xB = ti ? Math.min(g.nx - 1, ti[3]) : Math.min(g.nx - 1, Math.ceil((bb[3] - g.lon0)/g.dlon));
+  if(yA0 > yB || xA0 > xB) throw new Error("範囲が保存したデータの外です");
+  let step = ti ? 1 : Math.max(1, Math.round(r/g.dlat)); while(((yB - yA0)/step + 1)*((xB - xA0)/step + 1) > 150*150) step++;
+  const yA = Math.floor(yA0/step)*step, xA = Math.floor(xA0/step)*step, ny = Math.floor((yB - yA)/step) + 1, nx = Math.floor((xB - xA)/step) + 1;
+  const XC = xw === "ti1" ? 0 : xw === "ti2" ? 1 : -1;   // 端末で出せる指標
+  // v145 雲頂を端末で(ukmo_build.py の cloud_top と同じ: 上から見て RH ≧ 95%(-20℃ 以上)・96.25%(-20℃ 未満)の最初の面)
+  const ctAt = idx=>{ const R = (f < 0.5 ? a : b).R, AA = (f < 0.5 ? a : b).A; for(let L=nL-1; L>=0; L--){ const r = R[L*plane + idx], T = AA[(L*3)*plane + idx]/10; if(r !== 255 && r >= (T < -20 ? 96.25 : 95)) return Math.round(isaFt(lv[L])/100); } return 0; };
+  const CTO = [], wantCt = !!ct;
+  const U = [], V = [], VW = [], Q = [], X = [], ND = -32768, KT = 0.514444, K2 = KT*KT/100, PA = Math.pow(1000/lv[k], 0.2857), PB = Math.pow(1000/lv[k + 1], 0.2857), LNP = 29.2712*Math.log(lv[k]/lv[k + 1])/2;
+  const o = [0, 1, 2].map(c=>(k*3 + c)*plane), o1 = [0, 1, 2].map(c=>((k + 1)*3 + c)*plane), fa = 1 - f, fb = f, A = a.A, B = b.A;
+  for(let iy=0; iy<ny; iy++) for(let ix=0; ix<nx; ix++){
+    const y0 = yA + iy*step, x0 = xA + ix*step, y1 = Math.min(yB, y0 + step - 1), x1 = Math.min(xB, x0 + step - 1);
+    let n = 0, sT0 = 0, su0 = 0, sv0 = 0, sT1 = 0, su1 = 0, sv1 = 0, nxs = 0, sx = 0, cn = 0, cs = 0;
+    for(let y=y0; y<=y1; y++) for(let x=x0; x<=x1; x++){ const idx = y*g.nx + x;
+      const a0 = A[o[0] + idx], a1 = A[o[1] + idx], a2 = A[o[2] + idx], b0 = A[o1[0] + idx], b1 = A[o1[1] + idx], b2 = A[o1[2] + idx];
+      const c0 = B[o[0] + idx], c1 = B[o[1] + idx], c2 = B[o[2] + idx], d0 = B[o1[0] + idx], d1 = B[o1[1] + idx], d2 = B[o1[2] + idx];
+      if(a0 === ND || a1 === ND || a2 === ND || b0 === ND || b1 === ND || b2 === ND || c0 === ND || c1 === ND || c2 === ND || d0 === ND || d1 === ND || d2 === ND) continue;
+      n++; sT0 += a0*fa + c0*fb; su0 += a1*fa + c1*fb; sv0 += a2*fa + c2*fb; sT1 += b0*fa + d0*fb; su1 += b1*fa + d1*fb; sv1 += b2*fa + d2*fb;
+      if(wantCt){ const c = ctAt(idx); if(c > 0){ cn++; cs += c; } }
+      if(XC >= 0 && (step < 4 || (x - x0) % Math.ceil(step/3) === 0 && (y - y0) % Math.ceil(step/3) === 0)){   // 大きい箱は 3×3 点ほどで平均(端末の計算を軽く)
+        const t0 = wxoffTI(P, k, y, x)[XC], t1 = wxoffTI(P, k + 1, y, x)[XC]; if(isFinite(t0) && isFinite(t1)){ nxs++; sx += t0 + (t1 - t0)*w; } }
+    }
+    if(!n){ U.push(null); V.push(null); VW.push(null); Q.push(null); if(XC >= 0) X.push(null); if(wantCt) CTO.push(null); continue; }
+    if(wantCt) CTO.push(cn*2 >= n ? Math.round(cs/cn) : 0);
+    const T0 = sT0/n, u0 = su0/n, v0 = sv0/n, T1 = sT1/n, u1 = su1/n, v1 = sv1/n, du = u1 - u0, dw = v1 - v0, dv2 = du*du + dw*dw;
+    U.push(Math.round(u0 + du*w)); V.push(Math.round(v0 + dw*w)); VW.push(Math.round(Math.sqrt(dv2)*VS/10));
+    const Ta = T0/10 + 273.15, Tb = T1/10 + 273.15, dz = LNP*(Ta + Tb), tha = Ta*PA, thb = Tb*PB, N2 = 9.80665*(thb - tha)/((tha + thb)/2*dz), q = N2 > 1e-7 ? dv2*K2/(dz*dz)/N2 : 99;
+    Q.push(Math.round(Math.min(99, q)*100));
+    if(XC >= 0) X.push(nxs ? Math.round(sx/nxs*10) : null);
+  }
+  const res = { ok:true, model:"ukmo", run:M.run, t:new Date(tms).toISOString().slice(0, 16) + "Z", fl, p:Math.round(p*10)/10, layer:[lv[k], lv[k + 1]],
+    lat0:g.lat0 + (yA + (step - 1)/2)*g.dlat, dlat:g.dlat*step, ny, lon0:g.lon0 + (xA + (step - 1)/2)*g.dlon, dlon:g.dlon*step, nx, step, u:U, v:V, vws:VW, q:Q, ixv:5, ix:true, offline:true, attribution:M.attribution };
+  if(XC >= 0) res[xw] = X;
+  if(wantCt){ res.ct = CTO; res.ctok = true; }
+  return res;
+}
+const wxoffUsable = e=>!!WXOFF.meta && (navigator.onLine === false || e instanceof TypeError);   // 通信できないときだけ保存を使う
+// 「WX保存」: 大きさを見せて確かめてからダウンロード
+function wxSaveRender(){
+  const b = $("wxSaveBtn"); if(!b) return; const M = WXOFF.meta;
+  b.textContent = WXOFF.busy ? "保存中 " + WXOFF.prog : M ? "WX保存済 " + M.run.slice(11, 13) + "Z" : "WX保存";
+  b.classList.toggle("pri", !!M && !WXOFF.busy);
+  b.title = M ? "保存済み: UKMET " + M.run.slice(0, 16) + "Z の回、" + M.slices.length + " 時刻(" + M.slices[0].t.slice(11, 16) + "〜" + M.slices[M.slices.length - 1].t.slice(11, 16) + "Z)、" + (M.bytes/1e6).toFixed(1) + "MB" : "UKMET を端末に保存する(断面図・上空はこの保存から描く。押したときだけ通信)";
+}
+// v163 今の保存(jmeta)が使っているキーか(途中でやめた保存の後片付け用)
+async function wxJmaUsed(k){ const J = WXOFF.jmeta; if(!J) return false; const p = String(k).slice(4);
+  return (J.sat && p.includes("/" + J.sat.v + "/")) || (J.radT || (J.rad ? [J.rad] : [])).some(e=>p.includes("/" + e.v + "/")) || (J.ltg || []).some(e=>p.includes("/" + e.v + "/")); }
+// v158 気象庁の画像も保存する: 押したときの最新の ひまわり 5 種類(z4・z5)・レーダー(z5・z6)・雷(30 分ぶんの点の一覧)。日本付近(北緯 20〜50°・東経 118〜152°)
+// v171 赤外は NOAA の B13 の温度(公開リポジトリが作る hima/ir)に替えたので、気象庁の赤外(B13/TBB)は保存しない
+const SAT_SAVE = [];   // v173 気象庁の衛星は保存しない
+function wxJmaTiles(z){ const n = Math.pow(2, z), a = []; for(let x=Math.floor(wxiXt(118, n)); x<=Math.floor(wxiXt(152, n)); x++) for(let y=Math.floor(wxiYt(50, n)); y<=Math.floor(wxiYt(20, n)); y++) a.push([z, x, y]); return a; }
+async function wxSaveJma(prog){
+  const get = async k=>{ const r = await fetch("api/jma/times?k=" + k, { cache:"no-store" }); if(!r.ok) throw new Error("気象庁の時刻 HTTP " + r.status); const j = await r.json(); return Array.isArray(j) ? j : []; };
+  // v173 ユーザー「赤外画像のみで他の衛星画像は取らなくていい」「jma から取るのはレーダーのみ」→ 気象庁の衛星・雷は取らない(赤外は NOAA)
+  // v176 ユーザー「雷消えたんだけど」→ 雷(liden、30 分ぶん 6 個)は戻す
+  const [n1, n2, n3] = await Promise.all([get("n1"), get("n2"), get("n3")]), sat = [];
+  const has = (e, el)=>(e.elements || []).includes(el), newest = a=>a.reduce((m, e)=>!m || e.validtime > m.validtime ? e : m, null);
+  const s0 = newest(sat), obs = n1.filter(e=>e.basetime === e.validtime && has(e, "hrpns")), r0 = newest(obs);
+  // v162 レーダーは 3 時間前〜1 時間後を 30 分ごと(実況 7 + 予報 2)。v168 最新だけ z6・z7、ほかは z6
+  const radT = [];
+  if(r0){ const t0 = jt(r0.validtime), f14 = ms=>new Date(ms).toISOString().replace(/[-:T]/g, "").slice(0, 14);
+    for(let m=-180; m<=0; m+=30){ const v = f14(t0 + m*60e3), e = obs.find(o=>o.validtime === v); if(e) radT.push({ b:e.basetime, v:e.validtime, k:"n" }); }
+    const fc = n2.filter(e=>has(e, "hrpns")), fb = fc.reduce((m, e)=>e.basetime > m ? e.basetime : m, "");
+    for(const m of [30, 60]){ const v = f14(jt(fb || r0.basetime) + m*60e3), e = fc.find(o=>o.basetime === fb && o.validtime === v); if(e) radT.push({ b:e.basetime, v:e.validtime, k:"f" }); } }
+  const lt = n3.filter(e=>e.basetime === e.validtime && has(e, "liden")).sort((a, b)=>b.validtime.localeCompare(a.validtime)).slice(0, 6);
+  const paths = [];
+  if(s0) SAT_SAVE.forEach(el=>[4, 5, 6].forEach(z=>wxJmaTiles(z).forEach(([z, x, y])=>paths.push("himawari/data/satimg/" + s0.basetime + "/jp/" + s0.validtime + "/" + el + "/" + z + "/" + x + "/" + y + ".jpg"))));
+  // v168 気象庁のレーダーは z5 以下だと絵が空(実機で 180NM くらいまで縮めると消えた)。z6 から保存し、縮めたときも z6 を縮めて描く
+  radT.forEach(e=>(e.v === r0.validtime && e.k === "n" ? [6, 7] : [6]).forEach(z=>wxJmaTiles(z).forEach(([z, x, y])=>paths.push("jmatile/data/nowc/" + e.b + "/none/" + e.v + "/surf/hrpns/" + z + "/" + x + "/" + y + ".png"))));
+  lt.forEach(e=>paths.push("jmatile/data/nowc/" + e.basetime + "/none/" + e.validtime + "/surf/liden/data.geojson"));
+  // v169 ユーザー「WX保存すると毎回全部取ってくるけど差分だけでいい」→ 画像のパスには観測(予報)の時刻が入っていて中身は変わらないので、
+  //   端末にもうあるタイルは取らない(雷の点の一覧だけは最新の 5 分が後から増えることがあるので毎回取る。6 個・小さい)
+  const have = new Set((await wxIdb.keys()).map(String));
+  let done = 0, bytes = 0, fail = 0, stop = null, reuse = 0; const got = new Set(), fresh = new Set();
+  const q = paths.filter(p=>{ if(!p.endsWith(".geojson") && have.has("jma:" + p)){ got.add("jma:" + p); reuse++; return false; } return true; });
+  const nAll = paths.length; done = reuse;
+  // v163 精査: 1 枚失敗しても止めずに数える(前は 1 枚の失敗で全部やめ、ほかの 5 本は裏で保存を続けていた)。通信が切れたら全部止めて、途中の分を消す
+  const run = async ()=>{ for(let p; !stop && (p = q.shift()); ){
+    try{ const r = await fetch("api/jma/t/" + p, { cache:"no-store" });
+      if(r.ok){ const b = await r.blob(); await wxIdb.put("jma:" + p, b); bytes += b.size; got.add("jma:" + p); fresh.add("jma:" + p); } else if(r.status !== 404) fail++; }
+    catch(e){ stop = stop || e; }
+    prog(++done, nAll); } };
+  await Promise.allSettled([run(), run(), run(), run(), run(), run()]);
+  if(stop){ for(const k of fresh){ if(!(await wxJmaUsed(k))) await wxIdb.del(k); } throw stop; }
+  const ks = await wxIdb.keys(); for(const k of ks) if(String(k).startsWith("jma:") && !got.has(k)) await wxIdb.del(k);   // 前の画像を消す
+  if(fail) console.warn("気象庁の画像 " + fail + " 枚は取れませんでした");
+  // v165 ひまわりの雲頂 FL(NOAA の解析。公開リポジトリの Actions が 30 分ごとに作る)の最新 1 時刻。まだ無ければ飛ばす
+  let hima = null;
+  try{ const r = await fetch("api/hima", { cache:"no-store" });
+    if(r.ok){ const j = await r.json(), t0 = j.times && j.times[0], h0 = WXOFF.jmeta && WXOFF.jmeta.hima;
+      // v169 同じ時刻・同じ中身(雲の種類の有無)をもう持っていれば取らない
+      if(t0 && h0 && h0.t === t0.t && (h0.layers || ["fl"]).join() === (j.layers || ["fl"]).join() && await wxIdb.get("hima:data")) hima = h0;
+      else if(t0){ const r2 = await fetch("api/hima?k=" + encodeURIComponent(t0.key), { cache:"no-store" });
+        if(r2.ok){ const b = await r2.blob(); await wxIdb.put("hima:data", b); hima = { t:t0.t, grid:j.grid, layers:j.layers || ["fl"], types:j.types || null }; bytes += b.size; } } } }
+  catch(e){ if(e instanceof TypeError) throw e; }
+  // v171 赤外(NOAA のひまわり B13 の温度、gzip のまま "hima:ir" に)。同じ時刻をもう持っていれば取らない
+  let hir = null;
+  try{ const r = await fetch("api/hima", { cache:"no-store" });
+    if(r.ok){ const j = await r.json(), i0 = j.ir && j.ir[0], h0 = WXOFF.jmeta && WXOFF.jmeta.hir;
+      if(i0 && h0 && h0.t === i0.t && await wxIdb.get("hima:ir")) hir = h0;
+      else if(i0){ const r2 = await fetch("api/hima?k=" + encodeURIComponent(i0.key), { cache:"no-store" });
+        if(r2.ok){ const b = await r2.blob(); await wxIdb.put("hima:ir", b); hir = { t:i0.t, grid:j.ir_grid }; bytes += b.size; } } } }
+  catch(e){ if(e instanceof TypeError) throw e; }
+  const jm = { saved:new Date().toISOString(), fail, sat:s0 && { b:s0.basetime, v:s0.validtime }, satTypes:SAT_SAVE, rad:r0 && { b:r0.basetime, v:r0.validtime }, radT, ltg:lt.map(e=>({ b:e.basetime, v:e.validtime })), hima, hir, bytes, n:got.size, reuse };
+  await wxIdb.put("jmeta", jm); WXOFF.jmeta = jm; WXL.clear();
+  return jm;
+}
+async function wxSaveClick(){
+  if(WXOFF.busy) return;
+  const M = WXOFF.meta, mb = n=>(n/1e6).toFixed(1) + "MB", J = WXOFF.jmeta;
+  if(navigator.onLine === false){ alert(M ? "保存済み: UKMET " + M.run.slice(11, 13) + "Z の回(" + M.slices.length + " 時刻・" + mb(M.bytes) + ")" + (J ? "・気象庁の画像 " + J.saved.slice(11, 16) + "Z" : "") + "。断面図・上空・気象はこの保存から描きます。" : "通信できないので保存できません。"); return; }
+  let info = null;
+  try{ const r = await fetch("api/ukmo_off", { cache:"no-store" }); info = await r.json(); if(!r.ok || !info.ok) throw new Error(info && info.error || "HTTP " + r.status); }
+  catch(e){ alert("保存できる UKMET を確かめられませんでした: " + (e instanceof TypeError ? "通信できません" : (e.message || e))); return; }
+  const now = Date.now(), t0 = Math.floor(now/H3)*H3 - H3, t1 = Math.ceil((now + 9*HR)/H3)*H3;
+  const want = info.slices.filter(s=>{ const m = Date.parse(s.t); return m >= t0 && m <= t1; });
+  if(!want.length){ alert("今の時刻に使える UKMET がありません。"); return; }
+  // v169 同じ回でもう保存してある時刻は取らない(差分だけ)
+  const old = M && M.run_id === info.run_id ? M.slices : [], need = want.filter(s=>!old.some(m=>m.t === s.t));
+  const total = need.reduce((n, s)=>n + (s.offBytes || 0), 0), z = s=>s.t.slice(11, 16) + "Z";
+  let ukmo = true;
+  if(!need.length){
+    if(confirm("UKMET " + info.run.slice(11, 13) + "Z の回はもう保存してあります(" + mb(M.bytes) + ")。\n気象庁のレーダーと NOAA の赤外・雲頂を今の最新にしますか?(増えた分だけ取ります)")) ukmo = false;
+    else { if(confirm("保存を全部消しますか?")) await wxSaveClear(); return; }
+  } else if(!confirm("UKMET " + info.run.slice(11, 13) + "Z の回を端末に保存します。\n" + want.length + " 時刻(" + z(want[0]) + "〜" + z(want[want.length - 1]) + ")" + (need.length < want.length ? "のうち新しい " + need.length + " 時刻" : "") + "、約 " + mb(total) + "\n+ 気象庁のレーダー(3 時間前〜1 時間後)と NOAA の赤外・雲頂(保存済みの分は取り直しません。初回は約 15MB)\nをダウンロードします。Wi-Fi での保存をおすすめします。よろしいですか?" + (M ? "\n(今の保存 " + M.run.slice(11, 13) + "Z の回は置き換えます)" : ""))) return;
+  WXOFF.busy = true; WXOFF.prog = "…"; wxSaveRender();
+  let msg = "";
+  try{
+    try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(_){}
+    if(ukmo){
+      const got = [], fresh = []; WXOFF.partial = fresh;
+      for(let i=0; i<want.length; i++){
+        const o = old.find(m=>m.t === want[i].t);
+        if(o){ got.push(o); continue; }   // v169 保存済みの時刻はそのまま
+        const r = await fetch("api/ukmo_off?k=" + encodeURIComponent(want[i].off), { cache:"no-store" });
+        if(!r.ok){ let j = null; try{ j = await r.json(); }catch(_){} throw new Error((j && j.error) || "HTTP " + r.status); }
+        const buf = await r.arrayBuffer(), key = "s:" + info.run_id + ":" + want[i].t;
+        await wxIdb.put(key, buf); const e = { t:want[i].t, key, bytes:buf.byteLength }; got.push(e); fresh.push(e);
+        WXOFF.prog = "UKMET " + fresh.length + "/" + need.length; wxSaveRender();
+      }
+      // 古い UKMET を消してから新しい meta に(気象庁の画像 jma:… は別に入れ替える)
+      const keep = new Set(got.map(s=>s.key)), ks = await wxIdb.keys();
+      for(const k of ks) if(String(k).startsWith("s:") && !keep.has(k)) await wxIdb.del(k);
+      const meta = { run_id:info.run_id, run:info.run, lv:info.lv, grid:info.grid, attribution:info.attribution, slices:got, bytes:got.reduce((n, s)=>n + s.bytes, 0), saved:new Date().toISOString() };
+      await wxIdb.put("meta", meta); WXOFF.meta = meta; WXOFF.mem.clear();
+      msg = "UKMET " + info.run.slice(11, 13) + "Z の回、" + got.length + " 時刻(新しく " + fresh.length + " 時刻・" + mb(fresh.reduce((n, s)=>n + s.bytes, 0)) + ")";
+    }
+    try{ const jm = await wxSaveJma((i, n)=>{ WXOFF.prog = "画像 " + i + "/" + n; wxSaveRender(); });
+      msg += (msg ? "\n" : "") + "レーダー " + (jm.rad ? jm.rad.v.slice(8, 10) + ":" + jm.rad.v.slice(10, 12) + "Z" : "なし") + "・赤外 " + (jm.hir ? jm.hir.t.slice(11, 16) + "Z" : "なし") + "・雲頂 " + (jm.hima ? jm.hima.t.slice(11, 16) + "Z" : "なし") + "、新しく " + (jm.n - (jm.reuse || 0)) + " 枚・" + mb(jm.bytes) + (jm.reuse ? "(" + jm.reuse + " 枚は保存済みのまま)" : ""); }
+    catch(e){ msg += (msg ? "\n" : "") + "気象庁の画像は保存できませんでした(" + (e instanceof TypeError ? "通信が切れました" : (e.message || e)) + ")"; }
+    alert("保存しました:\n" + msg + "\n断面図・上空・気象はこの保存から描きます(通信しません)。");
+    wxAfterSave();
+  }catch(e){
+    // v163 途中まで書いた UKMET の分を消す(今の保存が使っていないものだけ)
+    try{ const M2 = WXOFF.meta, keep = new Set(M2 ? M2.slices.map(x=>x.key) : []); for(const x of (WXOFF.partial || [])) if(!keep.has(x.key)) await wxIdb.del(x.key); }catch(_){}
+    alert("保存できませんでした: " + (e instanceof TypeError ? "通信が切れました" : (e.message || e))); }
+  finally{ WXOFF.busy = false; WXOFF.prog = ""; WXOFF.partial = null; wxSaveRender(); }
+}
+async function wxSaveClear(){
+  try{ const ks = await wxIdb.keys(); for(const k of ks) await wxIdb.del(k); }catch(_){}
+  WXOFF.meta = null; WXOFF.jmeta = null; WXOFF.mem.clear(); WXL.clear(); wxSaveRender(); wxAfterSave();
+}
+// v156 保存が変わったら VSD・上空を描き直す(どちらも保存だけを使うので)
+function wxAfterSave(){
+  UK.key = ""; UK.reqKey = ""; UK.busy = false; UK.data = null; UP.key = ""; UP.reqKey = ""; UPV.P = null; UPV.cache.clear(); UPV.node = null; UPV.nodeE = null;
+  HIC.t = ""; HIC.A = null; HIC.J = null; HIC.Jir = ""; HIC.key = ""; HIC.tap = null;
+  IRC.t = ""; IRC.A = null; IRC.key = ""; IRC.tap = null;   // v171
+  wxImgClear(HIC); wxImgClear(IRC); HIC.url = ""; IRC.url = "";   // v179
+  WXIC.key = ""; WXIC.ukey = ""; WXIC.url = ""; WXIC.gen++; WXIC.img.forEach(e=>{ if(e.url) URL.revokeObjectURL(e.url); }); WXIC.img.clear();
+  WXIC.cache.forEach(c=>URL.revokeObjectURL(c.url)); WXIC.cache.clear(); if(WXI.on) wxiTimes(true);   // v178 作った絵も捨てる
+  try{ drawVsd(); }catch(_){} redrawMap();
+}
+// ---- v139 気象庁の ひまわり・レーダー(降水ナウキャスト)・雷(liden)を平面図に重ねる ----
+// 画像は気象庁の地図タイル(Web メルカトル)を worker(/api/jma/t/…)経由で。Map の地図は緯度・経度がそのまま直線(正距円筒)なので、
+// タイルを横に細く切って縦の位置を合わせる(メルカトルとのずれが画面で 1.5px 以内になるだけ)。時刻は最新(2.5 分ごとに見直す)
+// v157 ユーザー「気象を押したときも衛星画像やレーダーは全てデフォルトでオフ」
+const OTHER_AP = false;   // v177 経路外の空港の印と名前
+// v176 ユーザー「気象っていうタブは無くして中身は常時表示でいい」→ on は常に true(ボタンは無い。表示する物は全部オフから)
+const WXI = { on:true, sat:"", rad:false, ltg:false, ho:false, ct:false, L:{}, at:0, busy:false, err:"", off:0 };   // v141 off = 見る時刻(今からの分。− は過去、+ は予報)
+const SAT_OPTS = [["NIR","赤外"],["SND/ETC","雲頂強調"],["B03/ALBD","可視"],["B08/TBB","水蒸気"],["REP/ETC","カラー"],["","衛星なし"]];   // v145 雲頂強調(気象庁: 雲頂が高いほど色、赤っぽいほど高い。昼は可視、夜は赤外が下地)
+// 時刻(気象庁の 14 桁 UTC)⇔ ミリ秒
+const jt = v=>Date.UTC(+v.slice(0,4), +v.slice(4,6) - 1, +v.slice(6,8), +v.slice(8,10), +v.slice(10,12), +v.slice(12,14));
+// v158 ユーザー「レーダーとか衛星も全て WX保存を押さないと通信しないでいい」→ 気象庁の画像も WX保存したものだけを出す(通信しない)。
+//   WX保存で、押したときの最新の ひまわり(5 種類、z4・z5)・レーダー(z5・z6)・雷(30 分ぶん)を保存する(wxSaveJma)
+async function wxiTimes(force){
+  if(!WXI.on) return;
+  const J = WXOFF.jmeta, L = {}, m = e=>({ b:e.b, v:e.v, ms:jt(e.v) }), none = !(WXI.sat || WXI.rad || WXI.ltg || WXI.ho || WXI.ct);
+  if(J){ const RT = J.radT || (J.rad ? [{ ...J.rad, k:"n" }] : []);
+    if(J.sat) L.sat = [m(J.sat)]; L.n1 = RT.filter(e=>e.k === "n").map(m); L.n2 = RT.filter(e=>e.k === "f").map(m); if(J.ltg && J.ltg.length) L.n3 = J.ltg.map(m); }
+  // v163 最後の 1 つを切ったら消す。v178 何も出していなくても保存の時刻は持っておく(レーダーの絵を前もって作るため)
+  if(none){ WXI.L = L; WXI.err = ""; redrawMap(); if(J) wxiPrewarmSoon(); return; }
+  if(!J){ WXI.L = {}; WXI.err = "画像は保存されていません(「WX保存」を押すと保存します)"; redrawMap(); return; }
+  WXI.L = L; WXI.at = Date.now();
+  WXI.err = WXI.sat === "NIR" ? (J.hir ? "" : "赤外(NOAA)は保存していません(公開リポジトリの Actions が動いてから WX保存)") : WXI.sat && J.satTypes && !J.satTypes.includes(WXI.sat) ? "この衛星画像は保存していません" : "";
+  wxiBarRender();   // v162 時刻のつまみを保存した時刻で作り直す(前は作り直さず、iPad で時刻を変えられなかった)
+  redrawMap();
+  if(!WXI.rad) wxiPrewarmSoon();   // v178
+}
+// 見る時刻 T に一番近いもの(tol ミリ秒以内)
+const wxiNear = (arr, T, tol)=>{ if(!arr || !arr.length) return null; let m = null; for(const e of arr) if(!m || Math.abs(e.ms - T) < Math.abs(m.ms - T)) m = e; return m && Math.abs(m.ms - T) <= tol ? m : null; };
+// 選んだ時刻に出すもの。レーダーは 実況(3 時間前まで)→ 予報(1 時間先まで、5 分ごと)→ 降水短時間予報(1 時間雨量、1 時間ごと)
+// v162 時刻のつまみは保存した最新のレーダー(無ければ衛星)の時刻が 0。衛星・雷は保存した 1 時刻(30 分)だけ
+function wxiBase(){ const L = WXI.L, a = (L.n1 && L.n1.length ? L.n1 : L.sat) || []; return a.length ? Math.max(...a.map(e=>e.ms)) : Date.now(); }
+function wxiPick(){
+  const L = WXI.L, now = wxiBase(), T = now + WXI.off*60e3, r = {};
+  const newest = arr=>arr && arr.length ? arr.reduce((m, e)=>e.ms > m.ms ? e : m) : null;   // 「最新」はいちばん新しい実況(数分前)
+  if(WXI.sat && WXI.sat !== "NIR") r.sat = newest(L.sat);   // v171 赤外は NOAA(irSvg)
+  if(WXI.ltg) r.n3 = newest(L.n3);
+  if(WXI.rad){
+    const last = L.n1 && L.n1.length ? Math.max(...L.n1.map(e=>e.ms)) : 0;
+    if(WXI.off === 0) r.rad = newest(L.n1), r.radK = "n";
+    else if(T <= last + 2.5*60e3) r.rad = wxiNear(L.n1, T, 5*60e3), r.radK = "n";
+    else { const f = wxiNear(L.n2, T, 5*60e3); if(f) r.rad = f, r.radK = "f";
+      else { const q = wxiNear(L.rasrf, T, 35*60e3); if(q) r.rad = q, r.radK = "r"; } }
+  }
+  return r;
+}
+// 時刻のつまみ: 過去 3 時間は 10 分ごと、1 時間先までは 5 分ごと、その先は降水短時間予報のある所まで 1 時間ごと
+function wxiSteps(){
+  { const L = WXI.L, b = wxiBase(), a = [...(L.n1 || []), ...(L.n2 || [])].map(e=>Math.round((e.ms - b)/60e3)).sort((x, y)=>x - y); return WXI.rad && a.length ? [...new Set(a)] : [0]; }   // v162 保存したレーダーの時刻(下は通信していたころのもの)
+}
+// v158 2.5 分ごとの見直し(通信)はやめた
+function wxiTiles(V, W, H, OX, OY, url, zmin, zmax){
+  const lonA = (V.cx - (W/2 + OX)/V.k)/V.cl, lonB = (V.cx + (W/2 + OX)/V.k)/V.cl, latA = Math.max(-80, V.cy - (H/2 + OY)/V.k), latB = Math.min(80, V.cy + (H/2 + OY)/V.k);
+  const R = Math.PI/180, f1 = v=>v.toFixed(1);
+  let z = Math.max(zmin, Math.min(zmax, Math.round(Math.log2(V.k*V.cl*360/256)))), n, x0, x1, y0, y1;
+  const Xt = lon=>(lon + 180)/360*n, Yt = lat=>(1 - Math.log(Math.tan(lat*R) + 1/Math.cos(lat*R))/Math.PI)/2*n, latOf = y=>Math.atan(Math.sinh(Math.PI*(1 - 2*y/n)))/R;
+  for(;;){ n = Math.pow(2, z); x0 = Math.floor(Xt(lonA)); x1 = Math.floor(Xt(lonB)); y0 = Math.max(0, Math.floor(Yt(latB))); y1 = Math.min(n - 1, Math.floor(Yt(latA)));
+    if((x1 - x0 + 1)*(y1 - y0 + 1) <= 30 || z <= zmin) break; z--; }
+  const sx = lon=>W/2 + (lon*V.cl - V.cx)*V.k, sy = lat=>H/2 - (lat - V.cy)*V.k;
+  let o = "";
+  for(let x=x0; x<=x1; x++) for(let y=y0; y<=y1; y++){
+    const xx = ((x % n) + n) % n, href = url(z, xx, y), L0 = x/n*360 - 180, L1 = (x + 1)/n*360 - 180, X0 = sx(L0), Wd = sx(L1) - X0;
+    // メルカトルを直線に置いたときの真ん中のずれ ≈ (幅²/8)·tanφ(ラジアン)。画面で 1.5px 以内になる最小の分け方(8 まで)
+    const span = latOf(y) - latOf(y + 1), la = Math.abs((latOf(y) + latOf(y + 1))/2)*R, ns = Math.max(1, Math.min(8, Math.ceil(span*R*Math.sqrt(Math.tan(la)*V.k/R/(8*1.5)))));
+    if(ns === 1){ const Y0 = sy(latOf(y)), Y1 = sy(latOf(y + 1)); o += '<image href="'+href+'" x="'+f1(X0)+'" y="'+f1(Y0)+'" width="'+f1(Wd + .5)+'" height="'+f1(Y1 - Y0 + .5)+'" preserveAspectRatio="none"/>'; continue; }
+    for(let k=0; k<ns; k++){ const Y0 = sy(latOf(y + k/ns)), Y1 = sy(latOf(y + (k + 1)/ns));
+      o += '<svg x="'+f1(X0)+'" y="'+f1(Y0)+'" width="'+f1(Wd + .5)+'" height="'+f1(Y1 - Y0 + .5)+'" style="width:'+f1(Wd + .5)+'px;height:'+f1(Y1 - Y0 + .5)+'px" viewBox="0 '+(k*256/ns).toFixed(2)+' 256 '+(256/ns).toFixed(2)+'" preserveAspectRatio="none"><image href="'+href+'" width="256" height="256"/></svg>'; }
+  }
+  return o;
+}
+// ---- v147 雲頂強調(気象庁 SND/ETC)の色 → 雲頂の温度 → FL ----
+// 色の表は気象庁 MSC の「色の設定」(240K 濃い青 → 200K 赤、jet の色)を 1K ごとに読み取ったもの。色の付いていない所は 240K(−33℃)より暖かい(低い雲か雲なし)。
+// 温度 → FL は、その場所・その時刻の UKMET の気温の高さ分布(25 層)で、上から見て対流圏(圏界面より下)で初めてその温度になる高さ。
+// 圏界面の気温より冷たい = 圏界面を突き抜けた雲頂(オーバーシュート)なので「圏界面(FLxxx)以上」。
+const SND_TBL = [[240,6,4,113],[239,3,3,149],[238,3,3,175],[237,3,3,199],[236,4,4,226],[235,3,3,247],[234,4,28,252],[233,4,53,251],[232,2,76,249],[231,3,101,250],[230,2,126,250],[229,3,151,249],[228,3,175,251],[227,3,201,250],[226,3,224,250],[225,4,248,249],[224,26,250,223],[223,52,250,201],[222,76,251,176],[221,100,250,151],[220,124,249,129],[219,151,249,102],[218,174,251,77],[217,198,250,51],[216,224,250,27],[215,250,250,4],[214,251,234,4],[213,250,217,2],[212,250,201,3],[211,250,186,3],[210,250,168,4],[209,251,151,3],[208,249,135,2],[207,251,120,4],[206,250,104,3],[205,251,86,4],[204,249,70,3],[203,250,54,2],[202,250,38,1],[201,250,20,4],[200,250,0,0]];
+function sndK(r, g, b){   // 画素の色 → K(色が付いていなければ null)。JPEG のにじみがあるので、彩度が低いもの・表から遠いものは色なし扱い
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if(mx - mn < 90) return null;
+  let best = null, bd = 1e9; for(const [k, R, G, B] of SND_TBL){ const d = (r - R)*(r - R) + (g - G)*(g - G) + (b - B)*(b - B); if(d < bd){ bd = d; best = k; } }
+  return bd < 70*70 ? best : null;
+}
+// UKMET の気温の高さ分布(その場所・時刻)から、温度 tc(℃)の高さ(FL)
+function tempToFL(prof, tc){
+  const lv = prof.lv, v = prof.v, tp = prof.tp, isa = p=>145366.45*(1 - Math.pow(p/1013.25, 0.190284))/100;
+  const L = []; lv.forEach((p, j)=>{ if(v[j] && v[j][2] != null && (!tp || p >= tp - 1)) L.push([isa(p), v[j][2]]); });   // 圏界面より下だけ(下から上へ)
+  if(L.length < 2) return null;
+  const top = L[L.length - 1];
+  if(tc < top[1]) return { above:true, fl:Math.round((tp ? isa(tp) : top[0])/10)*10 };
+  for(let j=L.length - 1; j>0; j--){ const a = L[j - 1], b = L[j]; if((a[1] - tc)*(b[1] - tc) <= 0){ const f = a[1] === b[1] ? 0 : (tc - a[1])/(b[1] - a[1]); return { fl:Math.round((a[0] + (b[0] - a[0])*f)/5)*5 }; } }
+  return { below:true, fl:Math.round(L[0][0]) };
+}
+// その地点の UKMET の高さ分布(通信できなければ WX保存から)。同じ 0.5°・同じ時刻は覚えておく
+const SNDP = new Map();
+async function sndProfile(lat, lon, tms){
+  const t3 = Math.round(tms/H3)*H3, key = [Math.round(lat*2)/2, Math.round(lon*2)/2, t3].join("|");
+  if(SNDP.has(key)) return SNDP.get(key);
+  const pts = [[Math.round(lat*2)/2, Math.round(lon*2)/2]]; let j = null;
+  try{ const r = await fetch("api/ukmo?t=" + new Date(t3).toISOString().slice(0, 16) + "&pts=" + pts[0].join(","), { cache:"no-store" }); j = await r.json(); if(!r.ok || !j.ok) throw new Error(j && j.error || "HTTP " + r.status); }
+  catch(e){ if(wxoffUsable(e)) j = await wxoffRoute(t3, pts); else throw e; }
+  const P = j.pts[0]; if(!P || P.out || !P.v) throw new Error("UKMET の範囲の外です");
+  const prof = { lv:j.lv, v:P.v, tp:P.tp, run:j.run }; SNDP.set(key, prof); while(SNDP.size > 30) SNDP.delete(SNDP.keys().next().value);
+  return prof;
+}
+const SND_FL = false;   // v148 雲頂強調の色 → FL(押して読む・凡例)は保留(ユーザー「雲頂の件はいったん保留」)。true にすると出る
+const sndActive = ()=>SND_FL && WXI.on && WXI.sat === "SND/ETC" && !!wxiPick().sat;
+// 地図を押した所の雲頂強調の画素を読んで、温度と FL を出す(タイルは worker 経由で同じサイトなので、canvas で色を読める)
+async function sndTap(lat, lon){
+  const e = wxiPick().sat; if(!e) return;
+  const z = 6, n = 64, R = Math.PI/180, fx = (lon + 180)/360*n, fy = (1 - Math.log(Math.tan(lat*R) + 1/Math.cos(lat*R))/Math.PI)/2*n;
+  const tx = Math.floor(fx), ty = Math.floor(fy), px = Math.floor((fx - tx)*256), py = Math.floor((fy - ty)*256);
+  flash("雲頂を読み取り中…");
+  try{
+    const img = new Image(); img.decoding = "async";
+    await new Promise((ok, ng)=>{ img.onload = ok; img.onerror = ()=>ng(new Error("画像が読めません")); img.src = "api/jma/t/himawari/data/satimg/" + e.b + "/jp/" + e.v + "/SND/ETC/" + z + "/" + tx + "/" + ty + ".jpg"; });
+    const c = document.createElement("canvas"); c.width = 5; c.height = 5; const g = c.getContext("2d", { willReadFrequently:true });
+    g.drawImage(img, -(px - 2), -(py - 2));
+    const d = g.getImageData(0, 0, 5, 5).data, ks = [];
+    for(let i=0; i<d.length; i+=4){ const k = sndK(d[i], d[i + 1], d[i + 2]); if(k != null) ks.push(k); }
+    const tz = e.v.slice(8, 10) + ":" + e.v.slice(10, 12) + "Z";
+    if(ks.length < 13){ flash("雲頂強調 " + tz + ": 色なし = 雲頂は −33℃ より暖かい(低い雲か雲なし)"); return; }
+    ks.sort((a, b)=>a - b); const K = ks[ks.length >> 1], tc = K - 273.15;
+    let txt = "雲頂強調 " + tz + ": " + K + "K(" + Math.round(tc) + "℃)";
+    try{ const prof = await sndProfile(lat, lon, jt(e.v)), h = tempToFL(prof, tc);
+      txt += h ? (h.above ? " → 圏界面(FL" + h.fl + ")より上に突き出た雲頂" : h.below ? " → FL" + h.fl + " より下" : " → 約 FL" + h.fl) + "(UKMET " + prof.run.slice(11, 13) + "Z の気温で)" : "";
+    }catch(err){ txt += "(FL に直せません: " + String(err.message || err).slice(0, 30) + ")"; }
+    flash(txt);
+  }catch(err){ flash("雲頂を読めません: " + String(err.message || err)); }
+}
+// 雲頂強調のときの色の凡例(右下): 色の帯と、地図の真ん中の UKMET の気温で直した FL
+let SNDLEG = { key:"", prof:null, busy:false };
+function sndLegendSvg(V, W, H){
+  if(!sndActive()) return "";
+  const e = wxiPick().sat, lat = V.cy, lon = V.cx/V.cl, key = [Math.round(lat*2)/2, Math.round(lon*2)/2, Math.round(jt(e.v)/H3)].join("|");
+  if(SNDLEG.key !== key && !SNDLEG.busy){ SNDLEG.busy = true; const k0 = key;
+    sndProfile(lat, lon, jt(e.v)).then(p=>{ SNDLEG = { key:k0, prof:p, busy:false }; redrawMap(); }).catch(()=>{ SNDLEG = { key:k0, prof:null, busy:false }; redrawMap(); }); }
+  const w = Math.min(280, W - 40), x0 = W - w - 14, y0 = H - 66, f1 = v=>v.toFixed(1);
+  let o = '<g pointer-events="none"><defs><linearGradient id="sndG" x1="0" x2="1" y1="0" y2="0">' + SND_TBL.map(([k, r, g, b])=>'<stop offset="'+((240 - k)/40).toFixed(3)+'" stop-color="rgb('+r+','+g+','+b+')"/>').join("") + '</linearGradient></defs>';
+  o += '<rect x="'+(x0 - 8)+'" y="'+(y0 - 14)+'" width="'+(w + 16)+'" height="48" rx="4" fill="#0b0f14" fill-opacity=".85" stroke="var(--line)"/>';
+  o += '<text x="'+x0+'" y="'+(y0 - 4)+'" class="lbl sm" fill="var(--fg)" font-size="9">雲頂強調の色 → 雲頂(押すとその場所の FL)</text>';
+  o += '<rect x="'+x0+'" y="'+y0+'" width="'+w+'" height="7" fill="url(#sndG)"/>';
+  const P = SNDLEG.key === key ? SNDLEG.prof : null;
+  [240, 230, 220, 210, 200].forEach(k=>{ const x = x0 + (240 - k)/40*w, tc = k - 273.15, h = P ? tempToFL(P, tc) : null;
+    const an = k === 240 ? "start" : k === 200 ? "end" : "middle";   // 2 行: 温度 / FL
+    o += '<text x="'+f1(x)+'" y="'+(y0 + 17)+'" text-anchor="'+an+'" class="lbl sm" fill="var(--fg)" font-size="9">'+Math.round(tc)+'℃</text>';
+    o += '<text x="'+f1(x)+'" y="'+(y0 + 28)+'" text-anchor="'+an+'" class="lbl sm" fill="#ffe08a" font-size="9">'+(h ? (h.above ? "圏界面↑" : "FL" + h.fl) : "")+'</text>'; });
+  return o + '</g>';
+}
+// v157 ユーザー「レーダーや衛星を表示しているとズームイン・アウトがすごく重い」「レーダーは一定以上ズームアウトすると消える」
+//   (1) 画像のタイルは canvas で 1 枚の絵にまとめ(wxiCompose)、世界の座標(横 = 経度×cl、縦 = −緯度)に 1 つの image として置く。描き直しでは同じ要素を差し込んで transform だけ変える(wxiAttach)。
+//       v160 まとめ直すのは タイルの拡大段階(z)・時刻・種類が変わったときだけ(範囲は保存した日本付近全部、細かさはタイルそのまま)。
+//   (2) レーダー・雷は気象庁のタイルが z5 から(z4 は無い → ズームアウトで z4 を取りにいって消えていた)。z5 より下にはしない(枚数の上限を 60 に)
+// v178 key・cover = 作っている(作った)絵の中身、ukey・ucover = いま出している絵(url・ext)の中身。cache = 作った絵(6 枚まで)
+const WXIC = { key:"", cover:null, layers:null, url:"", ext:null, ukey:"", ucover:null, node:null, nodeUrl:"", gen:0, img:new Map(), tm:0, cache:new Map() };
+function wxiRange(V, W, H, OX, OY){
+  return { lonA:(V.cx - (W/2 + OX)/V.k)/V.cl, lonB:(V.cx + (W/2 + OX)/V.k)/V.cl, latA:Math.max(-80, V.cy - (H/2 + OY)/V.k), latB:Math.min(80, V.cy + (H/2 + OY)/V.k) };
+}
+const wxiR = Math.PI/180;
+const wxiXt = (lon, n)=>(lon + 180)/360*n, wxiYt = (lat, n)=>(1 - Math.log(Math.tan(lat*wxiR) + 1/Math.cos(lat*wxiR))/Math.PI)/2*n, wxiLatOf = (y, n)=>Math.atan(Math.sinh(Math.PI*(1 - 2*y/n)))/wxiR;
+function wxiTileSet(V, R, zmin, zmax, cap){
+  let z = Math.max(zmin, Math.min(zmax, Math.round(Math.log2(V.k*V.cl*360/256)))), t;
+  for(;;){ const n = Math.pow(2, z); t = { z, n, x0:Math.floor(wxiXt(R.lonA, n)), x1:Math.floor(wxiXt(R.lonB, n)), y0:Math.max(0, Math.floor(wxiYt(R.latB, n))), y1:Math.min(n - 1, Math.floor(wxiYt(R.latA, n))) };
+    if((t.x1 - t.x0 + 1)*(t.y1 - t.y0 + 1) <= cap || z <= zmin) break; z--; }
+  return t;
+}
+// タイルの画像(読み込んだものは覚える。同じサイトなので canvas に描ける)
+function wxiImg(href){
+  let e = WXIC.img.get(href); if(e){ WXIC.img.delete(href); WXIC.img.set(href, e); return e; }
+  const im = new Image(); im.decoding = "async"; e = { im, ok:false, done:false, url:"" };
+  im.onload = ()=>{ e.ok = true; e.done = true; wxiSoon(); }; im.onerror = ()=>{ e.done = true; wxiSoon(); };
+  // v158 通信しない: WX保存したタイル(IndexedDB の "jma:<パス>")から。無ければ空
+  wxIdb.get("jma:" + href.replace(/^api\/jma\/t\//, "")).then(b=>{ if(WXIC.img.get(href) !== e) return; if(b && b.size > 100){ e.url = URL.createObjectURL(b); im.src = e.url; } else { e.done = true; wxiSoon(); } }).catch(()=>{ e.done = true; wxiSoon(); });
+  WXIC.img.set(href, e); while(WXIC.img.size > 400){ const k0 = WXIC.img.keys().next().value, e0 = WXIC.img.get(k0); if(e0 && e0.url) URL.revokeObjectURL(e0.url); WXIC.img.delete(k0); }
+  return e;
+}
+function wxiSoon(){ clearTimeout(WXIC.tm); WXIC.tm = setTimeout(wxiCompose, 40); }
+// タイルを 1 枚の絵(canvas → PNG)にまとめる。メルカトルを直線に置くずれは横に細く切って 0.5px 以内に。できたら地図を描き直す
+function wxiCompose(){
+  const Ls = WXIC.layers, sets = WXIC.cover; if(!Ls || !sets || !VIEW) return;
+  const gen = WXIC.gen, cl = VIEW.cl;
+  let X0 = 1e9, X1 = -1e9, Y0 = 1e9, Y1 = -1e9;
+  sets.forEach(t=>{ X0 = Math.min(X0, (t.x0/t.n*360 - 180)*cl); X1 = Math.max(X1, ((t.x1 + 1)/t.n*360 - 180)*cl); Y0 = Math.min(Y0, -wxiLatOf(t.y0, t.n)); Y1 = Math.max(Y1, -wxiLatOf(t.y1 + 1, t.n)); });
+  // v178 大きく拡大したときはタイル 1 枚より狭い所だけの絵にする(タイルの外側は切る)
+  const C = WXIC.clip; if(C){ X0 = Math.max(X0, C.lonA*cl); X1 = Math.min(X1, C.lonB*cl); Y0 = Math.max(Y0, -C.latB); Y1 = Math.min(Y1, -C.latA); }
+  if(!(X1 > X0 && Y1 > Y0)) return;
+  // v160 絵の細かさはタイルそのまま(一番細かいレイヤーの 1 枚 = 256px)。拡大率に合わせて作り直さない(前は拡大率ごとに最大 4096px の絵を作り直していて、iPad で重かった)
+  const nMax = Math.max(...sets.map(t=>t.n)); let sc = 256/(360/nMax*cl); const wpx = (X1 - X0)*sc, hpx = (Y1 - Y0)*sc;
+  sc *= Math.min(1, 4096/wpx, 4096/hpx);
+  const cw = Math.max(1, Math.ceil((X1 - X0)*sc)), ch = Math.max(1, Math.ceil((Y1 - Y0)*sc));
+  const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch; const g = cv.getContext("2d");
+  // v174 ユーザー「レーダーの画質が気になる」→ タイルを並べるときに補間でぼかさない(レーダーは色の段階がはっきりしている方が見やすい)
+  g.imageSmoothingEnabled = false;
+  let pending = 0;
+  const put = (e, z, x, y, sx0, sy0, sw)=>{ sx0 = sx0 || 0; sy0 = sy0 || 0; sw = sw || 256;   // 画像の (sx0, sy0) から sw 四方を、z の (x, y) の場所に
+    const n = Math.pow(2, z), dx = ((x/n*360 - 180)*cl - X0)*sc, dw = 360/n*cl*sc, la0 = wxiLatOf(y, n), la1 = wxiLatOf(y + 1, n), la = Math.abs((la0 + la1)/2)*wxiR;
+    const ns = Math.max(1, Math.min(16, Math.ceil((la0 - la1)*wxiR*Math.sqrt(Math.tan(la)*sc/wxiR/(8*0.5)))));
+    for(let q=0; q<ns; q++){ const d0 = (-wxiLatOf(y + q/ns, n) - Y0)*sc, d1 = (-wxiLatOf(y + (q + 1)/ns, n) - Y0)*sc;
+      try{ g.drawImage(e.im, sx0, sy0 + q*sw/ns, sw, sw/ns, dx, d0, dw + 0.6, d1 - d0 + 0.6); }catch(_){} } };
+  Ls.forEach((L, i)=>{ const t = sets[i]; g.globalAlpha = +L.op;
+    for(let x=t.x0; x<=t.x1; x++) for(let y=t.y0; y<=t.y1; y++){
+      const wx = ((x % t.n) + t.n) % t.n, e = wxiImg(L.url(t.z, wx, y)); if(!e.done) pending++;
+      if(e.ok){ put(e, t.z, x, y); continue; }
+      if(!e.done) continue;
+      // v162 その段階の画像が保存に無ければ、1 段粗い画像の 1/4 を引き伸ばす(昔の時刻のレーダーは z6 まで)。それも無ければ 1 段細かい 4 枚で埋める
+      if(t.z > L.zmin){ const ep = wxiImg(L.url(t.z - 1, wx >> 1, y >> 1)); if(!ep.done){ pending++; continue; } if(ep.ok){ put(ep, t.z, x, y, (wx & 1)*128, (y & 1)*128, 128); continue; } }
+      if(t.z < L.zmax) for(let cx=0; cx<2; cx++) for(let cy=0; cy<2; cy++){ const e2 = wxiImg(L.url(t.z + 1, wx*2 + cx, y*2 + cy)); if(!e2.done) pending++; if(e2.ok) put(e2, t.z + 1, x*2 + cx, y*2 + cy); }
+    } });
+  // v178 ユーザー「レーダー押してから表示まで結構ラグ」→ 読み込み中のタイルがあるうちは PNG にしない(前は読み込みのたびに大きな PNG を作り直していた)
+  if(pending){ wxiSoon(); return; }
+  const ckey = WXIC.key, cover = WXIC.cover;
+  cv.toBlob(b=>{
+    if(gen !== WXIC.gen || !b) return;
+    // v178 前もって作った絵(wxiPrewarm)は覚えるだけ(その間にレーダーが入れられていたら、そのまま出す)
+    if(WXIC.warm && !WXI.rad){ WXIC.warm = false; const u = URL.createObjectURL(b); WXIC.cache.set(ckey + "#" + cover.map(t=>t.x0 + "," + t.x1 + "," + t.y0 + "," + t.y1).join(";"), { key:ckey, cover, url:u, ext:{ x:X0, y:Y0, w:X1 - X0, h:Y1 - Y0 } }); WXIC.key = ""; return; }
+    WXIC.warm = false;
+    WXIC.url = URL.createObjectURL(b); WXIC.ext = { x:X0, y:Y0, w:X1 - X0, h:Y1 - Y0 }; WXIC.ukey = ckey; WXIC.ucover = cover;
+    // 作った絵を覚える(同じ時刻に戻る・レーダーを入れ直すときはすぐ出す)。古いものから捨てる
+    WXIC.cache.set(ckey + "#" + cover.map(t=>t.x0 + "," + t.x1 + "," + t.y0 + "," + t.y1).join(";"), { key:ckey, cover, url:WXIC.url, ext:WXIC.ext });
+    while(WXIC.cache.size > 6){ const k0 = WXIC.cache.keys().next().value, c0 = WXIC.cache.get(k0); WXIC.cache.delete(k0); if(c0.url !== WXIC.url) setTimeout(()=>URL.revokeObjectURL(c0.url), 1000); }
+    redrawMap();
+  }, "image/png");
+}
+function wxiSvg(V, W, H, OX, OY){
+  if(!WXI.on) return "";
+  const T = wxiPick(), Ls = [];
+  if(T.sat) Ls.push({ op:".75", zmin:4, zmax:6, cap:40, id:"s" + T.sat.v + WXI.sat, url:(z, x, y)=>"api/jma/t/himawari/data/satimg/" + T.sat.b + "/jp/" + T.sat.v + "/" + WXI.sat + "/" + z + "/" + x + "/" + y + ".jpg" });
+  if(T.rad){ const e = T.rad; Ls.push({ op:".85", zmin:6, zmax:7, cap:80, id:"r" + T.radK + e.b + e.v, url:T.radK === "r" ? (z, x, y)=>"api/jma/t/jmatile/data/rasrf/" + e.b + "/" + (e.m || "none") + "/" + e.v + "/surf/rasrf/" + z + "/" + x + "/" + y + ".png"
+      : (z, x, y)=>"api/jma/t/jmatile/data/nowc/" + e.b + "/none/" + e.v + "/surf/hrpns/" + z + "/" + x + "/" + y + ".png" }); }
+  // v158 雷は画像のタイルではなく点の一覧(気象庁の liden は data.geojson。前は無いタイルを取りに行っていて、ずっと出なかった)
+  const irp = WXI.sat === "NIR" ? irSvg(V, W, H) : "";   // v171 赤外(NOAA)は一番下
+  const lt = (WXI.ho || WXI.ct ? hiSvg(V, W, H) : "") + (WXI.ltg ? wxiLtgSvg(V, W, H, OX, OY) : "");   // v165 雲頂FL(ひまわり・NOAA)は画像の上
+  if(!Ls.length){ if(!WXIC.warm && (WXIC.key || WXIC.url)){ WXIC.key = ""; WXIC.gen++; WXIC.url = ""; WXIC.ukey = ""; WXIC.node = null; } return irp + lt; }   // v178 絵は cache に残す(入れ直したらすぐ出す)
+  // v160 段階(z)だけ見えている範囲で決め、絵は保存した範囲(日本付近)全部で 1 回作る → パンでは作り直さない。ズームで作り直すのは z が変わったときだけ
+  //   v162 z6 以上(細かい段階)は絵が大きくなりすぎないよう、見えている所の周り(上下左右に画面 1 つ分)だけ。そこから出たら作り直す
+  // v178 周りの余白は画面の半分(前は 1 つ分。絵が 9 画面分になり PNG にするのが遅かった)
+  const R = wxiRange(V, W, H, OX, OY), dLo = (R.lonB - R.lonA)/2, dLa = (R.latB - R.latA)/2;
+  const RB = { lonA:Math.max(118, R.lonA - dLo), lonB:Math.min(152, R.lonB + dLo), latA:Math.max(20, R.latA - dLa), latB:Math.min(50, R.latB + dLa) };
+  const sets = Ls.map(L=>{ const z = wxiTileSet(V, R, L.zmin, L.zmax, L.cap).z, n = Math.pow(2, z), B = z >= 6 ? RB : { lonA:118, lonB:152, latA:20, latB:50 };
+    const v = { x0:Math.floor(wxiXt(Math.max(118, R.lonA), n)), x1:Math.floor(wxiXt(Math.min(152, R.lonB), n)), y0:Math.floor(wxiYt(Math.min(50, R.latB), n)), y1:Math.floor(wxiYt(Math.max(20, R.latA), n)) };
+    return { z, n, v, x0:Math.floor(wxiXt(B.lonA, n)), x1:Math.floor(wxiXt(B.lonB, n)), y0:Math.floor(wxiYt(B.latB, n)), y1:Math.floor(wxiYt(B.latA, n)) }; });
+  const key = Ls.map((L, i)=>L.id + "@" + sets[i].z).join("|") + "|" + V.cl.toFixed(5);
+  // v178 ユーザー「一定以上ズームインしてもレーダー消える」→ 絵が画面の何十倍もの大きさで描かれると iPad(Safari)は描かなくなる。
+  //   絵の大きさが画面の 4 倍を超えたら、見えている所の周りだけで作り直す
+  const big = ext=>ext && Math.max(ext.w*V.k, ext.h*V.k) > 4*Math.max(W, H);
+  const covers = c=>sets.every((t, i)=>{ const q = c[i]; return q && t.z === q.z && t.v.x0 >= q.x0 && t.v.x1 <= q.x1 && t.v.y0 >= q.y0 && t.v.y1 <= q.y1; });
+  if(sets.every(t=>t.x0 > t.x1 || t.y0 > t.y1)) return irp + lt;   // v163 保存した範囲(日本付近)の外だけを見ているとき
+  // 見えている所(保存した範囲の中)が絵の中に入っているか
+  const vin = ext=>{ const a = Math.max(118, R.lonA)*V.cl, b = Math.min(152, R.lonB)*V.cl, c = -Math.min(50, R.latB), d = -Math.max(20, R.latA), e = 1e-6;
+    return ext && a >= ext.x - e && b <= ext.x + ext.w + e && c >= ext.y - e && d <= ext.y + ext.h + e; };
+  const shown = WXIC.url && WXIC.ukey === key && WXIC.ucover && covers(WXIC.ucover) && !big(WXIC.ext) && vin(WXIC.ext);
+  const making = WXIC.key === key && WXIC.cover && WXIC.cover !== WXIC.ucover && covers(WXIC.cover) && (!WXIC.clip || (R.lonA >= WXIC.clip.lonA && R.lonB <= WXIC.clip.lonB && R.latA >= WXIC.clip.latA && R.latB <= WXIC.clip.latB));
+  if(!shown && !making){
+    let hit = null; for(const c of WXIC.cache.values()) if(c.key === key && covers(c.cover) && !big(c.ext) && vin(c.ext)) hit = c;
+    WXIC.gen++; WXIC.layers = Ls;
+    if(hit){ WXIC.key = hit.key; WXIC.cover = hit.cover; WXIC.url = hit.url; WXIC.ext = hit.ext; WXIC.ukey = hit.key; WXIC.ucover = hit.cover; }
+    else { WXIC.key = key; WXIC.cover = sets; WXIC.clip = sets.some(t=>t.z >= 6) ? RB : null; wxiCompose(); } }   // 新しい絵ができるまでは前の絵のまま
+  const k = V.k, f1 = v=>v.toFixed(1);
+  return irp + '<g pointer-events="none" id="wxiHost" transform="matrix('+k.toFixed(4)+' 0 0 '+k.toFixed(4)+' '+f1(W/2 - V.cx*k)+' '+f1(H/2 + V.cy*k)+')"></g>' + lt;
+}
+// v178 ユーザー「レーダー押してから表示まで結構ラグ」→ 地図を開いたとき・WX保存のあと、手が空いているときに最新のレーダーの絵を今の範囲で作っておく(通信はしない)
+function wxiPrewarm(){
+  if(!VIEW){ if(WXOFF.jmeta) setTimeout(wxiPrewarmSoon, 1000); return; }
+  if(WXI.rad || WXIC.warm || !WXOFF.jmeta || !(WXOFF.jmeta.radT || []).length || !(WXI.L.n1 || []).length) return;
+  const off = WXI.off; WXIC.warm = true; WXI.rad = true; WXI.off = 0;
+  try{ wxiSvg(VIEW, MW, MH, MOX, MOY); }catch(_){ WXIC.warm = false; }
+  finally{ WXI.rad = false; WXI.off = off; }
+  if(WXIC.warm && WXIC.url){ WXIC.warm = false; WXIC.url = ""; WXIC.ukey = ""; WXIC.key = ""; }   // もう作ってあった
+}
+// v179 ユーザー「レーダー以外の雲頂とか赤外も瞬時に出るように」→ 赤外・雲頂FL・雲の種類の絵も、今の範囲で前もって作る(1 回に 1 枚ずつ、手が空いているときに)
+let WXPW = 0;
+function wxImgPrewarm(){
+  if(!VIEW || !WXOFF.jmeta) return false;
+  const J = WXOFF.jmeta, busy = ()=>HIC.busy || IRC.busy || HIC.pend.size || IRC.pend.size;
+  if(J.hir){ irLoad(); if(IRC.A){ const crop = gridCrop(IRC, IRC.g, VIEW, MW, MH), key = IRC.t + cropKey(crop); if(!IRC.cache.has(key)){ wxImgCache(IRC, key, ()=>irBuild(crop)); return true; } } }
+  if(J.hima){ hiLoad();
+    if(HIC.A){ const crop = gridCrop(HIC, HIC.g, VIEW, MW, MH);
+      if(!HIC.cache.has(hiKey("fl", crop))){ hiGet("fl", crop); return true; }
+      if(HIC.T && !(J.hir && !IRC.A)){ if(IRC.A && HIC.Jir !== IRC.t){ HIC.Jir = IRC.t; HIC.J = null; }
+        if(!HIC.cache.has(hiKey("ct", crop))){ hiGet("ct", crop); return true; } } } }
+  return busy();   // 読み込み中ならまたあとで
+}
+const wxiPrewarmSoon = ()=>{ const f = ()=>{ try{ wxiPrewarm(); }catch(_){}
+    let more = false; try{ more = wxImgPrewarm(); }catch(_){}
+    if(more && ++WXPW < 20) setTimeout(wxiPrewarmSoon, 300); else WXPW = 0; };
+  if(window.requestIdleCallback) requestIdleCallback(f, { timeout:3000 }); else setTimeout(f, 1500); };
+// 雷: 保存した 30 分ぶん(5 分ごとの点の一覧)。新しいほど明るい黄色の「+」
+const WXL = new Map();   // v → 点の配列(読み込み中は null)
+function wxiLtgSvg(V, W, H, OX, OY){
+  const J = WXOFF.jmeta; if(!J || !J.ltg || !J.ltg.length) return "";
+  const k = V.k, f1 = v=>v.toFixed(1), sx = lon=>W/2 + (lon*V.cl - V.cx)*k, sy = lat=>H/2 - (lat - V.cy)*k;
+  const newest = Math.max(...J.ltg.map(e=>jt(e.v)));
+  let o = "";
+  J.ltg.forEach(e=>{
+    if(!WXL.has(e.v)){ WXL.set(e.v, null);
+      wxIdb.get("jma:jmatile/data/nowc/" + e.b + "/none/" + e.v + "/surf/liden/data.geojson").then(b=>b ? b.text() : "").then(t=>{ let a = []; try{ a = (JSON.parse(t).features || []).map(f=>f.geometry && f.geometry.coordinates).filter(c=>c && c.length >= 2); }catch(_){} WXL.set(e.v, a); redrawMap(); }).catch(()=>WXL.set(e.v, [])); }
+    const pts = WXL.get(e.v); if(!pts || !pts.length) return;
+    const age = (newest - jt(e.v))/60e3, op = age < 7 ? 1 : age < 17 ? .7 : .45;
+    let d = "";
+    for(const [lo, la] of pts){ const x = sx(lo), y = sy(la); if(x < -OX - 6 || x > W + OX + 6 || y < -OY - 6 || y > H + OY + 6) continue; d += "M"+f1(x - 4)+" "+f1(y)+"h8M"+f1(x)+" "+f1(y - 4)+"v8"; }
+    if(d) o += '<path d="'+d+'" stroke="#05080c" stroke-width="4" stroke-linecap="round" opacity="'+op+'"/><path d="'+d+'" stroke="#ffe14d" stroke-width="2" stroke-linecap="round" opacity="'+op+'"/>';
+  });
+  return o ? '<g pointer-events="none">' + o + '</g>' : "";
+}
+// まとめた絵は 1 つの要素。描き直しのたびに同じ要素を差し込む(作り直すと読み直しになる)。新しい絵ができるまでは前の絵(世界の座標なので位置は合っている)
+// v165 ユーザー「巻雲の高度を正しく認識する方法」→ NOAA がひまわりから求めた雲頂の高さ(半透明の巻雲も補正する ACHA)を、公開リポジトリの Actions が 30 分ごとに KV へ。
+//   WX保存のとき最新の 1 時刻を端末に保存("hima:data"、jmeta.hima)。平面図に FL100・200・250・300・350・400 の色で塗り、押した所の FL を出す。
+//   注意: 衛星から斜めに見ているので、高い雲は実際より北に 10km ほどずれて写る(位置の補正はしていない)
+// v166 ユーザー「色合いはさっき渡したひまわりの温度の色(雲頂強調の色)と同じような感じに」「表示している所をプロット」「雲頂FL 消したらオフ」
+//   → 雲頂 FL を雲頂強調と同じ色の並び(SND_TBL: 濃い青 → 水色 → 緑 → 黄 → 赤)で、FL100(濃い青)〜FL450(赤)に 1 画素ずつ塗った絵(canvas → PNG)にして、
+//     世界の座標に 1 枚の image で置く(作るのは保存が変わったときだけ)。FL100 より低い雲は薄く。押した所に印と FL を出す(雲頂FL を消したら印も消す)
+const HIC = { t:"", A:null, T:null, J:null, Jir:"", g:null, cache:new Map(), pend:new Set(), umode:"", busy:false, key:"", url:"", ext:null, node:null, nodeUrl:"", tap:null, making:false };
+// v169 雲の種類(NOAA の AHI-CPHS の CloudType を公開リポジトリで 9 つにまとめたもの。hima:data の後ろ半分。無ければ null)
+//   番号 = 公開リポジトリの himawari_build.py の CT_CLASSES と同じ並び(0 = 雲なし、255 = 欠け)
+const CT_TBL = [null,
+  ["霧・層雲", "#9aa4ad"], ["水の雲", "#3fb6ff"], ["過冷却の水の雲", "#c34dff"], ["水と氷の混じり", "#ffd23f"],
+  ["厚い氷の雲", "#ff7a2f"], ["巻雲(薄い氷)", "#f4f6f8"], ["多層(上に巻雲)", "#ff5fa2"], ["オーバーシュート", "#ff1f1f"], ["不明・その他", "#5e646b"]];
+// v170 ユーザー「雲の種類はこういう区分にできる?」(気象庁 HCAI の Type of Cloud: Clr・Cb・Ci・Cm・Cu・Sc・St・Dense)
+//   → NOAA の種類(上の 9 つ = 雲相が中心)と雲頂の高さ、まわりのでこぼこ(5×5 = 約 25km の雲頂 FL のばらつき)から、気象庁の区分に近づけて塗る(気象庁と同じ計算ではない)。
+//   Cb   = オーバーシュート、または厚い氷の雲で雲頂 FL400 以上
+//   Dense= 厚い氷の雲(Cb 以外)、または FL215 以上のほかの雲(上層の厚い雲)
+//   Ci   = 巻雲・多層(上に薄い巻雲)
+//   Cm   = 雲頂 FL105〜FL215(中層。ISCCP の 680〜440hPa)
+//   St   = 霧・層雲、または雲頂 FL030 未満
+//   Cu / Sc = 雲頂 FL105 未満で、まわりの雲頂のばらつき(標準偏差)が 1,000ft 以上なら Cu(でこぼこ = 対流)、未満なら Sc(平ら)
+//   押したときは区分と一緒に NOAA の雲相(過冷却の水など)も出す
+const JC_TBL = [null, ["Cb", "積乱雲", "#e8322a"], ["Ci", "巻雲", "#a8d8f0"], ["Cm", "中層雲", "#f5d77a"], ["Cu", "積雲", "#e8822a"], ["Sc", "層積雲", "#c4f04a"], ["St", "層雲・霧", "#4fd14a"], ["Dense", "厚い上層雲", "#4a5f6a"]];
+// v175 ユーザー「台風部分のほとんどが dense になっている」→ 気象庁の Dense は「厚い上層雲」、台風の上の広い巻雲の覆い(アンビル)は Ci、Cb は芯だけ。
+//   気象庁は赤外 B13 の温度と、まわりの最高・最低温度(でこぼこ)で Cb を見分けている(MSC 技術報告 61)ので、赤外(NOAA の B13)を使う:
+//   Cb   = オーバーシュート / 厚い氷で −66℃(207K)以下 / 厚い氷・雲頂 FL300 以上・−48℃(225K)以下で、まわり(約 12km 四方)の温度差 10K 以上(対流のでこぼこ)
+//          赤外が保存されていなければ 前の決め方(厚い氷で FL400 以上)
+//   Ci   = 巻雲・多層 / 厚い氷で雲頂 FL380 以上(Cb 以外 = 台風・積乱雲の上に広がる巻雲の覆い)
+//   Dense= 厚い氷で雲頂 FL380 未満(前線などの厚い上層雲)/ FL215 以上のほかの雲
+function hiIrK(lat, lon){ const g = IRC.g, A = IRC.A; if(!A || !g) return 0; const y = Math.round((lat - g.lat0)/g.dlat), x = Math.round((lon - g.lon0)/g.dlon);
+  if(y < 0 || x < 0 || y >= g.ny || x >= g.nx) return 0; const v = A[y*g.nx + x]; return v === 0 || v === 255 ? 0 : v + 150; }
+function hiIrRange(lat, lon, r){ const g = IRC.g, A = IRC.A, y0 = Math.round((lat - g.lat0)/g.dlat), x0 = Math.round((lon - g.lon0)/g.dlon); let lo = 999, hi = 0;
+  for(let y=Math.max(0, y0 - r); y<=Math.min(g.ny - 1, y0 + r); y++) for(let x=Math.max(0, x0 - r); x<=Math.min(g.nx - 1, x0 + r); x++){ const v = A[y*g.nx + x]; if(v === 0 || v === 255 || v > 95) continue; if(v < lo) lo = v; if(v > hi) hi = v; }   // 245K より暖かい所(雲の縁の外)は入れない
+  return hi > 0 ? hi - lo : 0; }
+function hiJmaClass(){
+  const g = HIC.g, A = HIC.A, T = HIC.T, nx = g.nx, ny = g.ny, J = new Uint8Array(nx*ny), R = 2, ir = !!(IRC.A && IRC.g);
+  for(let j=0; j<ny; j++) for(let i=0; i<nx; i++){
+    const k = j*nx + i, v = A[k], c = T[k]; if(!c || c === 255 || v === 0 || v === 255) continue;
+    const fl = v*2, lat = g.lat0 + j*g.dlat, lon = g.lon0 + i*g.dlon;
+    if(c === 8){ J[k] = 1; continue; }
+    if(c === 5){
+      const K = ir ? hiIrK(lat, lon) : 0;
+      if(ir && K ? (K <= 207 || (fl >= 300 && K <= 225 && hiIrRange(lat, lon, 2) >= 10)) : fl >= 400){ J[k] = 1; continue; }
+      J[k] = fl >= 380 ? 2 : 7; continue; }
+    if(c === 6 || c === 7){ J[k] = 2; continue; }
+    if(fl >= 215){ J[k] = 7; continue; }
+    if(fl >= 105){ J[k] = 3; continue; }
+    if(c === 1 || fl < 30){ J[k] = 6; continue; }
+    let n = 0, s1 = 0, s2 = 0;
+    for(let b=Math.max(0, j - R); b<=Math.min(ny - 1, j + R); b++) for(let a=Math.max(0, i - R); a<=Math.min(nx - 1, i + R); a++){
+      const w = A[b*nx + a]; if(w === 0 || w === 255) continue; n++; s1 += w*2; s2 += w*w*4; }
+    const sd = n > 2 ? Math.sqrt(Math.max(0, s2/n - (s1/n)*(s1/n))) : 0;
+    J[k] = sd >= 10 ? 4 : 5;
+  }
+  return J;
+}
+const hiMode = ()=>WXI.ct && HIC.T ? "ct" : "fl";
+const HI_MIN = 100, HI_MAX = 450;
+function hiColor(fl){ const n = SND_TBL.length, i = Math.max(0, Math.min(n - 1, Math.round((fl - HI_MIN)/(HI_MAX - HI_MIN)*(n - 1)))); return SND_TBL[i]; }
+function hiLoad(){
+  const h = WXOFF.jmeta && WXOFF.jmeta.hima; if(!h){ HIC.A = null; HIC.t = ""; return; }
+  if((HIC.t === h.t && HIC.A) || HIC.busy) return; HIC.busy = true;
+  wxIdb.get("hima:data").then(b=>b ? b.arrayBuffer() : null).then(ab=>{ const all = ab ? new Uint8Array(ab) : null, n = h.grid.nx*h.grid.ny;
+    // v169 前半 = 雲頂 FL、後半 = 雲の種類(layers に "type" があるときだけ)
+    wxImgClear(HIC); HIC.url = ""; HIC.J = null; HIC.A = all ? all.subarray(0, n) : null; HIC.T = all && (h.layers || []).includes("type") && all.length >= 2*n ? all.subarray(n, 2*n) : null; HIC.g = h.grid; HIC.t = h.t; HIC.key = ""; HIC.busy = false; redrawMap(); }).catch(()=>{ HIC.busy = false; });
+}
+// v178 ユーザー「一定以上ズームインすると消える」→ 絵が画面の 4 倍より大きく描かれると iPad(Safari)は描かないので、そのときは見えている所の周り(上下左右に画面の半分)だけの絵にする。
+//   戻り値 = 格子の切り出し { i0, i1, j0, j1 }(全部なら null)。今の切り出しで足りていればそのまま
+function gridCrop(S, g, V, W, H){
+  const L = 4*Math.max(W, H), kx = V.k*V.cl, ky = V.k;
+  if(g.nx*g.dlon*kx <= L && g.ny*g.dlat*ky <= L) return null;
+  const lonA = (V.cx - W/2/V.k)/V.cl, lonB = (V.cx + W/2/V.k)/V.cl, latA = V.cy - H/2/V.k, latB = V.cy + H/2/V.k;
+  const c = S.crop, ii = lon=>Math.round((lon - g.lon0)/g.dlon), jj = lat=>Math.round((lat - g.lat0)/g.dlat);
+  if(c && ii(lonA) >= c.i0 && ii(lonB) <= c.i1 && jj(latA) >= c.j0 && jj(latB) <= c.j1 && (c.i1 - c.i0 + 1)*g.dlon*kx <= L && (c.j1 - c.j0 + 1)*g.dlat*ky <= L) return c;
+  const mx = (lonB - lonA)/2, my = (latB - latA)/2;
+  const r = { i0:Math.max(0, ii(lonA - mx)), i1:Math.min(g.nx - 1, ii(lonB + mx)), j0:Math.max(0, jj(latA - my)), j1:Math.min(g.ny - 1, jj(latB + my)) };
+  return r.i0 > r.i1 || r.j0 > r.j1 ? c : r;
+}
+const cropKey = c=>c ? "|" + c.i0 + "," + c.i1 + "," + c.j0 + "," + c.j1 : "|all";
+const cropExt = (g, c)=>{ const i0 = c ? c.i0 : 0, i1 = c ? c.i1 : g.nx - 1, j0 = c ? c.j0 : 0, j1 = c ? c.j1 : g.ny - 1;
+  return { i0, i1, j0, j1, w:i1 - i0 + 1, h:j1 - j0 + 1, ext:{ x:g.lon0 + i0*g.dlon - g.dlon/2, y:-(g.lat0 + (j1 + 0.5)*g.dlat), w:(i1 - i0 + 1)*g.dlon, h:(j1 - j0 + 1)*g.dlat } }; };
+function hiBuild(mode, crop){
+  const g = HIC.g, A = HIC.A, Q = cropExt(g, crop), cv = document.createElement("canvas"); cv.width = Q.w; cv.height = Q.h;
+  const ctx = cv.getContext("2d"), im = ctx.createImageData(Q.w, Q.h), D = im.data, ct = mode === "ct", T = HIC.T;
+  if(ct && !HIC.J) HIC.J = hiJmaClass();
+  const J = HIC.J, rgb = JC_TBL.map(e=>e && [parseInt(e[2].slice(1, 3), 16), parseInt(e[2].slice(3, 5), 16), parseInt(e[2].slice(5, 7), 16)]);
+  for(let j=Q.j0; j<=Q.j1; j++){ const row = (Q.j1 - j)*Q.w;   // 絵の上 = 北
+    for(let i=Q.i0; i<=Q.i1; i++){ const o = (row + i - Q.i0)*4;
+      if(ct){ const c = rgb[J[j*g.nx + i]]; if(!c) continue; D[o] = c[0]; D[o + 1] = c[1]; D[o + 2] = c[2]; D[o + 3] = 170; continue; }
+      const v = A[j*g.nx + i]; if(v === 0 || v === 255) continue;
+      const fl = v*2, c = hiColor(fl); D[o] = c[1]; D[o + 1] = c[2]; D[o + 2] = c[3]; D[o + 3] = fl < HI_MIN ? 70 : 165; } }
+  ctx.putImageData(im, 0, 0);
+  // v179 作った絵は HIC.cache に(時刻・種類・切り出しごと)。押したときすぐ出せるよう前もっても作る(wxPrewarm)
+  return new Promise(res=>cv.toBlob(b=>res(b ? { url:URL.createObjectURL(b), ext:Q.ext } : null), "image/png"));
+}
+
+// v179 絵を cache から(無ければ作り始めて null)。cache は 6 枚まで
+function wxImgCache(S, key, build){
+  const c = S.cache.get(key); if(c){ S.cache.delete(key); S.cache.set(key, c); return c; }
+  if(!S.pend.has(key)){ S.pend.add(key); const t = S.t;
+    build().then(r=>{ S.pend.delete(key); if(!r) return; if(S.t !== t){ URL.revokeObjectURL(r.url); return; }
+      S.cache.set(key, r); while(S.cache.size > 6){ const k0 = S.cache.keys().next().value, c0 = S.cache.get(k0); S.cache.delete(k0); if(c0.url !== S.url) setTimeout(()=>URL.revokeObjectURL(c0.url), 1000); }
+      redrawMap(); }).catch(()=>S.pend.delete(key)); }
+  return null;
+}
+function wxImgClear(S){ S.cache.forEach(c=>{ if(c.url !== S.url) URL.revokeObjectURL(c.url); }); S.cache.clear(); S.pend.clear(); }
+const hiKey = (mode, crop)=>HIC.t + "|" + mode + (mode === "ct" ? "|" + (HIC.Jir || "") : "") + cropKey(crop);   // 雲の種類は赤外を使ったかどうかでも別
+function hiGet(mode, crop){
+  if(mode === "ct" && !HIC.J) HIC.J = hiJmaClass();
+  return wxImgCache(HIC, hiKey(mode, crop), ()=>hiBuild(mode, crop));
+}
+function hiSvg(V, W, H){
+  hiLoad(); if(!HIC.A || !HIC.g) return "";
+  // v175 雲の種類は赤外の温度も使う(読み込み終わったら分け直す)
+  if(WXI.ct){ irLoad(); if(IRC.A && HIC.Jir !== IRC.t){ HIC.Jir = IRC.t; HIC.J = null; } }
+  const mode = hiMode(), crop = gridCrop(HIC, HIC.g, V, W, H), r = hiGet(mode, crop);
+  if(r){ HIC.url = r.url; HIC.ext = r.ext; HIC.crop = crop; HIC.umode = mode; }
+  else if(HIC.umode !== mode){ HIC.url = ""; }   // 種類が違う前の絵は出さない(同じ種類なら、できるまで前の絵)
+  const k = V.k, f1 = v=>v.toFixed(1), cl = V.cl;
+  // 絵は 経度×cl の横幅にしたいので、横だけ cl を掛ける(縦は −緯度)
+  let o = HIC.url ? '<g pointer-events="none" id="hiHost" transform="matrix('+(k*cl).toFixed(4)+' 0 0 '+k.toFixed(4)+' '+f1(W/2 - V.cx*k)+' '+f1(H/2 + V.cy*k)+')"></g>' : "";
+  if(HIC.tap){ const x = W/2 + (HIC.tap.lon*cl - V.cx)*k, y = H/2 - (HIC.tap.lat - V.cy)*k;
+    o += '<g pointer-events="none"><circle cx="'+f1(x)+'" cy="'+f1(y)+'" r="6" fill="none" stroke="#05080c" stroke-width="4"/><circle cx="'+f1(x)+'" cy="'+f1(y)+'" r="6" fill="none" stroke="#fff" stroke-width="2"/>'
+      + '<text x="'+f1(x + 10)+'" y="'+f1(y - 8)+'" class="lbl sm" font-size="12" font-weight="700" fill="#fff" stroke="#05080c" stroke-width="3.5" paint-order="stroke">'+HIC.tap.txt+'</text></g>'; }
+  return o;
+}
+// 色の帯(右下、気象庁の字の上)
+function hiLegendSvg(W, H){
+  if(WXI.on && WXI.ct && HIC.T){   // v169 雲の種類の色見本(右下、2 列)
+    // v170 気象庁の区分の色見本(1 列に並べた帯)
+    const n = JC_TBL.length - 1, cw = Math.min(46, (W - 40)/n), x0 = W - n*cw - 14, y0 = H - 46;
+    let o = '<g pointer-events="none"><rect x="'+(x0 - 6)+'" y="'+(y0 - 5)+'" width="'+(n*cw + 12)+'" height="24" rx="4" fill="#0b0f14" fill-opacity=".85" stroke="var(--line)"/>';
+    for(let i=1; i<=n; i++){ const c = JC_TBL[i], x = x0 + (i - 1)*cw;
+      o += '<rect x="'+x.toFixed(1)+'" y="'+y0+'" width="'+(cw - 2).toFixed(1)+'" height="14" fill="'+c[2]+'"/><text x="'+(x + cw/2 - 1).toFixed(1)+'" y="'+(y0 + 11)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'+(i === 7 || i === 1 ? "#fff" : "#05080c")+'">'+c[0]+'</text>'; }
+    return o + '</g>';
+  }
+  if(!(WXI.on && WXI.ho && HIC.A)) return "";
+  const w = Math.min(240, W - 40), x0 = W - w - 14, y0 = H - 50, f1 = v=>v.toFixed(1);
+  let o = '<g pointer-events="none"><defs><linearGradient id="hiG" x1="0" x2="1" y1="0" y2="0">' + SND_TBL.map((c, i)=>'<stop offset="'+(i/(SND_TBL.length - 1)).toFixed(3)+'" stop-color="rgb('+c[1]+','+c[2]+','+c[3]+')"/>').join("") + '</linearGradient></defs>';
+  o += '<rect x="'+(x0 - 6)+'" y="'+(y0 - 4)+'" width="'+(w + 12)+'" height="26" rx="4" fill="#0b0f14" fill-opacity=".85" stroke="var(--line)"/><rect x="'+x0+'" y="'+y0+'" width="'+w+'" height="7" fill="url(#hiG)"/>';
+  [100, 200, 300, 400].forEach(fl=>{ const x = x0 + (fl - HI_MIN)/(HI_MAX - HI_MIN)*w; o += '<text x="'+f1(x)+'" y="'+(y0 + 18)+'" text-anchor="middle" font-size="9" fill="var(--fg)">FL'+fl+'</text>'; });
+  return o + '</g>';
+}
+const hiActive = ()=>WXI.on && (WXI.ho || WXI.ct) && !!HIC.A;
+function hiTap(lat, lon){
+  if(!HIC.A || !HIC.g) return;
+  const g = HIC.g, y = Math.round((lat - g.lat0)/g.dlat), x = Math.round((lon - g.lon0)/g.dlon), tz = HIC.t.slice(11, 16) + "Z";
+  if(y < 0 || x < 0 || y >= g.ny || x >= g.nx){ HIC.tap = null; flash("雲頂FL: 範囲の外です(北緯 20〜50°・東経 118〜152°)"); return; }
+  const v = HIC.A[y*g.nx + x], c = HIC.T ? HIC.T[y*g.nx + x] : 0;
+  // v169 雲の種類も分かれば一緒に。v170 気象庁の区分 + NOAA の雲相(「FL045・Sc 層積雲(過冷却の水の雲)」)
+  if(HIC.T && !HIC.J) HIC.J = hiJmaClass();
+  const jc = HIC.J ? JC_TBL[HIC.J[y*g.nx + x]] : null;
+  //   雲相は区分で分からないときだけ(水滴・過冷却の水滴・水と氷。着氷の目安)
+  const ph = { 2:"水滴", 3:"過冷却の水滴", 4:"水と氷" }[c];
+  const txt = (v === 255 ? "データなし" : v === 0 ? "雲なし" : "FL" + String(v*2).padStart(3, "0")) + (v > 0 && v < 255 ? (jc ? "・" + jc[0] + " " + jc[1] + (ph ? "(" + ph + ")" : "") : CT_TBL[c] ? "・" + CT_TBL[c][0] : "") : "");
+  // v171 赤外も出していれば温度も
+  const tc = WXI.sat === "NIR" ? irTempAt(lat, lon) : "";
+  HIC.tap = { lat, lon, txt:txt + (tc ? "・" + tc : "") };
+  flash("雲頂 " + tz + "(ひまわり・NOAA の解析): " + txt + (tc ? "・温度 " + tc : ""));
+}
+// ---- v171 赤外(NOAA のひまわり B13 の明るさ温度、0.025°)。温度で色: 295K 以上は透明、240K まで灰色(冷たいほど白)、240〜200K は雲頂強調と同じ色(SND_TBL)、200K 未満は白っぽい桃色 ----
+const IRC = { t:"", A:null, g:null, busy:false, key:"", url:"", ext:null, node:null, nodeUrl:"", tap:null, cache:new Map(), pend:new Set(), crop:null };
+function irRGBA(K){
+  if(K >= 295) return null;
+  if(K >= 240){ const f = (295 - K)/55, g = Math.round(60 + f*190); return [g, g, g, Math.round(40 + f*170)]; }
+  if(K >= 200){ const c = SND_TBL[Math.max(0, Math.min(SND_TBL.length - 1, Math.round(240 - K)))]; return [c[1], c[2], c[3], 215]; }
+  return [255, 176, 240, 225];
+}
+function irLoad(){
+  const h = WXOFF.jmeta && WXOFF.jmeta.hir; if(!h){ IRC.A = null; IRC.t = ""; return; }
+  if((IRC.t === h.t && IRC.A) || IRC.busy) return; IRC.busy = true;
+  wxIdb.get("hima:ir").then(b=>b ? new Response(b.stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer() : null)
+    .then(ab=>{ wxImgClear(IRC); IRC.url = ""; IRC.A = ab && ab.byteLength === h.grid.nx*h.grid.ny ? new Uint8Array(ab) : null; IRC.g = h.grid; IRC.t = h.t; IRC.key = ""; IRC.busy = false; redrawMap(); })
+    .catch(()=>{ IRC.busy = false; IRC.A = null; });
+}
+function irBuild(crop){
+  const g = IRC.g, A = IRC.A, Q = cropExt(g, crop), cv = document.createElement("canvas"); cv.width = Q.w; cv.height = Q.h;
+  const ctx = cv.getContext("2d"), im = ctx.createImageData(Q.w, Q.h), D = im.data, lut = [];
+  for(let v=0; v<256; v++) lut[v] = v === 0 || v === 255 ? null : irRGBA(v + 150);
+  for(let j=Q.j0; j<=Q.j1; j++){ const row = (Q.j1 - j)*Q.w;   // 絵の上 = 北
+    for(let i=Q.i0; i<=Q.i1; i++){ const c = lut[A[j*g.nx + i]]; if(!c) continue; const o = (row + i - Q.i0)*4; D[o] = c[0]; D[o + 1] = c[1]; D[o + 2] = c[2]; D[o + 3] = c[3]; } }
+  ctx.putImageData(im, 0, 0);
+  return new Promise(res=>cv.toBlob(b=>res(b ? { url:URL.createObjectURL(b), ext:Q.ext } : null), "image/png"));
+}
+
+function irSvg(V, W, H){
+  irLoad(); if(!IRC.A || !IRC.g) return "";
+  const crop = gridCrop(IRC, IRC.g, V, W, H), r = wxImgCache(IRC, IRC.t + cropKey(crop), ()=>irBuild(crop));
+  if(r){ IRC.url = r.url; IRC.ext = r.ext; IRC.crop = crop; }
+  const k = V.k, f1 = v=>v.toFixed(1), cl = V.cl;
+  let o = IRC.url ? '<g pointer-events="none" id="irHost" transform="matrix('+(k*cl).toFixed(4)+' 0 0 '+k.toFixed(4)+' '+f1(W/2 - V.cx*k)+' '+f1(H/2 + V.cy*k)+')"></g>' : "";
+  if(IRC.tap && !(WXI.ho || WXI.ct)){ const x = W/2 + (IRC.tap.lon*cl - V.cx)*k, y = H/2 - (IRC.tap.lat - V.cy)*k;
+    o += '<g pointer-events="none"><circle cx="'+f1(x)+'" cy="'+f1(y)+'" r="6" fill="none" stroke="#05080c" stroke-width="4"/><circle cx="'+f1(x)+'" cy="'+f1(y)+'" r="6" fill="none" stroke="#fff" stroke-width="2"/>'
+      + '<text x="'+f1(x + 10)+'" y="'+f1(y - 8)+'" class="lbl sm" font-size="12" font-weight="700" fill="#fff" stroke="#05080c" stroke-width="3.5" paint-order="stroke">'+IRC.tap.txt+'</text></g>'; }
+  return o;
+}
+const irActive = ()=>WXI.on && WXI.sat === "NIR" && !!IRC.A;
+// 押した所の温度(℃)。無ければ ""
+function irTempAt(lat, lon){
+  if(!IRC.A || !IRC.g) return "";
+  const g = IRC.g, y = Math.round((lat - g.lat0)/g.dlat), x = Math.round((lon - g.lon0)/g.dlon);
+  if(y < 0 || x < 0 || y >= g.ny || x >= g.nx) return "";
+  const v = IRC.A[y*g.nx + x]; if(v === 0 || v === 255) return "";
+  return Math.round(v + 150 - 273.15) + "℃";
+}
+function irTap(lat, lon){
+  const tc = irTempAt(lat, lon), tz = IRC.t.slice(11, 16) + "Z";
+  if(!tc){ IRC.tap = null; flash("赤外: 範囲の外かデータなし(北緯 20〜50°・東経 118〜152°)"); return; }
+  IRC.tap = { lat, lon, txt:tc };
+  flash("赤外 " + tz + "(ひまわり B13・NOAA): 雲頂(地表)の温度 " + tc);
+}
+// 色の帯(雲頂FL の帯の上)
+function irLegendSvg(W, H){
+  if(!irActive()) return "";
+  const up = (WXI.ho && HIC.A) || (WXI.ct && HIC.T) ? 34 : 0, w = Math.min(240, W - 40), x0 = W - w - 14, y0 = H - 50 - up, f1 = v=>v.toFixed(1);
+  const K0 = 300, K1 = 190, xs = K=>x0 + (K0 - K)/(K0 - K1)*w;
+  let st = ""; for(let K=K0; K>=K1; K-=2){ const c = irRGBA(K) || [20, 24, 30, 255]; st += '<stop offset="'+((K0 - K)/(K0 - K1)).toFixed(3)+'" stop-color="rgb('+c[0]+','+c[1]+','+c[2]+')"/>'; }
+  let o = '<g pointer-events="none"><defs><linearGradient id="irG" x1="0" x2="1" y1="0" y2="0">' + st + '</linearGradient></defs>';
+  o += '<rect x="'+(x0 - 6)+'" y="'+(y0 - 4)+'" width="'+(w + 12)+'" height="26" rx="4" fill="#0b0f14" fill-opacity=".85" stroke="var(--line)"/><rect x="'+x0+'" y="'+y0+'" width="'+w+'" height="7" fill="url(#irG)"/>';
+  [0, -20, -40, -60, -80].forEach(c=>{ o += '<text x="'+f1(xs(c + 273.15))+'" y="'+(y0 + 18)+'" text-anchor="middle" font-size="9" fill="var(--fg)">'+c+'℃</text>'; });
+  return o + '</g>';
+}
+function wxiAttach(){
+  { const ih = document.getElementById("irHost"); if(ih && IRC.url && IRC.ext){ if(!IRC.node || IRC.nodeUrl !== IRC.url){ const e = IRC.ext, im = document.createElementNS("http://www.w3.org/2000/svg", "image");
+      im.setAttribute("href", IRC.url); im.setAttribute("x", e.x); im.setAttribute("y", e.y); im.setAttribute("width", e.w); im.setAttribute("height", e.h); im.setAttribute("preserveAspectRatio", "none"); IRC.node = im; IRC.nodeUrl = IRC.url; } ih.appendChild(IRC.node); } }
+  { const hh = document.getElementById("hiHost"); if(hh && HIC.url && HIC.ext){ if(!HIC.node || HIC.nodeUrl !== HIC.url){ const e = HIC.ext, im = document.createElementNS("http://www.w3.org/2000/svg", "image");
+      im.setAttribute("href", HIC.url); im.setAttribute("x", e.x); im.setAttribute("y", e.y); im.setAttribute("width", e.w); im.setAttribute("height", e.h); im.setAttribute("preserveAspectRatio", "none"); HIC.node = im; HIC.nodeUrl = HIC.url; } hh.appendChild(HIC.node); } }
+  const host = document.getElementById("wxiHost"); if(!host || !WXIC.url || !WXIC.ext) return;
+  if(!WXIC.node || WXIC.nodeUrl !== WXIC.url){ const im = document.createElementNS("http://www.w3.org/2000/svg", "image"), e = WXIC.ext;
+    im.setAttribute("href", WXIC.url); im.setAttribute("x", e.x); im.setAttribute("y", e.y); im.setAttribute("width", e.w); im.setAttribute("height", e.h); im.setAttribute("preserveAspectRatio", "none");
+    // v174 拡大したときも画素を補間でぼかさない(レーダーの段階の境目をくっきり)
+    im.setAttribute("image-rendering", "optimizeSpeed"); im.style.imageRendering = "pixelated";
+    WXIC.node = im; WXIC.nodeUrl = WXIC.url; }
+  host.appendChild(WXIC.node);
+}
+const wxiLab = t=>t ? t.v.slice(8, 10) + ":" + t.v.slice(10, 12) + "Z" : "—";
+const wxiOffLab = m=>m === 0 ? "保存時" : (m < 0 ? "−" : "+") + (Math.abs(m) >= 60 ? Math.floor(Math.abs(m)/60) + "時間" + (Math.abs(m) % 60 ? Math.abs(m) % 60 + "分" : "") : Math.abs(m) + "分");
+function wxiBarRender(){
+  const bar = $("wxiBar"); if(!bar) return;
+  bar.textContent = "";
+  // v173 ユーザー「赤外と雲頂とレーダーはどれか 1 つのみ選択できるように」→ 赤外・レーダー・雲頂FL・雲の種類は 1 つだけ(押した物だけ入る。入っている物を押すと全部切る)
+  const sg = el("div", "seg"); sg.setAttribute("role", "group"); sg.setAttribute("aria-label", "重ねるもの(1 つ)");
+  const isOn = m=>m === "ir" ? WXI.sat === "NIR" : !!WXI[m];
+  [["ir","赤外"],["rad","レーダー"],["ho","雲頂FL"],["ct","雲の種類"]].forEach(([m, lab])=>{ const on = isOn(m), b = el("button", on ? "on" : "", lab); b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.addEventListener("click", ()=>{ WXI.sat = ""; WXI.rad = WXI.ho = WXI.ct = false; HIC.tap = null; IRC.tap = null;
+      if(!on){ if(m === "ir") WXI.sat = "NIR"; else WXI[m] = true; }
+      wxiBarRender(); wxiTimes(true); }); sg.append(b); });
+  // v176 雷は ほかと重ねられる(1 つだけの決まりの外)
+  const sl = el("div", "seg"); sl.setAttribute("role", "group"); sl.setAttribute("aria-label", "雷");
+  { const b = el("button", WXI.ltg ? "on" : "", "雷"); b.type = "button"; b.setAttribute("aria-pressed", WXI.ltg ? "true" : "false");
+    b.addEventListener("click", ()=>{ WXI.ltg = !WXI.ltg; wxiBarRender(); wxiTimes(true); }); sl.append(b); }
+  if(!WXI.rad){ bar.append(sg, sl); return; }   // 時刻のつまみはレーダーのときだけ(赤外・雲頂は保存した 1 時刻)
+  // v141 時刻のつまみ(過去 6 時間〜予報)と ◀ ▶
+  const steps = wxiSteps(); let idx = steps.indexOf(WXI.off); if(idx < 0){ idx = steps.indexOf(0); WXI.off = 0; }
+  const rg = document.createElement("input"); rg.type = "range"; rg.min = "0"; rg.max = String(steps.length - 1); rg.step = "1"; rg.value = String(idx); rg.className = "wxiRange"; rg.setAttribute("aria-label", "表示する時刻");
+  const lab = el("span", "wxs wxiT", wxiOffLab(WXI.off));
+  const go = i=>{ i = Math.max(0, Math.min(steps.length - 1, i)); WXI.off = steps[i]; rg.value = String(i); lab.textContent = wxiOffLab(WXI.off); redrawMap(); };
+  rg.addEventListener("input", ()=>go(+rg.value));
+  const bp = el("button", "btn sm", "◀"); bp.type = "button"; bp.setAttribute("aria-label", "前の時刻"); bp.addEventListener("click", ()=>go(+rg.value - 1));
+  const bn = el("button", "btn sm", "▶"); bn.type = "button"; bn.setAttribute("aria-label", "次の時刻"); bn.addEventListener("click", ()=>go(+rg.value + 1));
+  const b0 = el("button", "btn sm", "最新"); b0.type = "button"; b0.addEventListener("click", ()=>go(steps.indexOf(0)));
+  bar.append(sg, sl, bp, rg, bn, lab, b0);
+}
+// しきい値以上の面(格子 G[i][j]、i=経度方向、j=緯度方向。X・Y は画面の位置)。VSD の area と同じ考え方
+// v133 軽量化: 全部しきい値以上のマスは、横に続く分をまとめて 1 つの四角に(path が短くなり、描くのも軽い)。pr は小数の桁
+function gridArea(G, X, Y, t, pr){
+  let d = ""; const fx = v=>v.toFixed(pr == null ? 1 : pr), nI = X.length - 1;
+  for(let j=0; j<Y.length-1; j++){
+    let r0 = -1;
+    const flush = i=>{ if(r0 >= 0){ d += 'M'+fx(X[r0])+' '+fx(Y[j])+'L'+fx(X[i])+' '+fx(Y[j])+'L'+fx(X[i])+' '+fx(Y[j+1])+'L'+fx(X[r0])+' '+fx(Y[j+1])+'Z'; r0 = -1; } };
+    for(let i=0; i<nI; i++){
+      const a = G[i][j], b = G[i+1][j], c = G[i+1][j+1], e = G[i][j+1];
+      if(a == null || b == null || c == null || e == null){ flush(i); continue; }
+      if(a >= t && b >= t && c >= t && e >= t){ if(r0 < 0) r0 = i; continue; }
+      flush(i);
+      if(a < t && b < t && c < t && e < t) continue;
+      const v = [a, b, c, e], Px = [[X[i], Y[j]], [X[i+1], Y[j]], [X[i+1], Y[j+1]], [X[i], Y[j+1]]], poly = [];
+      for(let k=0; k<4; k++){ const n = (k+1)%4; if(v[k] >= t) poly.push(Px[k]);
+        if((v[k] >= t) !== (v[n] >= t)){ const f = (t - v[k])/(v[n] - v[k]); poly.push([Px[k][0] + (Px[n][0]-Px[k][0])*f, Px[k][1] + (Px[n][1]-Px[k][1])*f]); } }
+      if(poly.length >= 3) d += 'M' + poly.map(q=>fx(q[0])+' '+fx(q[1])).join('L') + 'Z';
+    }
+    flush(nI);
+  }
+  return d;
+}
+// v133 等値線の線分を端どうしでつないで折れ線にする(M…L の対が並ぶより path がずっと短い)
+function joinSegs(segs, pr){
+  const fx = v=>v.toFixed(pr == null ? 1 : pr), key = (x, y)=>fx(x) + "," + fx(y), ends = new Map(), used = new Uint8Array(segs.length);
+  segs.forEach((q, i)=>{ [key(q[0], q[1]), key(q[2], q[3])].forEach(k=>{ const a = ends.get(k); if(a) a.push(i); else ends.set(k, [i]); }); });
+  const next = (k, me)=>{ const a = ends.get(k); if(!a) return -1; for(const i of a) if(i !== me && !used[i]) return i; return -1; };
+  let d = "";
+  for(let s0=0; s0<segs.length; s0++){ if(used[s0]) continue; used[s0] = 1;
+    const pts = [[segs[s0][0], segs[s0][1]], [segs[s0][2], segs[s0][3]]];
+    for(const dirn of [1, 0]){   // 後ろへ、前へのばす
+      for(;;){ const e = dirn ? pts[pts.length-1] : pts[0], k = key(e[0], e[1]), i = next(k, -1); if(i < 0) break; used[i] = 1;
+        const q = segs[i], np = key(q[0], q[1]) === k ? [q[2], q[3]] : [q[0], q[1]]; if(dirn) pts.push(np); else pts.unshift(np); } }
+    d += 'M' + pts.map(p=>fx(p[0]) + ' ' + fx(p[1])).join('L');
+  }
+  return d;
+}
+function gridLines(G, X, Y, t, pr){ return joinSegs(contourSegs(G, X, Y, t), pr); }
+// v153 塗りを「閉じた等値線の輪」で(前はマス目ごとの小さな多角形の寄せ集めで、細かい指標だと SVG が数 MB になりズームが重かった)。
+//   格子の外側を 1 周「しきい値より下」で囲んでから等値線を引くと、輪が全部閉じる。evenodd で塗れば穴も正しく抜ける。欠け(null)も下とみなす
+function gridFill(G, X, Y, t, pr){
+  const n = X.length, m = Y.length, LOW = -1e9;
+  const Xp = [X[0] - (X[1] - X[0]), ...X, X[n - 1] + (X[n - 1] - X[n - 2])], Yp = [Y[0] - (Y[1] - Y[0]), ...Y, Y[m - 1] + (Y[m - 1] - Y[m - 2])];
+  const Gp = Xp.map((_, i)=>Yp.map((_, j)=>{ if(i === 0 || j === 0 || i === n + 1 || j === m + 1) return LOW; const v = G[i - 1][j - 1]; return v == null ? LOW : v; }));
+  return joinSegs(contourSegs(Gp, Xp, Yp, t), pr);
+}
+function gridLinesOld(G, X, Y, t, pr){ let d = ""; const fx = v=>v.toFixed(pr == null ? 1 : pr); contourSegs(G, X, Y, t).forEach(q=>{ d += 'M'+fx(q[0])+' '+fx(q[1])+'L'+fx(q[2])+' '+fx(q[3]); }); return d; }
+// v133 軽量化: 塗りと線は「世界の座標」(横 = 経度×cl、縦 = 緯度)で 1 回だけ作って覚えておき、表示は transform で画面に合わせる。
+//   パン・ズームのたびに等値線を計算し直さない(前は 1 回の描き直しで数十 ms〜)。線の太さは vector-effect で画面の px のまま。
+//   字(等風速線の数字)と矢羽根だけは、毎回画面の座標で置く(数が少ないので軽い)
+// v155 高度ごとに作って upEntry が覚える(今の表示の設定で)
+function upGeoBuild(d, cl){
+  const nx = d.nx, ny = d.ny, PR = 3;   // v153 座標は小数 3 桁(0.001° ≈ 100m。格子は約 0.1°)
+  const X = Array.from({ length:nx }, (_, i)=>(d.lon0 + i*d.dlon)*cl), Y = Array.from({ length:ny }, (_, j)=>d.lat0 + j*d.dlat);
+  const grid = (arr, sc)=>X.map((_, i)=>Y.map((_, j)=>{ const v = arr[j*nx + i]; return v == null ? null : v/sc; }));
+  const NS = ' vector-effect="non-scaling-stroke"';
+  // 塗りは不透明で描いて、まとめて透明にする(マス目の継ぎ目が見えないように)
+  const fill = (dd, col, op)=> dd ? '<path d="'+dd+'" fill="'+col+'" fill-opacity="'+op+'" fill-rule="evenodd" stroke="none"/>' : "";   // v153 輪で塗るので継ぎ目が出ない(縁どりの線・まとめての透明は要らない)
+  const line = (dd, col, wd, op)=> dd ? '<path d="'+dd+'" fill="none" stroke="#05080c" stroke-opacity=".6" stroke-width="'+(wd+2)+'" stroke-linejoin="round"'+NS+'/><path d="'+dd+'" fill="none" stroke="'+col+'" stroke-opacity="'+op+'" stroke-width="'+wd+'" stroke-linejoin="round"'+NS+'/>' : "";
+  let o = "", labs = [];
+  if(UP.ct && Array.isArray(d.ct)){   // v145 雲頂(UKMET の湿度から): 灰の濃さ FL100・200・300・400
+    const Cg = grid(d.ct, 1).map(c=>c.map(v=>v == null ? 0 : v));
+    [[100, "#2f3a46"], [200, "#4d5d6e"], [300, "#7d8fa1"], [400, "#c3d0dc"]].forEach(([t, c])=>{ o += fill(gridFill(Cg, X, Y, t, PR), c, .5); });
+    [100, 200, 300, 400].forEach(t=>{ o += line(gridLines(Cg, X, Y, t, PR), "#e6edf3", .8, .6); });
+  }
+  if(UP.cat === "ri"){ const Q = grid(d.q, 100).map(c=>c.map(riLg)); o += fill(gridFill(Q, X, Y, 0, 3), "#6d2345", .4) + fill(gridFill(Q, X, Y, 1, 3), "#ab366e", .45) + fill(gridFill(Q, X, Y, 2, 3), "#df5e97", .5); }
+  const C = CATS[UP.cat];
+  if(C && C.th && Array.isArray(d[UP.cat])){   // v132 TI1・TI2・NCSU1(ti は ×10、nc は log10×100。null は 0 = しきい値より下)
+    const Gc = grid(d[UP.cat], UP.cat === "nc" ? 100 : UP.cat === "cc" ? 1000 : 10).map(c=>c.map(v=>v == null ? (UP.cat === "nc" ? -20 : 0) : v));
+    // v153 縁の線は塗りと同じ輪に線を引く(前は別に等値線を作り、黒い縁どりと 2 本ずつ描いていた。同じ形を 3 回描いていたのを 1 回に)
+    C.th.forEach((t, i)=>{ const dd = gridFill(Gc, X, Y, t, 3); if(dd) o += '<path d="'+dd+'" fill="'+C.col[i]+'" fill-opacity="'+(.4 + .05*i)+'" fill-rule="evenodd" stroke="'+C.line+'" stroke-opacity=".7" stroke-width=".9"'+NS+'/>'; });
+  }
+  if(UP.vws){ const Vg = grid(d.vws, 10);
+    // v131: VWS は塗らない(線だけ。ユーザー「塗らなくていい、はみ出てることもある」)
+    o += line(gridLines(Vg, X, Y, 6, PR), "#7bed2a", 1.4, .9) + line(gridLines(Vg, X, Y, 9, PR), "#ffd400", 1.3, .9) + line(gridLines(Vg, X, Y, 12, PR), "#ff7a00", 1.3, .9); }
+  if(UP.wind){
+    const Sg = X.map((_, i)=>Y.map((_, j)=>{ const k = j*nx + i, u = d.u[k], v = d.v[k]; return u == null || v == null ? null : Math.hypot(u, v)/10; }));
+    [40, 60, 80, 100, 120, 140, 160, 180].forEach(t=>{ const segs = contourSegs(Sg, X, Y, t); if(!segs.length) return;
+      o += line(joinSegs(segs, PR), "#4db3ee", t >= 100 ? 1.4 : 1, .8);
+      const seen = new Set(); segs.forEach(q=>{ const x = (q[0] + q[2])/2, y = (q[1] + q[3])/2, k = Math.floor(x*8) + ":" + Math.floor(y*8); if(!seen.has(k)){ seen.add(k); labs.push([x, y, t]); } }); });   // 数字の置き場所の候補(世界の座標)。v163 0.125° に 1 つまでに減らす(覚える量を減らす)
+  }
+  return { body:o, labs, X, Y };
+}
+// v153 上空の塗り・線の要素は、形が変わったときに 1 回だけ作って、地図を描き直すたびに同じ要素を差し込む(数百 KB の文字を毎回読み直さない)
+function upAttach(){
+  const host = document.getElementById("upGeoHost"), E = UPV.cur; if(!host || !E || !E.geo) return;
+  if(UPV.nodeE !== E){ const gN = document.createElementNS("http://www.w3.org/2000/svg", "g"); gN.innerHTML = E.geo.body; UPV.node = gN; UPV.nodeE = E; }   // 要素は今の高度の分だけ持つ
+  host.appendChild(UPV.node);
+}
+function upLayerSvg(P, W, H, V, OX, OY){
+  OX = OX || 0; OY = OY || 0;
+  if(!V) return "";
+  let E = null; UP.ferr = "";
+  try{ E = upEntry(UP.fl, V.cl); }catch(e){ UP.ferr = String(e.message || e); }
+  UPV.cur = E; UP.data = E ? E.d : null; if(!E) return "";
+  upPreSchedule();   // 描いて 0.15 秒たったら、ほかの高度を先に作り始める
+  const d = E.d, f1 = v=>v.toFixed(1), nx = d.nx, ny = d.ny, k = V.k, g = E.geo;
+  const sx = x=>W/2 + (x - V.cx)*k, sy = y=>H/2 - (y - V.cy)*k;
+  let o = '<g pointer-events="none"><g transform="matrix('+k.toFixed(4)+' 0 0 '+(-k).toFixed(4)+' '+f1(W/2 - V.cx*k)+' '+f1(H/2 + V.cy*k)+')" id="upGeoHost"></g>';   // v153 中身(塗り・線)は描き直しのたびに文字から作り直さず、作っておいた要素をここに差し込む(upAttach)
+  if(UP.wind){
+    // 等風速線の数字。v135 置き場所は世界の座標のマス目(拡大率だけで決まる大きさ)で選ぶ → パンしても数字が動かない(前は画面の中で選び直していて、パンのたびに位置が飛んでブレて見えた)
+    //   同じ値は 1 マス(約 260px)に 1 つ、違う値どうしも 1/6 マス(約 40px)に 1 つ
+    const cell = Math.pow(2, Math.round(Math.log2(380/k))), c2 = cell/8, seen = new Set(), near = new Set(), labs = [];
+    for(const L of g.labs){
+      const k1 = L[2] + ":" + Math.floor(L[0]/cell) + ":" + Math.floor(L[1]/cell), k2 = Math.floor(L[0]/c2) + ":" + Math.floor(L[1]/c2);
+      if(seen.has(k1) || near.has(k2)) continue; seen.add(k1); near.add(k2);
+      const x = sx(L[0]), y = sy(L[1]); if(x < 20 - OX || x > W - 30 + OX || y < 16 - OY || y > H - 60 + OY) continue; labs.push([x, y, L[2]]); }
+    labs.forEach(L=>{ o += '<text x="'+f1(L[0])+'" y="'+f1(L[1] + 3.5)+'" text-anchor="middle" class="lbl sm" fill="#8fd3ff" stroke="#05080c" stroke-width="3" paint-order="stroke" font-size="10">'+L[2]+'</text>'; });
+    // 矢羽根: 画面で 48px 以上あけて
+    const px = Math.max(1, Math.abs(g.X[Math.min(1, nx-1)] - g.X[0])*k), py = Math.max(1, Math.abs(g.Y[Math.min(1, ny-1)] - g.Y[0])*k);
+    const si = Math.max(1, Math.ceil(52/px)), sj = Math.max(1, Math.ceil(52/py));
+    let bd = "";   // v133 矢羽根は全部で 1 本の path(縁どり用と白の 2 つだけ。前は 1 本ずつで数百の要素になっていた)
+    for(let i=(si - (d.gx0 || 0) % si) % si; i<nx; i+=si) for(let j=(sj - (d.gy0 || 0) % sj) % sj; j<ny; j+=sj){   // v149 矢羽根の位置は格子全体の番号でそろえる(範囲が変わっても同じ点)
+      const x = sx(g.X[i]), y = sy(g.Y[j]); if(x < 8 - OX || x > W - 8 + OX || y < 8 - OY || y > H - 8 + OY) continue;
+      const q = j*nx + i, u = d.u[q], v = d.v[q]; if(u == null || v == null || u === -32768 || v === -32768) continue;
+      const sp = Math.hypot(u, v)/10, dir = (Math.atan2(-u, -v)*180/Math.PI + 360) % 360; bd += barbPath(x, y, sp, dir);
+    }
+    if(bd) o += '<path d="'+bd+'" fill="#05080c" stroke="#05080c" stroke-opacity=".7" stroke-width="3" stroke-linejoin="round"/><path d="'+bd+'" fill="#e7edf3" stroke="#e7edf3" stroke-width="1" stroke-linejoin="round"/>';
+  }
+  return o + '</g>';
+}
+function upLegendSvg(W, H){
+  const d = UP.data; if(!UP.on) return ""; const f1 = v=>v.toFixed(1); let o = "";
+  const er = UP.err || UP.ferr, stt = UP.busy ? "読み込み中…" : er ? "UKMET: " + er.slice(0, 60) : "";
+  if(!d){ return stt ? '<rect x="6" y="'+(H-50)+'" width="'+f1(Math.min(W-28, 12 + [...stt].length*9))+'" height="18" rx="4" fill="#0b0f14" fill-opacity=".85" stroke="var(--line)"/><text x="12" y="'+(H-37)+'" class="lbl sm" fill="'+(er ? "var(--err)" : "var(--fg)")+'" font-size="10">'+stt+'</text>' : ""; }
+  // 凡例と出典(左下、縮尺の上)
+  const lg = ["上空 FL" + String(d.fl).padStart(3, "0") + "(" + Math.round(d.p) + "hPa) " + d.t.slice(11, 16) + "Z"];
+  if(UP.wind) lg.push("青=風速kt"); if(UP.vws) lg.push("VWS 緑6 黄9 橙12"); if(UP.ct) lg.push(Array.isArray(d.ct) ? "雲頂(湿度から) 灰 FL100・200・300・400" : d.ctok === false ? "雲頂: データが古い" : "雲頂: 読み込み中"); if(UP.cat === "ri") lg.push("桃=Ri≦1・0.5・0.25");
+  if(CATS[UP.cat] && CATS[UP.cat].th) lg.push((d.xs && d.xs[UP.cat]) || Array.isArray(d[UP.cat]) ? CATS[UP.cat].leg : d.offline ? CATS[UP.cat].lab + " は通信できないときは出せません" : (d.ix === false || (UP.cat === "eki" && (d.ixv || 3) < 4) || (UP.cat === "cc" && (d.ixv || 3) < 5) ? CATS[UP.cat].lab + ": データが古い(次の回から)" : CATS[UP.cat].lab + ": 読み込み中"));
+  lg.push("UKMET " + (d.run || "").slice(11, 13) + "Z の回" + (d.offline ? "(端末に保存した分)" : "") + " © Crown copyright (CC BY-SA)");
+  if(stt) lg.splice(lg.length - 1, 0, stt);
+  const src = lg.pop(), rows = [lg.join("  "), src], cw = t=>[...t].reduce((n, c)=>n + (c.charCodeAt(0) > 0x2000 ? 10 : 6.1), 0);
+  const wmax = W - 28, bw = Math.min(wmax, Math.max(...rows.map(cw))) + 12;
+  o += '<rect x="6" y="'+(H-64)+'" width="'+f1(bw)+'" height="30" rx="4" fill="#0b0f14" fill-opacity=".85" stroke="var(--line)"/>';
+  rows.forEach((t, r)=>{ const w = cw(t); o += '<text x="12" y="'+(H-52 + r*13)+'" class="lbl sm" fill="'+(r ? "var(--dim)" : "var(--fg)")+'" font-size="10"'+(w > wmax ? ' textLength="'+wmax+'" lengthAdjust="spacingAndGlyphs"' : "")+'>'+t+'</text>'; });
+  return o;
+}
+// v154 ユーザー「平面図で、高度を上下のスライドバーで連続的に選択したい」→ 地図の右に縦のスライダー(FL010〜FL440、FL10 ごと。UKMET の一番上の面 150hPa ≈ FL446 まで)。
+//   v155 動かしたらすぐ描く(データは時刻ごとに 1 回だけ取って、高度は端末で計算)
+const FL_MIN = 10, FL_MAX = 440;
+let FLS = null;
+function flSliderInit(){
+  const wrap = $("mapwrap"); if(!wrap || FLS) return;
+  const el0 = document.createElement("div"); el0.className = "flSl"; el0.id = "flSl"; el0.hidden = true; el0.tabIndex = 0;
+  el0.setAttribute("role", "slider"); el0.setAttribute("aria-label", "上空の高度(FL)"); el0.setAttribute("aria-orientation", "vertical");
+  el0.setAttribute("aria-valuemin", String(FL_MIN)); el0.setAttribute("aria-valuemax", String(FL_MAX));
+  let h = '<div class="flTrack"></div>';
+  [50, 100, 150, 200, 250, 300, 350, 400].forEach(f=>{ h += '<div class="flTick" style="top:' + ((1 - (f - FL_MIN)/(FL_MAX - FL_MIN))*100).toFixed(2) + '%">' + f + '</div>'; });
+  el0.innerHTML = h + '<div class="flThumb"></div><div class="flLab"></div>';
+  wrap.append(el0);
+  let raf = 0, drag = null;
+  const go = ()=>{ if(!raf) raf = requestAnimationFrame(()=>{ raf = 0; redrawMap(); }); };   // v155 すぐ描く(高度ごとの線・塗りは覚えてある・端末で作る)
+  const setFl = f=>{ f = Math.max(FL_MIN, Math.min(FL_MAX, Math.round(f/10)*10)); if(f === UP.fl) return false; UP.fl = f; flSliderRender(); return true; };
+  const fromY = y=>{ const r = el0.getBoundingClientRect(); return FL_MIN + (1 - (y - r.top)/r.height)*(FL_MAX - FL_MIN); };
+  el0.addEventListener("pointerdown", e=>{ e.preventDefault(); e.stopPropagation(); try{ el0.setPointerCapture(e.pointerId); }catch(_){} drag = e.pointerId; FLDRAG = true; if(setFl(fromY(e.clientY))) go(); });
+  el0.addEventListener("pointermove", e=>{ if(drag !== e.pointerId) return; e.preventDefault(); if(setFl(fromY(e.clientY))) go(); });
+  const end = e=>{ if(drag !== e.pointerId) return; drag = null; FLDRAG = false; go(); upPreSchedule(); };
+  el0.addEventListener("pointerup", end); el0.addEventListener("pointercancel", end);
+  el0.addEventListener("wheel", e=>{ e.preventDefault(); e.stopPropagation(); if(setFl(UP.fl + (e.deltaY < 0 ? 10 : -10))) go(); }, { passive:false });
+  el0.addEventListener("keydown", e=>{ const d = e.key === "ArrowUp" || e.key === "ArrowRight" ? 10 : e.key === "ArrowDown" || e.key === "ArrowLeft" ? -10 : e.key === "PageUp" ? 50 : e.key === "PageDown" ? -50 : 0;
+    if(!d) return; e.preventDefault(); if(setFl(UP.fl + d)) go(); });
+  FLS = el0;
+}
+function flSliderRender(){
+  if(!FLS) flSliderInit(); if(!FLS) return;
+  FLS.hidden = !UP.on;
+  const y = ((1 - (UP.fl - FL_MIN)/(FL_MAX - FL_MIN))*100).toFixed(2) + "%";
+  FLS.querySelector(".flThumb").style.top = y; const lb = FLS.querySelector(".flLab"); lb.style.top = y; lb.textContent = "FL" + String(UP.fl).padStart(3, "0");
+  FLS.setAttribute("aria-valuenow", String(UP.fl)); FLS.setAttribute("aria-valuetext", "FL" + String(UP.fl).padStart(3, "0"));
+}
+function upBarRender(){
+  const bar = $("upBar"); if(!bar) return;
+  bar.textContent = "";
+  // v154 高度は地図の右のスライダー(flSlider)で選ぶ(段の選択肢はやめた)
+  const st = document.createElement("select"); st.setAttribute("aria-label", "時刻(UTC)");
+  const tc = upTime(); let to = wxOpts(); if(!to.includes(tc)) to = [tc].concat(to);
+  to.forEach(t=>{ const o = document.createElement("option"); o.value = String(t); o.textContent = wxLab(t); if(t === tc) o.selected = true; st.append(o); });
+  st.addEventListener("change", ()=>{ UP.tms = +st.value; redrawMap(); });
+  const sg = el("div", "seg"); sg.setAttribute("role", "group"); sg.setAttribute("aria-label", "上空の表示");
+  // v148 「雲頂」はユーザーの判断で保留(ボタンを出さない。中身は残してある)
+  [["wind","風"],["vws","VWS"]].forEach(([m, lab])=>{ const b = el("button", UP[m] ? "on" : "", lab); b.type = "button"; b.setAttribute("aria-pressed", UP[m] ? "true" : "false");
+    b.addEventListener("click", ()=>{ UP[m] = !UP[m]; upBarRender(); redrawMap(); }); sg.append(b); });
+  const sc = catSelect(UP.cat, v=>{ UP.cat = v; upBarRender(); redrawMap(); });
+  bar.append(st, sg, sc); flSliderRender();   // v135 読み込み中・エラーは地図の凡例の所に出す(ここに出すと段の幅が変わって折り返し、地図が上下に動いてブレていた)
+}
+// 風の層。縦軸は気圧高度(ISA。FL と同じ)。戻り値 { under:(等風速線・等温線・シア), over:(矢羽根), legend }
+const ISA_P = [1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150];
+const isaAlt = p => 145366.45*(1 - Math.pow(p/1013.25, 0.190284));   // hPa → ft(ISA)
+// v124 圏界面(WMO の定義: 気温減率が 2K/km 以下になる一番低い高さで、そこから 2km 上までのどこまでの平均の減率も 2K/km 以下)。
+// 気圧面の気温(lv:hPa, T:℃)から。高さは気温から層の厚さ(測高公式)で出し、気圧面の間を 3 次スプライン(自然)でなめらかにつないで、
+// 500hPa から上を 50m ごとに WMO の条件で調べる。気圧面が 4,000〜8,000ft おきと粗いので目安(試算: ふつう ±1,000ft、鋭い圏界面では最大 3,000ft ほど)。
+// 戻り値 { p:気圧hPa, ge:上が足りず確かめきれない(これより上かも), none:一番上の気圧面まで見つからない(p は一番上の気圧面) } / 気温が足りなければ null
+function tropoAt(lv, T){
+  const L = []; for(let j=0; j<lv.length; j++) if(T[j]!=null && isFinite(T[j])) L.push([lv[j], T[j] + 273.15]);
+  L.sort((a, b)=>b[0] - a[0]);
+  const n = L.length; if(n < 6 || L[n-1][0] > 250) return null;
+  const z = [0]; for(let j=1; j<n; j++) z.push(z[j-1] + 29.2712*(L[j-1][1] + L[j][1])/2*Math.log(L[j-1][0]/L[j][0]));   // m(Rd/g = 29.27 m/K)
+  const y = L.map(q=>q[1]), h = []; for(let i=0; i<n-1; i++) h.push(z[i+1] - z[i]);
+  const al = [], l = [1], mu = [0], zz = [0], c = new Array(n).fill(0), b = [], d = [];
+  for(let i=1; i<n-1; i++) al[i] = 3/h[i]*(y[i+1]-y[i]) - 3/h[i-1]*(y[i]-y[i-1]);
+  for(let i=1; i<n-1; i++){ l[i] = 2*(z[i+1]-z[i-1]) - h[i-1]*mu[i-1]; mu[i] = h[i]/l[i]; zz[i] = (al[i] - h[i-1]*zz[i-1])/l[i]; }
+  for(let j=n-2; j>=0; j--){ c[j] = zz[j] - mu[j]*c[j+1]; b[j] = (y[j+1]-y[j])/h[j] - h[j]*(c[j+1] + 2*c[j])/3; d[j] = (c[j+1]-c[j])/(3*h[j]); }
+  const S = q=>{ let j = 0; while(j < n-2 && q > z[j+1]) j++; const t = q - z[j]; return y[j] + b[j]*t + c[j]*t*t + d[j]*t*t*t; };
+  const pz = q=>{ for(let j=1; j<n; j++) if(q <= z[j] + 1e-6) return Math.exp(Math.log(L[j-1][0]) + Math.log(L[j][0]/L[j-1][0])*(q - z[j-1])/(z[j] - z[j-1])); return L[n-1][0]; };
+  const j5 = L.findIndex(q=>q[0] <= 500); if(j5 < 0) return null;
+  const dz = 50, ztop = z[n-1];
+  for(let q=z[j5]; q < ztop - dz; q += dz){
+    if(-(S(q+dz) - S(q))/dz*1000 > 2) continue;
+    const top = Math.min(q + 2000, ztop); let ok = true;
+    for(let k=q+dz; k<=top + 1e-6 && ok; k += dz) if((S(q) - S(k))/(k - q)*1000 > 2) ok = false;
+    if(ok) return { p:pz(q), ge: top - q < 1500 };
+  }
+  return { p:L[n-1][0], ge:true, none:true };
+}
+// v125 リチャードソン数 Ri = N²/S²(安定度 ÷ シアの2乗)。隣り合う気圧面の間の層ごとに求める。
+// lv: [{p:hPa, T:℃, u:kt, v:kt}](下から。null は抜け)。層の厚さは気温から(測高公式)、N² は温位の差から。
+// 戻り値: 層ごとの { pm:層の真ん中の気圧(√(p1·p2)), q:1/Ri }。不安定(N²≦0)は q=99。気温か風が無い層は null。
+// 1/Ri を返すのは、Ri が大きい(安定・シアなし)ほど 0 に近づいて扱いやすいため(図では q≧1 が Ri≦1)
+// v130 Ri の塗り・線は q=1/Ri をそのまま直線で補間せず、log2(q)(1/8〜8 に収める)で補間する。
+// q は 0.5→99 のように桁で跳ぶので、直線補間だと Ri1・Ri.5 の帯が細い筋になって「いきなり 0.25」に見えていた。しきい値は log2 で 0(Ri1)・1(Ri.5)・2(Ri.25)
+const riLg = q => q == null ? null : Math.log2(Math.min(8, Math.max(0.125, q)));
+function riLayers(lv){
+  const out = [], KT = 0.514444;
+  for(let j=0; j<lv.length-1; j++){
+    const a = lv[j], b = lv[j+1];
+    if(!a || !b || a.T==null || b.T==null || a.u==null || b.u==null){ out.push(null); continue; }
+    const Ta = a.T + 273.15, Tb = b.T + 273.15, dz = 29.2712*(Ta + Tb)/2*Math.log(a.p/b.p);   // m
+    if(!(dz > 1)){ out.push(null); continue; }
+    const tha = Ta*Math.pow(1000/a.p, 0.2857), thb = Tb*Math.pow(1000/b.p, 0.2857);
+    const N2 = 9.80665*(thb - tha)/((tha + thb)/2*dz);
+    const S2 = ((b.u - a.u)*(b.u - a.u) + (b.v - a.v)*(b.v - a.v))*KT*KT/(dz*dz);
+    out.push({ pm:Math.sqrt(a.p*b.p), q: N2 > 1e-7 ? Math.min(99, S2/N2) : 99 });
+  }
+  return out;
+}
+// 数値の格子 G[i][j](i=列, j=層)の等値線。戻り値は線分の並び [x1,y1,x2,y2](画面の座標)。X[i]・Y[j] は列・層の画面位置
+function contourSegs(G, X, Y, t){
+  const segs = [], n = X.length, m = Y.length;
+  for(let i=0; i<n-1; i++) for(let j=0; j<m-1; j++){
+    const a = G[i][j], b = G[i+1][j], c = G[i+1][j+1], d = G[i][j+1];
+    if(a==null || b==null || c==null || d==null) continue;
+    const code = (a>=t ? 1 : 0) | (b>=t ? 2 : 0) | (c>=t ? 4 : 0) | (d>=t ? 8 : 0);
+    if(code === 0 || code === 15) continue;
+    const L = ()=>[X[i], Y[j] + (Y[j+1]-Y[j])*((t-a)/(d-a))];            // 左の辺 (a-d)
+    const R = ()=>[X[i+1], Y[j] + (Y[j+1]-Y[j])*((t-b)/(c-b))];          // 右の辺 (b-c)
+    const B = ()=>[X[i] + (X[i+1]-X[i])*((t-a)/(b-a)), Y[j]];            // 下の辺 (a-b)
+    const T = ()=>[X[i] + (X[i+1]-X[i])*((t-d)/(c-d)), Y[j+1]];          // 上の辺 (d-c)
+    const E = { B, R, T, L };
+    const pairs = { 1:["L","B"], 2:["B","R"], 3:["L","R"], 4:["R","T"], 6:["B","T"], 7:["L","T"], 8:["L","T"], 9:["B","T"], 11:["R","T"], 12:["L","R"], 13:["B","R"], 14:["L","B"] };
+    if(code === 5 || code === 10){ const mid = (a+b+c+d)/4 >= t; const q = (code === 5) === mid ? [["L","T"],["B","R"]] : [["L","B"],["R","T"]]; q.forEach(([e1, e2])=>segs.push([...E[e1](), ...E[e2]()])); continue; }
+    const pr = pairs[code]; if(pr) segs.push([...E[pr[0]](), ...E[pr[1]]()]);
+  }
+  return segs;
+}
+// 矢羽根(北が上。風が吹いてくる向きに棒を伸ばす)。50kt=旗、10kt=長い羽、5kt=短い羽
+function barbPath(cx, cy, spd, dirDeg){
+  const f = v=>v.toFixed(1), L = 24, r = dirDeg*Math.PI/180, ux = Math.sin(r), uy = -Math.cos(r), px = -uy, py = ux;   // 棒の向き(u)と、右手側(p)
+  if(spd < 2.5) return 'M'+f(cx-2.2)+' '+f(cy)+'a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0 -4.4 0';
+  let s = Math.round(Math.min(spd, 250)/5)*5, d = 'M'+f(cx)+' '+f(cy)+'L'+f(cx+ux*L)+' '+f(cy+uy*L), pos = L;
+  const at = (k)=>[cx + ux*k, cy + uy*k];
+  const flag = ()=>{ const [x1, y1] = at(pos), [x2, y2] = at(pos-5); d += 'M'+f(x1)+' '+f(y1)+'L'+f(x1+px*9)+' '+f(y1+py*9)+'L'+f(x2)+' '+f(y2)+'Z'; pos -= 6; };
+  const barb = (len)=>{ const [x1, y1] = at(pos); d += 'M'+f(x1)+' '+f(y1)+'L'+f(x1+px*len + ux*2)+' '+f(y1+py*len + uy*2); pos -= 3.6; };
+  while(s >= 50){ flag(); s -= 50; }
+  while(s >= 10){ barb(9.5); s -= 10; }
+  if(s >= 5){ if(pos === L) pos -= 3.4; barb(5); }
+  return d;
+}
+function wxLayer(S, data, sx, sy, top, bot, W, ml, mr, ground, opt){
+  let under = "", over = "", underTop = "";
   const f1 = v=>v.toFixed(1);
-  let g = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="縦の断面">';
-  // 高度の目盛り(きりのいい間隔)
-  const step = [1000, 2000, 5000, 10000].find(v=>(top - bot)/v <= 6) || 10000;
-  for(let h=bot; h<=top; h+=step){ g += '<line x1="'+ml+'" x2="'+(W-mr)+'" y1="'+f1(sy(h))+'" y2="'+f1(sy(h))+'" stroke="var(--line)" stroke-width="1"/><text x="'+(ml-4)+'" y="'+f1(sy(h)+3)+'" text-anchor="end" fill="var(--dim)">'+(h>=TA ? "FL"+Math.round(h/100) : h)+'</text>'; }
-  // MVA(階段・塗り)
-  if(mva.some(m=>m[1]!=null)){
-    let d = "M" + f1(sx(0)) + " " + f1(sy(bot)), prev = null;
-    mva.forEach(([x0, v])=>{ const h = v==null ? bot : v; if(prev!=null && h!==prev) d += "L" + f1(sx(x0)) + " " + f1(sy(prev)); d += "L" + f1(sx(x0)) + " " + f1(sy(h)); prev = h; });
-    d += "L" + f1(sx(L)) + " " + f1(sy(bot)) + "Z";
-    g += '<path d="'+d+'" fill="var(--mva)" fill-opacity=".28" stroke="var(--mva)" stroke-width="1"/>';
+  // v128: 選んだモデル(UKMET か MSM)1 つで全部描く。層は UKMET なら 1000〜150hPa の 25 層、MSM なら ISA_P の 15 層
+  const isUk = data.model === "ukmo", PL = isUk ? data.lv.filter(p=>p >= 150 && p <= 1000) : ISA_P;
+  const nL = PL.length, Ys = PL.map(isaAlt);
+  const LV = Array.isArray(data.lv) && data.lv.length ? data.lv : PL, li = PL.map(p=>LV.indexOf(p));   // v124: 層は data.lv で対応させる
+  const col = S.map((s, i)=>{ const P = data.pts[i]; if(!P || P.out || !P.v) return null;
+    return PL.map((p, j)=>{ const v = li[j] >= 0 ? P.v[li[j]] : null; if(!v) return null; const dr = v[1]*Math.PI/180; return { p, y:Ys[j], s:v[0], d:v[1], u:-v[0]*Math.sin(dr), v:-v[0]*Math.cos(dr), T:v[2] }; }); });
+  const Xs = S.map(s=>sx(s.x)), Yp = Ys.map(sy);
+  const G = fn=>col.map(c=>c ? c.map(e=>e ? fn(e) : null) : PL.map(()=>null));
+  // 等値線の字: 線の上に、まわりを黒でふちどって
+  const labels = [], place = (x, y, t, colr)=>{
+    if(x < ml + 6 || x > W - mr - 6 || y < 10 || y > sy(bot) - 4) return;
+    if(labels.some(q=>Math.abs(q.x - x) < 34 && Math.abs(q.y - y) < 11 || (q.t === t && q.c === colr && Math.hypot(q.x - x, q.y - y) < 240))) return;
+    labels.push({ x, y, t, c:colr });
+    return '<text x="'+f1(x)+'" y="'+f1(y+3)+'" text-anchor="middle" font-size="9" font-weight="600" fill="'+colr+'" stroke="#05080c" stroke-width="3" paint-order="stroke">'+t+'</text>'; };
+  const lines = (grid, vals, colr, opac, wd, label, Ya, lab)=>{   // Ya: 縦の位置(既定は気圧面)。lab: 字(既定は値)
+    let out = "";
+    vals.forEach(t=>{
+      const segs = contourSegs(grid, Xs, Ya || Yp, t); if(!segs.length) return;
+      let d = ""; segs.forEach(q=>{ d += 'M'+f1(q[0])+' '+f1(q[1])+'L'+f1(q[2])+' '+f1(q[3]); });
+      out += '<path d="'+d+'" fill="none" stroke="#05080c" stroke-opacity=".75" stroke-width="'+(wd + 2)+'" stroke-linecap="round" stroke-linejoin="round"/>'   // v126: 黒い縁(Ri の明るい塗りの上でも線が見えるように)
+          + '<path d="'+d+'" fill="none" stroke="'+colr+'" stroke-opacity="'+opac+'" stroke-width="'+wd+'" stroke-linecap="round" stroke-linejoin="round"/>';
+      if(label) segs.slice().sort((a, b)=>Math.hypot(b[2]-b[0], b[3]-b[1]) - Math.hypot(a[2]-a[0], a[3]-a[1])).forEach(q=>{ if(Math.hypot(q[2]-q[0], q[3]-q[1]) > 6){ const tx = place((q[0]+q[2])/2, (q[1]+q[3])/2, lab ? lab(t) : String(t), colr); if(tx) out += tx; } });
+    });
+    return out; };
+  // しきい値以上の面(各マスを、しきい値の線で切った多角形)
+  const area = (grid, t, fill, opac, Ya, noStroke)=>{   // Ya: 縦の位置(既定は気圧面)。noStroke: 模様の塗りのとき縁を描かない
+    let d = ""; const Y = Ya || Yp;
+    for(let i=0; i<Xs.length-1; i++) for(let j=0; j<Y.length-1; j++){
+      const v = [grid[i][j], grid[i+1][j], grid[i+1][j+1], grid[i][j+1]]; if(v.some(x=>x==null)) continue;
+      const Px = [[Xs[i], Y[j]], [Xs[i+1], Y[j]], [Xs[i+1], Y[j+1]], [Xs[i], Y[j+1]]], poly = [];
+      for(let k=0; k<4; k++){ const n = (k+1)%4; if(v[k] >= t) poly.push(Px[k]);
+        if((v[k] >= t) !== (v[n] >= t)){ const f = (t - v[k])/(v[n] - v[k]); poly.push([Px[k][0] + (Px[n][0]-Px[k][0])*f, Px[k][1] + (Px[n][1]-Px[k][1])*f]); } }
+      if(poly.length >= 3) d += 'M' + poly.map(q=>f1(q[0])+' '+f1(q[1])).join('L') + 'Z';
+    }
+    return d ? '<g opacity="'+opac+'"><path d="'+d+'" fill="'+fill+'" stroke="'+(noStroke ? "none" : fill)+'" stroke-width=".8" stroke-linejoin="round"/></g>' : ""; };
+  // v138 雲: UKMET の気圧面の相対湿度(0℃ 未満は氷に対する値)から雲量を推し量る(Sundqvist: 雲量 = 1 − √((1 − RH)/(1 − RHc))、
+  //   RHc = 0.8(-20℃ 以上)・0.85(-20℃ 未満)。雲そのものの予報ではなく目安)。灰の 3 段(雲量 30・60・90%)を一番下に塗る
+  let cldNo = "", cldOn = false;
+  if(opt.cld){
+    if(!isUk) cldNo = "雲は UKMET だけ";
+    else if(!data.rh) cldNo = "雲: データが古い(次の回から)";
+    else {
+      const cf = (rh, T)=>{ if(rh == null) return null; const r = rh/100, c = T != null && T < -20 ? 0.85 : 0.8; return r <= c ? 0 : r >= 1 ? 1 : 1 - Math.sqrt((1 - r)/(1 - c)); };
+      const cG = S.map((s_, i)=>{ const P = data.pts[i]; if(!P || P.out || !P.rh) return PL.map(()=>null);
+        return PL.map((p, j)=>{ const r = li[j] >= 0 ? P.rh[li[j]] : null, v = li[j] >= 0 && P.v ? P.v[li[j]] : null; return cf(r, v ? v[2] : null); }); });
+      under = area(cG, 0.3, "#59626c", .55) + area(cG, 0.6, "#7f8892", .55) + area(cG, 0.9, "#b3bbc3", .55) + under;
+      cldOn = true;
+    }
   }
-  // MEA(区間の上に破線)
-  for(let k=ka+1; k<=kb; k++){ const m = res.use[k].mea; if(m && res.use[k-1].i===res.use[k].i-1) g += '<line x1="'+f1(sx(X[k-1-ka]))+'" x2="'+f1(sx(X[k-ka]))+'" y1="'+f1(sy(m))+'" y2="'+f1(sy(m))+'" stroke="var(--dim)" stroke-dasharray="4 3" stroke-width="1.2"/>'; }
-  // 計画のパス
-  if(path.length > 1) g += '<path d="M'+path.map(p=>f1(sx(p[0]))+" "+f1(sy(p[1]))).join("L")+'" fill="none" stroke="var(--path)" stroke-width="2.5" stroke-linejoin="round"/>';
-  // FIX(縦線・名前・制限・計画の高度)
+  // VWS(kt/1000ft): 各層の節点で、上下の層の風のベクトル差から
+  let shG = null;
+  if(opt.vws){
+    shG = col.map(c=>c ? PL.map((p, j)=>{ const lo = c[Math.max(0, j-1)], hi = c[Math.min(nL-1, j+1)]; if(!lo || !hi) return null;
+      const dz = (hi.y - lo.y)/1000; return dz > 0.05 ? Math.hypot(hi.u - lo.u, hi.v - lo.v)/dz : null; }) : PL.map(()=>null));
+    // v131: VWS は塗らない(線だけ)
+  }
+  // v125 Ri。層の真ん中に置く。FL100(700hPa)より上の層だけ(下は境界層の混合で Ri が小さく出て一面になるため。CAT の目安として見る)。
+  // MSM の気圧面は上空で 1.2〜1.7km おきと粗く、細かいシアがならされて Ri は大きめに出るので、しきい値は 0.25 ではなく 1(注意)と 0.5(強め)。
+  // v126: 塗りは 3 段階の桃の濃淡(Ri≦1 / ≦0.5 / ≦0.25。強いほど明るい。1 色相で明るさが単調、隣どうしの差 ΔE 約 14〜15)。
+  //       Ri を出している間は VWS の塗りは消して線だけ(上で)。重なる線には黒い縁(lines)
+  let riQ = null, riY = null, riNoT = false;
+  const uk = isUk ? data : null;   // v128: UKMET を選んでいるとき(TROP は UKMET 自身の圏界面の値)
+  if(opt.ri){
+    if(!data.pts.some(P=>P && P.v && P.v.some(v=>v && v[2] != null))) riNoT = true;
+    else {
+      const j7 = PL.indexOf(700), lay = [];
+      for(let j=j7; j<nL-1; j++) lay.push(j);
+      riY = lay.map(j=>sy(isaAlt(Math.sqrt(PL[j]*PL[j+1]))));
+      riQ = col.map(c=>{ if(!c) return lay.map(()=>null);
+        const r = riLayers(PL.map((p, j)=>c[j] ? { p, T:c[j].T, u:c[j].u, v:c[j].v } : null));
+        return lay.map(j=>r[j] ? riLg(r[j].q) : null); });
+      under += area(riQ, 0, "#6d2345", .9, riY) + area(riQ, 1, "#ab366e", .9, riY) + area(riQ, 2, "#df5e97", .9, riY);   // log2(1/Ri) ≧ 0・1・2(Ri ≦ 1・0.5・0.25)
+    }
+  }
+  // v132 TI1・TI2・NCSU1(UKMET の各気圧面の値。P.x[層] = [TI1, TI2, log10 NCSU1])。Ri と同じく FL100(700hPa)より上
+  let catG = null, catY = null, catNo = "";
+  const CC = CATS[opt.cat];
+  if(CC && CC.th){
+    if(!isUk) catNo = CC.lab + " は UKMET だけ";
+    else if(data.offline && ["nc", "eki", "cc"].includes(opt.cat)) catNo = CC.lab + " は通信できないときは出せません(TI1・TI2・Ri は出せます)";
+    else if(!data.ix || ((opt.cat === "eki" || opt.cat === "cc") && !data.pts.some(P=>P && P.x && P.x.some(x=>x && x.length > (opt.cat === "cc" ? 4 : 3))))) catNo = CC.lab + ": データが古い(次の回から)";
+    else {
+      const ci = ["ti1", "ti2", "nc", "eki", "cc"].indexOf(opt.cat), j7 = PL.indexOf(700), levs = [];
+      for(let j=Math.max(0, j7); j<nL; j++) levs.push(j);
+      catY = levs.map(j=>Yp[j]);
+      catG = S.map((s_, i)=>{ const P = data.pts[i]; if(!P || P.out || !P.x) return levs.map(()=>null);
+        return levs.map(j=>{ const x = li[j] >= 0 ? P.x[li[j]] : null; if(!x) return null; const v = x[ci]; return v == null ? (ci === 2 ? -20 : 0) : v; }); });
+      CC.th.forEach((t, k)=>{ under += area(catG, t, CC.col[k], .9, catY); });
+    }
+  }
+  if(opt.wind){
+    under += lines(G(e=>e.s), [20, 40, 60, 80, 100, 120, 140, 160, 180, 200], "#4db3ee", .9, 1.2, true);
+    if(data.pts.some(P=>P && P.v && P.v.some(v=>v && v[2] != null))) under += lines(G(e=>e.T), [-80, -70, -60, -55, -50, -45, -40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25], "#c0504d", .75, 1, true);
+  }
+  if(opt.vws) under += lines(shG, [6], "#7bed2a", 1, 1.8, true) + lines(shG, [9], "#ffd400", 1, 1.6, true) + lines(shG, [12], "#ff7a00", 1, 1.6, true);
+  if(catG) under += lines(catG, CC.th, CC.line, .6, .9, true, catY, CC.tl);
+  if(riQ) under += lines(riQ, [0, 1, 2], "#f5b3cf", .6, .9, true, riY, t=>"Ri" + (t === 0 ? "1" : t === 1 ? ".5" : ".25"));   // 境目の細い線と字
+  // 矢羽根(列は 30px 以上、層は 28px 以上あけて。地面より下は描かない)
+  if(opt.wind){
+    const colPx = S.length > 1 ? Math.abs(Xs[S.length-1] - Xs[0])/(S.length - 1) : 100, every = Math.max(1, Math.ceil(30/Math.max(colPx, 1)));
+    const rows = []; let lastY = 1e9, bdV = "";
+    PL.forEach((p, j)=>{ const y = Yp[j]; if(Ys[j] < bot || Ys[j] > top - (top - bot)*0.01) return; if(Math.abs(lastY - y) >= 28){ rows.push(j); lastY = y; } });
+    col.forEach((c, i)=>{
+      if(!c || i % every !== 0) return;
+      const cx = Xs[i]; if(cx < ml + 4 || cx > W - mr - 4) return;
+      rows.forEach(j=>{ const e = c[j]; if(!e || e.y < 200) return;
+        const cy = Yp[j]; bdV += barbPath(cx, cy, e.s, e.d);   // v133 矢羽根は 1 本の path にまとめる(要素の数を減らして軽く)
+      });
+    });
+    if(bdV) over += '<path d="'+bdV+'" fill="#e7edf3" fill-opacity=".92" stroke="#e7edf3" stroke-width="1" stroke-linejoin="round"/>';
+  }
+  // v124 圏界面(TROP)。紫の破線。字は 170px ごとに「TROP FL390」。図の上(FL450)より上の所は上の端に「TROP FL450↑」
+  let tropNoT = false;
+  if(opt.trop){
+    const hasT = uk || data.pts.some(P=>P && P.v && P.v.some(v=>v && v[2] != null));
+    if(!hasT) tropNoT = true;
+    else {
+      const TP = uk ? uk.pts.map(P=>(P && !P.out && P.tp > 30) ? { p:P.tp, ge:false } : null)   // v127: UKMET 自身の圏界面(pressure_at_tropopause)
+        : S.map((s, i)=>{ const P = data.pts[i]; if(!P || P.out || !P.v) return null;
+        return tropoAt(LV, LV.map((p, k)=>P.v[k] ? P.v[k][2] : null)); });
+      const ytop = sy(top), runs = []; let cur = null;
+      // 図より上: 求めた値が図の上端より上、または確かめきれない値の下限が上端近く以上。「一番上まで見つからない」は、一番上の気圧面が
+      // 図の上端より 3,000ft 以上 上(100hPa まで取れている)ときだけ(150hPa までだと 150hPa のすぐ下の圏界面も見つからないことがあるため)
+      const above = r=>r && (!r.ge ? isaAlt(r.p) > top : r.none ? isaAlt(r.p) >= top + 3000 : isaAlt(r.p) >= top - 1000);
+      TP.forEach((r, i)=>{ const ok = r && !r.ge; if(ok){ if(!cur){ cur = []; runs.push(cur); } cur.push([Xs[i], sy(isaAlt(r.p)), isaAlt(r.p)]); } else cur = null; });
+      let d = ""; runs.forEach(rn=>{ if(rn.length > 1) d += "M" + rn.map(q=>f1(q[0]) + " " + f1(q[1])).join("L"); });
+      if(d) under += '<path d="'+d+'" fill="none" stroke="#05080c" stroke-width="4.6" stroke-linejoin="round" stroke-linecap="round" stroke-opacity=".9"/><path d="'+d+'" fill="none" stroke="#e46cff" stroke-width="2.4" stroke-dasharray="9 4" stroke-linejoin="round" stroke-linecap="round"/>';
+      const lab = (x, y, t)=>'<text x="'+f1(x)+'" y="'+f1(y)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="#e46cff" stroke="#05080c" stroke-width="3" paint-order="stroke">'+t+'</text>';
+      let lastX = -1e9;
+      runs.forEach(rn=>rn.forEach(q=>{ if(q[2] > top || q[0] < ml + 30 || q[0] > W - mr - 30 || Math.abs(q[0] - lastX) < 170) return; lastX = q[0];
+        over += lab(q[0], Math.max(ytop + 22, q[1] - 7), "TROP FL" + Math.round(q[2]/1000)*10); }));
+      // 図より上の所(続いている所ごとに 1 つ)
+      let a0 = -1;
+      TP.concat([null]).forEach((r, i)=>{ const ab = i < TP.length && above(r);
+        if(ab && a0 < 0) a0 = i;
+        if(!ab && a0 >= 0){ const x = (Xs[a0] + Xs[i-1])/2; if(x > ml + 30 && x < W - mr - 30) over += lab(x, ytop + 11, "TROP FL" + Math.round(top/1000)*10 + "↑"); a0 = -1; } });
+    }
+  }
+  const ukRun = uk && uk.run ? uk.run.slice(11, 13) + "Z の回" + (uk.offline ? "(端末に保存した分)" : "") : "";
+  const src = (uk ? "UKMET(Met Office)" + ukRun + " © Crown copyright (CC BY-SA)" : "MSM(気象庁)Open-Meteo") + "  " + (data.t ? data.t.replace("T"," ") : "");
+  let legend = '<text class="wxSrc" x="'+(W-mr)+'" y="9" text-anchor="end" font-size="8" fill="var(--dim)">'+src+'</text>';
+  // v125: 凡例は短く(出典と重ならないように)。それでも入らない幅では横に縮めて入れる(描いたあと vsdPaint で実際の字の幅を測る)
+  const lg = []; if(opt.wind) lg.push("青=風速kt 赤=気温℃ 矢羽根=風(北が上)"); if(opt.vws) lg.push("VWS(線) kt/1000ft 緑6 黄9 橙12"); if(opt.trop) lg.push(tropNoT ? "圏界面: 気温データなし" : "紫破線=圏界面" + (uk || LV.includes(100) ? "" : "(worker が古いので FL400 付近まで)")); if(opt.ri) lg.push(riNoT ? "Ri: 気温データなし" : "桃の濃淡=Ri≦1・0.5・0.25"); if(CC && CC.th) lg.push(catNo || CC.leg); if(opt.cld) lg.push(cldNo || "灰=雲(湿度から推定 30・60・90%)"); lg.push("縦軸=気圧高度(ISA)");
+  legend += '<text class="wxLeg" x="'+(ml+4)+'" y="9" font-size="8" fill="var(--dim)">'+lg.join("  ")+'</text>';
+  return { under, over, legend };
+}
+
+// ---- v115 VSD(出発空港 → RTE → 到着空港を直線でつないだ縦の断面。風・シアだけ。ピンチで拡大・ドラッグで移動) ----
+let VSD_ON = false;
+const VZ = { key:"", x0:0, x1:1, y0:0, y1:45000, zoomed:false };   // 見えている範囲(距離 NM・高度 ft)
+const VY_MAX = 45000, VY_MIN = -500;
+// v114 VSD は横向きの全画面で表示。縦持ちのときは画面を 90 度回して横長に見せる(iPad など向きを固定できない端末でも効く)。Android は全画面+向き固定も試す
+let VSD_FULL = true, FS_ON = false;
+// v159 ユーザー「iPad で断面図が横向きフル画面なのはいいけど、時間などのプルダウンは縦向きに出るから使いにくい」
+//   画面を CSS で 90° 回して横向きにしているので、ふつうの選択肢(select)は端末の向き(縦)で開いてしまう。
+//   回しているときは select の代わりにボタンを出し、押すと VSD の中(一緒に回っている)に選択肢の一覧を出す
+function vsdRotPickers(box){
+  box.querySelectorAll(".vh select").forEach(sel=>{
+    if(sel.dataset.rp) return; sel.dataset.rp = "1"; sel.style.display = "none";
+    const b = el("button", "btn sm vpickB", (sel.options[sel.selectedIndex] || {}).text || "—"); b.type = "button"; b.setAttribute("aria-label", sel.getAttribute("aria-label") || "選ぶ");
+    sel.after(b);
+    b.addEventListener("click", e=>{
+      e.stopPropagation(); const old = box.querySelector(".vpick"); if(old){ old.remove(); if(old.dataset.for === sel.id + sel.className) return; }
+      const pk = el("div", "vpick"); pk.dataset.for = sel.id + sel.className;
+      [...sel.options].forEach((o, i)=>{ const it = el("button", "vpickI" + (i === sel.selectedIndex ? " on" : ""), o.text); it.type = "button";
+        it.addEventListener("click", ev=>{ ev.stopPropagation(); pk.remove(); if(sel.selectedIndex !== i){ sel.selectedIndex = i; sel.dispatchEvent(new Event("change")); } }); pk.append(it); });
+      box.append(pk);
+      const bl = b.offsetLeft, bt = b.offsetTop + b.offsetHeight + 4, bw = box.clientWidth;
+      pk.style.left = Math.max(4, Math.min(bw - pk.offsetWidth - 4, bl)) + "px"; pk.style.top = bt + "px";
+      const off = ()=>document.removeEventListener("pointerdown", shut, true);
+      const shut = ev=>{ if(pk.contains(ev.target)) return; if(b.contains(ev.target)){ off(); return; } pk.remove(); off(); };   // v163 自分のボタンを押したときは click の方で閉じる
+      pk.addEventListener("click", ()=>{ if(!pk.isConnected) off(); });
+      setTimeout(()=>document.addEventListener("pointerdown", shut, true), 0);
+    });
+  });
+}
+// 画面の端の余白(px)。Approach Planner の中では親から(dp-safe)、単独では env(safe-area-inset-*)
+function safeInsets(){
+  const d = document.createElement("div"); d.style.cssText = "position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:var(--safeT) var(--safeR) var(--safeB) var(--safeL)";
+  document.body.append(d); const cs = getComputedStyle(d), r = { t:parseFloat(cs.paddingTop) || 0, r:parseFloat(cs.paddingRight) || 0, b:parseFloat(cs.paddingBottom) || 0, l:parseFloat(cs.paddingLeft) || 0 };
+  d.remove(); return r;
+}
+function vsdFit(box){
+  const on = VSD_FULL;
+  box.classList.toggle("full", on);
+  if(!on){ box.classList.remove("rot"); ["width","height","transform"].forEach(k=>box.style[k] = ""); return; }
+  const iw = window.innerWidth, ih = window.innerHeight, rot = ih > iw && matchMedia("(pointer:coarse)").matches;   // v163 回すのはタッチ端末の縦向きだけ
+  box.classList.toggle("rot", rot);
+  // v166 ユーザー「アンテナマークや時間が表示されるところまでは広げなくていい」→ 回すときも画面の端の余白(状態表示・ホームバー)を空ける
+  //   箱の左 = 画面の上、箱の右 = 画面の下、箱の上 = 画面の右、箱の下 = 画面の左
+  if(rot){ const sa = safeInsets(); box.style.width = (ih - sa.t - sa.b) + "px"; box.style.height = (iw - sa.l - sa.r) + "px"; box.style.transform = "translate(" + (iw - sa.r) + "px," + sa.t + "px) rotate(90deg)"; }
+  else { box.style.width = ""; box.style.height = ""; box.style.transform = ""; }
+}
+// 本当の全画面(ブラウザの枠も消す)。Approach Planner の中(iframe)では親の画面を全画面にしてもらう(dp-fs)。Safari 用の webkit 付きも試す
+const fsEl = ()=>document.fullscreenElement || document.webkitFullscreenElement || null;
+function vsdTryFs(){
+  try{
+    if(window.parent !== window) window.parent.postMessage({ type:"dp-fs", on:true }, "*");
+    const e = document.documentElement, rq = e.requestFullscreen || e.webkitRequestFullscreen;
+    if(!fsEl() && rq){ const r = rq.call(e, { navigationUI:"hide" }); if(r && r.then) r.then(()=>{ try{ return screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape"); }catch(_){} }).catch(()=>{}); }
+    else if(screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(()=>{});
+  }catch(_){}
+}
+function vsdLeaveFs(){
+  try{ if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); }catch(_){}
+  try{ if(window.parent !== window) window.parent.postMessage({ type:"dp-fs", on:false }, "*"); }catch(_){}
+  try{ const x = document.exitFullscreen || document.webkitExitFullscreen; if(fsEl() && x){ const r = x.call(document); if(r && r.catch) r.catch(()=>{}); } }catch(_){}
+}
+{ let tm = 0; const again = ()=>{ clearTimeout(tm); tm = setTimeout(()=>{ if(VSD_ON && !$("vsd").hidden) drawVsd(); }, 150); };
+  window.addEventListener("resize", again); window.addEventListener("orientationchange", again); }
+// v166 本当の全画面(状態表示も隠す・横向き固定)は使わない(ユーザー「アンテナマークや時間のところまで広げなくていい」)。画面の中いっぱい(端の余白は空ける)だけ
+function vsdOpen(){ VSD_ON = true;
+  if(!wxAny()){ WX.wind = true; WX.vws = true; WX.trop = true; WX.ri = true; if(!WX.cat) WX.cat = "ri"; } drawVsd(); }
+function vsdClose(){ VSD_ON = false; FS_ON = false; drawVsd(); }
+// 縦の断面を作る点: 出発空港 + RTE の FIX + 到着空港(STAR・進入は含めない)
+function vsdRoute(){
+  const R = parseRte(ST.rte), P = [];
+  const ap = (id)=>{ const a = AP[id]; return a ? { id, lat:a[0], lon:a[1], ap:true, elev:a[2] } : null; };
+  if(R.dep && ap(R.dep)) P.push(ap(R.dep));
+  R.pts.forEach(p=>P.push({ id:p.id, lat:p.lat, lon:p.lon }));
+  if(R.dest && ap(R.dest)) P.push(ap(R.dest));
+  const X = [0]; for(let k=1; k<P.length; k++) X.push(X[k-1] + gc(P[k-1], P[k]));
+  // v121: 東を右・西を左に。最後の点(到着)が最初の点(出発)より西なら左右を反転して描く(羽田→千歳のような南北の経路も経度で決める)。
+  // 反転しても距離(X)は出発からの距離のまま。見た目だけ左右が入れ替わる
+  const flip = P.length >= 2 && P[P.length-1].lon < P[0].lon;
+  return { P, X, L:X[X.length-1] || 1, flip };
+}
+let VC = null;   // いま描いている断面の情報(ピンチ・ドラッグで描き直すために持つ)
+function vsdClampRange(){
+  const L = VC.L, minX = Math.min(L, 8), minY = 2000;
+  VZ.x0 = 0; VZ.x1 = L;   // v150 横もいつも全体
+  let w = Math.max(minX, Math.min(L, VZ.x1 - VZ.x0)), h = Math.max(minY, Math.min(VY_MAX - VY_MIN, VZ.y1 - VZ.y0));
+  VZ.x0 = Math.max(0, Math.min(L - w, VZ.x0)); VZ.x1 = VZ.x0 + w;
+  VZ.y0 = 0; VZ.y1 = VY_MAX;   // 縦軸は固定
+  VZ.zoomed = w < L - 0.01;
+}
+function vsdResetZoom(){ VZ.x0 = 0; VZ.x1 = VC ? VC.L : 1; VZ.y0 = 0; VZ.y1 = VY_MAX; VZ.zoomed = false; }
+function vsdTerrainSoon(){}   // 地形は表示しない(v119)
+// 図の中身(svg の中)を描く。ズームしたときはこれだけ描き直す
+function vsdPaint(){
+  const c = VC; if(!c || !c.svg) return;
+  const { P, X, L, W, H, ml, mr, mt, mb, S, wkey, flip } = c, f1 = v=>v.toFixed(1);
+  const x0 = VZ.x0, x1 = VZ.x1, y0 = VZ.y0, y1 = VZ.y1, pw = W - ml - mr, ph = H - mt - mb;
+  const sx = d=>{ const f = (d - x0)/(x1 - x0); return ml + pw*(flip ? 1 - f : f); }, sy = h=>mt + ph*(1 - (h - y0)/(y1 - y0));   // v121: 西行きは左右反転(東が右)
+  c.sx = sx; c.sy = sy;
+  let g = '<defs><clipPath id="vclip"><rect x="'+ml+'" y="'+mt+'" width="'+pw+'" height="'+ph+'"/></clipPath></defs>';
+  g += '<rect x="'+ml+'" y="'+mt+'" width="'+pw+'" height="'+ph+'" fill="#000"/>';
+  // 高度の目盛り(左: ft / FL)・気圧の目盛り(右: hPa)。点線の格子
+  const step = [500, 1000, 2000, 5000, 10000].find(v=>(y1 - y0)/v <= 9) || 10000;
+  for(let h=Math.ceil(y0/step)*step; h<=y1 + 1e-6; h+=step){ const y = f1(sy(h));
+    g += '<line x1="'+ml+'" x2="'+(W-mr)+'" y1="'+y+'" y2="'+y+'" stroke="#fff" stroke-opacity="'+(h===0 ? .5 : .2)+'" stroke-dasharray="'+(h===0 ? "" : "2 4")+'"/><text x="'+(ml-4)+'" y="'+f1(sy(h)+3)+'" text-anchor="end" fill="var(--dim)">'+(h>=TA ? "FL"+Math.round(h/100) : h)+'</text>'; }
+  // v166 ユーザー「右側も FL 表記でいい」→ 右は気圧(hPa)をやめて、左と同じ高さに FL(低い所も FL050 のように)
+  for(let h=Math.ceil(y0/step)*step; h<=y1 + 1e-6; h+=step){ if(h <= 0) continue; const y = f1(sy(h));
+    g += '<line x1="'+(W-mr)+'" x2="'+(W-mr+4)+'" y1="'+y+'" y2="'+y+'" stroke="var(--dim)"/><text x="'+(W-mr+6)+'" y="'+f1(sy(h)+3)+'" fill="var(--dim)" font-size="9">FL'+String(Math.round(h/100)).padStart(3, "0")+'</text>'; }
+  // 距離の目盛り(上)
+  const dstep = [5, 10, 20, 50, 100, 200].find(v=>(x1 - x0)/v <= 9) || 200;
+  for(let d=Math.ceil(x0/dstep)*dstep; d<=x1 + 1e-6; d+=dstep){ const x = f1(sx(d)); g += '<line x1="'+x+'" x2="'+x+'" y1="'+(mt-3)+'" y2="'+mt+'" stroke="var(--dim)"/><text x="'+x+'" y="'+(mt-5)+'" text-anchor="middle" fill="var(--dim)" font-size="8">'+d+'</text>'; }
+  // FIX の縦線(点線)
+  for(let k=0; k<P.length; k++){ const xx = sx(X[k]); if(xx < ml - 1 || xx > W - mr + 1) continue;
+    g += '<line x1="'+f1(xx)+'" x2="'+f1(xx)+'" y1="'+mt+'" y2="'+(H-mb)+'" stroke="#fff" stroke-opacity="'+(P[k].ap ? .5 : .22)+'" stroke-dasharray="2 3"/>'; }
+  // 風・シアの層
+  let wxL = null;
+  const wd = wxPick(wkey, S);
+  if(wxAny() && wd){
+    wxL = wxLayer(S, wd, sx, sy, y1, y0, W, ml, mr, null, { wind:WX.wind, vws:WX.vws, trop:WX.trop, ri:WX.ri && WX.cat === "ri", cat:WX.ri ? WX.cat : "", cld:WX.cld });
+    g += '<g clip-path="url(#vclip)">' + wxL.under + '</g>';
+  }
+  if(wxL) g += '<g clip-path="url(#vclip)">' + wxL.over + '</g>';
+  // FIX の名前(斜め。空港はオレンジ)
   let lastLx = -1e9;
-  for(let k=ka; k<=kb; k++){
-    const xx = sx(X[k-ka]), c = res.C[k] || {}, h = altAt(k), u = res.use[k];
-    g += '<line x1="'+f1(xx)+'" x2="'+f1(xx)+'" y1="'+mt+'" y2="'+f1(sy(bot))+'" stroke="var(--line)" stroke-width="1"/>';
-    if(c.at!=null) g += '<line x1="'+f1(xx-7)+'" x2="'+f1(xx+7)+'" y1="'+f1(sy(c.at))+'" y2="'+f1(sy(c.at))+'" stroke="var(--con)" stroke-width="2.5"/>';
-    if(c.lo!=null) g += '<path d="M'+f1(xx-6)+' '+f1(sy(c.lo)+7)+'L'+f1(xx)+' '+f1(sy(c.lo))+'L'+f1(xx+6)+' '+f1(sy(c.lo)+7)+'" fill="none" stroke="var(--con)" stroke-width="2"/>';
-    if(c.hi!=null) g += '<path d="M'+f1(xx-6)+' '+f1(sy(c.hi)-7)+'L'+f1(xx)+' '+f1(sy(c.hi))+'L'+f1(xx+6)+' '+f1(sy(c.hi)-7)+'" fill="none" stroke="var(--con)" stroke-width="2"/>';
-    if(h!=null) g += '<circle cx="'+f1(xx)+'" cy="'+f1(sy(h))+'" r="2.8" fill="var(--path)"/>';
-    if(xx - lastLx > 44 || k===kb){
-      const an = k===ka ? "start" : k===kb ? "end" : "middle";
-      g += '<text x="'+f1(xx)+'" y="'+f1(H-14)+'" text-anchor="'+an+'" fill="var(--fg)">'+u.id+'</text><text x="'+f1(xx)+'" y="'+f1(H-3)+'" text-anchor="'+an+'" fill="var(--path)">'+(h!=null ? cduAlt(h) : "")+'</text>';
+  for(let q=0; q<P.length; q++){
+    const k = flip ? P.length - 1 - q : q;   // 画面の左から順に(重なる名前を省くため)
+    const xx = sx(X[k]); if(xx < ml - 2 || xx > W - mr + 2) continue;
+    if(xx - lastLx >= 12 || P[k].ap){
+      g += '<text transform="translate('+f1(xx - 2)+' '+(H-mb+10)+') rotate(48)" text-anchor="start" font-size="9.5" fill="'+(P[k].ap ? "#f09a45" : "var(--fg)")+'">'+P[k].id+'</text>';
       lastLx = xx;
     }
   }
-  g += '</svg>';
-  box.insertAdjacentHTML("beforeend", g);
+  if(wxL) g += wxL.legend;
+  else g += '<text x="'+(ml+4)+'" y="9" font-size="8" fill="var(--dim)">'+(wxAny() ? "" : "風・VWS・TROP・Ri を選んでください")+'</text>';
+  c.svg.innerHTML = g;
+  // v125: 凡例が出典と重なるときは横に縮める(実際の字の幅で)
+  { const lgT = c.svg.querySelector("text.wxLeg"), srT = c.svg.querySelector("text.wxSrc");
+    if(lgT && srT) try{ const avail = (W - mr) - srT.getComputedTextLength() - (ml + 4) - 10;
+      if(lgT.getComputedTextLength() > avail && avail > 60){ lgT.setAttribute("textLength", avail.toFixed(1)); lgT.setAttribute("lengthAdjust", "spacingAndGlyphs"); } }catch(_){} }
+}
+let vsdRaf = 0;
+function vsdPaintSoon(){ if(vsdRaf) return; vsdRaf = requestAnimationFrame(()=>{ vsdRaf = 0; vsdPaint(); const b = $("vsdAll"); if(b) b.hidden = !VZ.zoomed; }); }
+// ピンチ・ドラッグ・ホイール。指の下にある距離・高度が動かないように範囲を決める(横と縦は別々に。指の間が 30px 以上あいた向きだけ拡大縮小)
+function vsdGestures(svg){
+  const ptr = new Map(), anch = new Map();
+  const toS = (e)=>{ const m = svg.getScreenCTM(); if(!m) return null; const q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; return q.matrixTransform(m.inverse()); };
+  const fr = (x)=>{ const f = (x - VC.ml)/(VC.W - VC.ml - VC.mr); return VC.flip ? 1 - f : f; };   // 画面の x → 見えている範囲の中の割合(v121: 左右反転を考える)
+  const dataAt = (q)=>({ d:VZ.x0 + fr(q.x)*(VZ.x1 - VZ.x0), h:VZ.y1 - (q.y - VC.mt)/(VC.H - VC.mt - VC.mb)*(VZ.y1 - VZ.y0) });
+  const setAnch = ()=>{ anch.clear(); ptr.forEach((q, id)=>anch.set(id, dataAt(q))); };
+  const apply = ()=>{
+    const pw = VC.W - VC.ml - VC.mr, ids = [...ptr.keys()];
+    if(!ids.length) return;
+    let w = VZ.x1 - VZ.x0;
+    if(ids.length >= 2){   // 2 本指の横の間隔で拡大縮小(縦軸は動かさない)
+      const a = ids[0], b = ids[1], pa = ptr.get(a), pb = ptr.get(b), da = anch.get(a), db = anch.get(b);
+      if(Math.abs(pb.x - pa.x) >= 30 && Math.abs(db.d - da.d) > 1e-6) w = Math.abs((db.d - da.d)/(pb.x - pa.x))*pw;
+    }
+    const id0 = ids[0], p0 = ptr.get(id0), d0 = anch.get(id0);
+    VZ.x0 = d0.d - fr(p0.x)*w; VZ.x1 = VZ.x0 + w;
+    vsdClampRange(); vsdPaintSoon(); vsdTerrainSoon();
+  };
+  svg.addEventListener("pointerdown", e=>{ const q = toS(e); if(!q) return; try{ svg.setPointerCapture(e.pointerId); }catch(_){} ptr.set(e.pointerId, q); setAnch(); e.preventDefault(); });
+  svg.addEventListener("pointermove", e=>{ if(!ptr.has(e.pointerId)) return; const q = toS(e); if(!q) return; ptr.set(e.pointerId, q); apply(); e.preventDefault(); });
+  const up = e=>{ if(!ptr.has(e.pointerId)) return; ptr.delete(e.pointerId); setAnch(); };
+  svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", up);
+  svg.addEventListener("wheel", e=>{   // PC: ホイールで横の拡大縮小(カーソルの下を動かさない)。縦軸は固定
+    const q = toS(e); if(!q) return; e.preventDefault();
+    const k = Math.exp(e.deltaY*0.0015), a = dataAt(q), fx = fr(q.x);
+    const w = (VZ.x1 - VZ.x0)*k; VZ.x0 = a.d - fx*w; VZ.x1 = VZ.x0 + w;
+    vsdClampRange(); vsdPaintSoon(); vsdTerrainSoon();
+  }, { passive:false });
+  svg.addEventListener("dblclick", ()=>{ vsdResetZoom(); vsdPaintSoon(); vsdTerrainSoon(); });
+}
+// v128: 描くデータ。UKMET を選んでいて取れていればそれ、取れなかったときは MSM(あれば)。MSM を選んでいれば MSM
+function wxPick(wkey, S){
+  const ok = (d, k)=>d && k === wkey && d.pts && d.pts.length === S.length;
+  if(WX.model === "ukmo") return ok(UK.data, UK.key) ? UK.data : null;   // v163 UKMET を選んでいるときは MSM を出さない(前に MSM を見ていると、UKMET が無いとき MSM が UKMET のふりをして出た)
+  return ok(WX.data, WX.key) ? WX.data : null;
+}
+const ukFailed = wkey=>false;   // v156 UKMET が出せなくても MSM を勝手に取りに行かない(MSM は自分で選んだときだけ通信する)
+function drawVsd(){
+  const box = $("vsd"), wrap = $("mapwrap");
+  if(!VSD_ON){ if(!box.hidden) vsdLeaveFs(); box.hidden = true; box.textContent = ""; VC = null; wrap.classList.remove("vsdOn"); return; }
+  const route = vsdRoute();
+  box.hidden = false; box.textContent = ""; vsdFit(box);
+  const { P, X, L, flip } = route;
+  const key = ST.rte;
+  if(VZ.key !== key){ VZ.key = key; VC = { L }; vsdResetZoom(); }
+  // 見出し
+  const vh = el("div","vh"); vh.append("断面図 ");   // v161 ユーザー「VSD の名前は断面図に変更」
+  if(P.length < 2){
+    vh.append(el("span","wxs err","RTE に 2 点以上(出発・到着の空港か FIX)を入れてください"));
+    const x0b = el("button","btn sm","✕"); x0b.type = "button"; x0b.setAttribute("aria-label","断面図を閉じる"); x0b.addEventListener("click", vsdClose); vh.append(x0b); box.append(vh); VC = null; return;
+  }
+  vh.append(el("b","", P[0].id + " → " + P[P.length-1].id)); vh.append(" " + L.toFixed(0) + "NM(直線)");
+  // 風・シア: 取りに行く
+  const S = wxSamples(P, X, L), tms = wxTime();
+  const wkey = [ST.rte, S.length, Math.floor(tms/60000)].join("|");
+  // v128: 選んだモデルだけ取る(UKMET が取れなかったときだけ MSM も取る)
+  if(wxAny() && WX.model === "ukmo" && UK.key !== wkey && !(UK.busy && UK.reqKey === wkey)) loadUk(wkey, S, tms);
+  // v164 ユーザー「MSM 廃止でいいや」→ モデルの切り替えは無し(UKMET だけ。loadWx・worker の /api/wind は使わない)
+  { const sg = el("div","seg"); sg.setAttribute("role","group"); sg.setAttribute("aria-label","風・シアの表示");
+    [["wind","風"],["vws","VWS"],["trop","TROP"],["cld","雲"]].forEach(([m, lab])=>{
+      const on = !!WX[m];
+      const b = el("button", on ? "on" : "", lab); b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.addEventListener("click", ()=>{ WX[m] = !WX[m]; if(wxAny() && WX.err) WX.key = ""; if(wxAny() && UK.err) UK.key = ""; drawVsd(); });
+      sg.append(b); });
+    vh.append(sg);
+    vh.append(catSelect(WX.ri ? WX.cat : "", v=>{ WX.cat = v || WX.cat; WX.ri = !!v; if(wxAny() && WX.err) WX.key = ""; if(wxAny() && UK.err) UK.key = ""; drawVsd(); }));   // v132 揺れの指標(Ri・TI1・TI2・NCSU1・なし)
+    if(wxAny()){
+      const si = document.createElement("select"); si.id = "wxTime"; si.setAttribute("aria-label","通過する時刻(UTC)");
+      const tcur = wxTime(); let topts = wxOpts(); if(!topts.includes(tcur)) topts = [tcur].concat(topts);
+      topts.forEach(t=>{ const op = document.createElement("option"); op.value = String(t); op.textContent = wxLab(t); if(t === tcur) op.selected = true; si.append(op); });
+      si.addEventListener("change", ()=>{ WX.tms = +si.value; drawVsd(); });
+      vh.append(si);
+      { const uf = ukFailed(wkey), busy = WX.model === "ukmo" && !uf ? UK.busy : WX.busy, err = WX.model === "ukmo" && !uf ? "" : WX.err;
+        const ue = WX.model === "ukmo" && UK.key === wkey && !UK.data ? UK.err : "";
+        vh.append(el("span", "wxs" + (err || ue ? " err" : ""), busy ? "読み込み中…" : err || ue || ""));
+        if(uf) vh.append(el("span", "wxs err", "UKMET が取れないので MSM で表示(" + UK.err.slice(0, 40) + ")")); } } }
+  // v122: H/T(向い風・追い風の成分)はやめた(ユーザー「H/T いらない」)
+  { const ab = el("button","btn sm","全体"); ab.type = "button"; ab.id = "vsdAll"; ab.hidden = !VZ.zoomed; ab.setAttribute("aria-label","拡大を戻して全体を見る"); ab.addEventListener("click", ()=>{ vsdResetZoom(); vsdPaint(); vsdTerrainSoon(); ab.hidden = true; }); vh.append(ab); }
+  // v161 ユーザー「縮小ボタンとその右の四角いマークのボタンいらない」→ 閉じる(✕)だけ。いつも全画面
+  const x = el("button","btn sm fsb","✕"); x.type = "button"; x.setAttribute("aria-label","断面図を閉じる"); x.addEventListener("click", vsdClose);
+  vh.append(x); box.append(vh);
+  // 図(幅と高さは箱に合わせる)
+  const W = Math.max(200, box.clientWidth - 12), H = Math.max(110, box.clientHeight - ((vh.offsetHeight || 28) + 6)), ml = 44, mr = 40, mt = 22, mb = 44;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "縦の断面。横方向にピンチで拡大、ドラッグで移動、ダブルタップで全体");
+  box.append(svg);
+  VC = { P, X, L, flip, W, H, ml, mr, mt, mb, S, wkey, svg };
+  if(box.classList.contains("rot")) vsdRotPickers(box);   // v159 横向きに回した全画面では、選択肢を図の中に出す
+  vsdClampRange(); vsdPaint();   // v150 ユーザー「断面図は横軸もズームできなくていい」→ ピンチ・ドラッグ・ホイールの拡大はつけない(いつも全体。vsdGestures は残してあるが使わない)
 }
 // ---- 画面 ----
 function setRte(v, force){
@@ -984,7 +2634,9 @@ function render(){
   $("rteErr").textContent = R.errs.join("　／　");
   if(B.notes.length) $("prMsg").textContent = ($("prMsg").textContent + "　" + B.notes.join("　")).trim();
   $("rtstr").textContent = (R.dep ? AP[R.dep][3] + "（" + R.dep + "）→ " : "") + (R.dest ? AP[R.dest][3] + "（" + R.dest + "）" : "到着の空港なし（最後のFIXで終わり）") + (R.notes.length ? "　※" + R.notes.join("、") : "");
-  if(pts.length < 2){ $("map").textContent = ""; $("mapErr").textContent = ""; $("dctMsg").textContent = ""; return; }
+  if(pts.length < 2){ $("map").textContent = ""; $("mapErr").textContent = ""; $("dctMsg").textContent = "";
+    // v163 精査: 前の経路の地図を覚えたままだと、あとの描き直しで古い経路が出て、FIX を押すと止まった
+    lastMap = null; SELFIX = null; DCTPICK = null; DCTFROM = null; PROBE = null; RULER = null; $("info").hidden = true; save(); return; }
   const ckey = R.dest || "_";
   ST.cons[ckey] = ST.cons[ckey] || {};
   const user = ST.cons[ckey];
@@ -1156,6 +2808,7 @@ function trkBundle(list, dest){
 const TRK_PASS_NM = 4;   // 旋回の内側を通る(フライバイ)分を見込んで4NM
 function trkSummary(pts){}   // v107: 航跡の説明・よくある直行の文はやめた(地図だけ)
 function showInfo(p, i, keep){
+  if(!p) return;   // v163
   if(!keep) PROBE = null;
   // DIRECT の「今いる場所」待ち: 押した FIX を今いる場所にして直行
   if(DCTPICK!=null && !keep){
@@ -1226,15 +2879,6 @@ function showInfo(p, i, keep){
     ed.append(b2);
   }
   if(DCTS.some(d=>d.from <= i && d.to >= i)){ const b3 = dEl("button","btn sm"," 解除"); b3.title = "この FIX にかかる DIRECT をやめる"; b3.type = "button"; b3.addEventListener("click", ()=>{ removeDirectsAt(i); DCTPICK = null; DCTFROM = null; render(); }); ed.append(b3); }
-  // v111 VSD: 1 回目に押した FIX から 2 回目に押した FIX まで
-  { const toEnd = VSD.a!=null && VSD.b==null && VSD.a!==i;
-    const bv = el("button","btn sm" + (VSD.a===i || VSD.b===i ? " pri" : ""), toEnd ? "VSD ここまで" : "VSD ここから"); bv.type = "button";
-    bv.title = toEnd ? lastPts[VSD.a].id + " からここまでの縦の断面を出す" : "縦の断面(VSD)の始まり。次に終わりの FIX を押す";
-    bv.addEventListener("click", ()=>{
-      if(toEnd){ VSD.b = i; if(VSD.b < VSD.a){ const t = VSD.a; VSD.a = VSD.b; VSD.b = t; } VSD.ids = [lastPts[VSD.a].id, lastPts[VSD.b].id]; closeSheet(); drawVsd(); }
-      else { VSD = { a:i, b:null }; drawVsd(); showInfo(p, i, true); flash("VSD の終わりの FIX を押して「VSD ここまで」"); }
-    });
-    ed.append(bv); }
   // そのほか(制限なし・AIP に戻す・経路上に FIX を作る)は「…」の中
   const more = el("button","btn sm", ST.fxMore ? "▴" : "…"); more.type = "button"; more.title = "そのほかの操作"; more.setAttribute("aria-expanded", ST.fxMore ? "true" : "false");
   more.addEventListener("click", ()=>{ ST.fxMore = !ST.fxMore; save(); showInfo(p, i, true); });
@@ -1274,8 +2918,9 @@ function flash(msg){
 let MW = 640, MH = 520, US = 1;   // スマホ(幅600px未満)では縦長にして、地図の中のパネルの分の場所を空ける
 let VIEW = null, RV = null, fitKey = "", lastMap = null;
 function fitView(pts, dest){
-  const pad = 36;
-  let fit = pts;
+  // v169 全体のときは出発の空港も入れる(経路の点は最初の FIX から)。名前が切れないよう少し余白を広く
+  const pad = ST.view==="arr" ? 36 : 48, dep = parseRte(ST.rte).dep;
+  let fit = ST.view!=="arr" && dep && AP[dep] ? [{ lat:AP[dep][0], lon:AP[dep][1] }].concat(pts) : pts;
   if(ST.view==="arr" && dest && AP[dest]){
     const c = { lat:AP[dest][0], lon:AP[dest][1] };
     fit = pts.filter(p=>p.pr || p.ap || gc(p, c) <= 70);
@@ -1285,7 +2930,7 @@ function fitView(pts, dest){
   const xs = fit.map(p=>p.lon*cl), ys = fit.map(p=>p.lat);
   let w = Math.max(...xs)-Math.min(...xs), h = Math.max(...ys)-Math.min(...ys);
   w = Math.max(w, 20/60); h = Math.max(h, 20/60);
-  VIEW = { cx:(Math.max(...xs)+Math.min(...xs))/2, cy:(Math.max(...ys)+Math.min(...ys))/2, cl, k:Math.min((MW-2*pad)/w, (MH-2*pad)/h) };
+  VIEW = { cx:(Math.max(...xs)+Math.min(...xs))/2, cy:(Math.max(...ys)+Math.min(...ys))/2, cl, k:Math.min((MW-2*pad)/w, (MH-2*pad)/h) }; clampView();
 }
 // MVA の色: 低い区画ほど薄く、高い区画ほど濃く(同じ色相で段階)
 // 不透明の色にする(半透明だと境目の重なり・隙間が見える)。地の色と MVA 色を混ぜる
@@ -1315,24 +2960,27 @@ function drawMap(pts, res, dest){
   { // 地図は横幅いっぱい・高さは画面に合わせる(1 単位 = 1px)
     const bw = $("map").clientWidth;
     const top = $("mapwrap").getBoundingClientRect().top + window.scrollY;   // 地図の上の端(道具の段の下)
-    const mh = Math.round(Math.max(300, Math.min(1400, window.innerHeight - top - 22 - safePx("--safeB"))));   // 下の余白(枠と外側)の分だけ引く。スクロールしないで1画面に
+    const mh = Math.round(Math.max(300, Math.min(1400, window.innerHeight - top - 2 - safePx("--safeB"))));   // 下の余白(枠と外側)の分だけ引く。スクロールしないで1画面に
     if(bw && (Math.round(bw)!==drawMap.bw || mh!==drawMap.mh)){ drawMap.bw = Math.round(bw); drawMap.mh = mh; MW = Math.round(bw); MH = mh; }
     US = bw && bw < 600 ? 1.15 : 1; }
   lastMap = { pts, res, dest };
   // 地図の位置を合わせ直すのは、初めて描くとき・到着空港が変わったとき・「全体/到着周辺」を押したときだけ。
   // DIRECT・STAR・APPROACH・制限を変えても今の表示のまま
-  const key = (dest || "-");
+  const key = (dest || "-") + "|" + (parseRte(ST.rte).dep || "-");   // v169 出発か到着が変わったら合わせ直す
   if(!VIEW || key!==fitKey){ fitKey = key; fitView(pts, dest); if(SELMVA && SELMVA.ap!==dest) SELMVA = null; }
   const W = MW, H = MH, V = VIEW, sc = V.k;
+  // v137 画面の外も上下左右 30% ずつ描いておく(のりしろ)。指で動かしている間は描き直さずに図をずらすだけなので、端が空白にならず、途中の描き直し(カクつき)も要らない
+  const OX = Math.round(W*MAP_OV), OY = Math.round(H*MAP_OV); MOX = OX; MOY = OY;
   const P = (lat, lon)=>[W/2 + (lon*V.cl - V.cx)*sc, H/2 - (lat - V.cy)*sc];
   const f1 = (v)=>v.toFixed(1);
   // 空港の記号(Jeppesen と同じ中抜きの円)
   const apSym = (c, col)=>'<circle cx="'+f1(c[0])+'" cy="'+f1(c[1])+'" r="'+f1(4.5*US)+'" fill="var(--panel2)" stroke="'+col+'" stroke-width="'+f1(1.8*US)+'"/>';
   const pxNM = sc/60;
   RV = Object.assign({}, V);
-  let s = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="経路の図" id="mapSvg" style="--us:'+US.toFixed(2)+'"><g id="mapG">';
+  let s = '<svg viewBox="'+(-OX)+' '+(-OY)+' '+(W+2*OX)+' '+(H+2*OY)+'" role="img" aria-label="経路の図" id="mapSvg" style="--us:'+US.toFixed(2)+';width:'+(W+2*OX)+'px;height:'+(H+2*OY)+'px;max-width:none;margin:'+(-OY)+'px 0 0 '+(-OX)+'px"><g id="mapG">';
   // 海岸線(薄く。MVA があれば区画の塗りの上・線の下)
-  const landS = ST.coast!==false ? coastSvg(P, W, H) : ""; let landDone = false;
+  // v152 「地図」の選択肢は無し(いつも出す)
+  const landS = coastSvg(P, W, H, OX, OY); let landDone = false;
   // 字が重ならないように: 置いた字の四角(OCC)と、あとで置く背景の数字(BGLAB: MVA・空域)
   const BGLAB = [], OCC = [];
   const tw = (str, px)=>String(str).replace(/<[^>]*>/g, "").length*px*0.62*US;   // 等幅の字の幅
@@ -1381,6 +3029,13 @@ function drawMap(pts, res, dest){
       }
     });
     s += '<g pointer-events="none" stroke-linejoin="round">' + ln + '__AIRLAB__</g>';
+  }
+  { const wi = wxiSvg(V, W, H, OX, OY); if(wi){ s += wi + coastSvg(P, W, H, OX, OY, true); } }   // v139 気象庁の画像。v145 その上に海岸線を線で(画像で日本地図が見えなくならないように) 気象庁のひまわり・レーダー・雷(MVA・空域の上、経路・FIX の下)
+  // v129 上空(UKMET)。地図の範囲が変わって要る格子が変わったら、少し待ってから取り直す(取れるまでは前の格子のまま)
+  if(UP.on){
+    const w = upWant(V, W, H);
+    if(w && UP.key !== w.key && UP.reqKey !== w.key){ clearTimeout(UP.timer); UP.timer = setTimeout(()=>upLoad(w), 250); }
+    s += upLayerSvg(P, W, H, V, OX, OY);
   }
   // 経路にない FIX・NAVAID(ON のときだけ。経路の下に薄く)
   if(ST.allFix){
@@ -1462,7 +3117,7 @@ function drawMap(pts, res, dest){
     let best = null;
     for(let q=i; q<=j; q++){
       const a = P(pts[q-1].lat, pts[q-1].lon), b = P(pts[q].lat, pts[q].lon);
-      const c = clipSeg(a, b, 0, 0, W, H); if(!c) continue;
+      const c = clipSeg(a, b, -OX, -OY, W + OX, H + OY); if(!c) continue;
       const L = Math.hypot(c[2]-c[0], c[3]-c[1]);
       if(!best || L > best.L) best = { L, c };
     }
@@ -1477,7 +3132,7 @@ function drawMap(pts, res, dest){
   }
   // ---- 字の置き場所: 経路の FIX の名前と速度/高度 → 管制移管高度 → MEA → MVA・空域の数字 の順に、重ならない所へ ----
   const vis = [];
-  pts.forEach((p, i)=>{ const c = P(p.lat, p.lon); if(!(c[0] < -20 || c[0] > W+20 || c[1] < -20 || c[1] > H+20)) vis.push([p, i, c]); });
+  pts.forEach((p, i)=>{ const c = P(p.lat, p.lon); if(!(c[0] < -20-OX || c[0] > W+20+OX || c[1] < -20-OY || c[1] > H+20+OY)) vis.push([p, i, c]); });
   vis.forEach(([p, i, c])=>occ([c[0]-3.5*US, c[1]-3.5*US, c[0]+3.5*US, c[1]+3.5*US]));   // 点そのもの
   let fixS = "";
   // 名前(上の行)と速度/高度(下の行)のまとまりを、右上 → 左上 → 右下 → 左下 の順に空いている所へ
@@ -1503,12 +3158,13 @@ function drawMap(pts, res, dest){
     if(sub) fixS += '<text x="'+f1(pick.x)+'" y="'+f1(pick.y+15*US)+'"'+an+' class="lbl sm halo" data-i="'+i+'">'+sub+(warn?' !':'')+'</text><text x="'+f1(pick.x)+'" y="'+f1(pick.y+15*US)+'"'+an+' class="lbl sm" fill="var(--'+(warn?'warn':'path')+')" data-i="'+i+'">'+sub+(warn?'<tspan font-weight="800" fill="var(--warn)"> !</tspan>':'')+'</text>';
   });
   // データを入れた空港(STAR・進入方式・MVA のある26空港)を Jeppesen と同じ中抜きの円で。経路の両端は上で描いた
+  // v177 ユーザー「経路外の空港は出さなくていい」→ 出発の空港(経路の点に入っていない)だけ描く(OTHER_AP = true で前のとおり全部)
   {
-    const onR = new Set(pts.filter(p=>p.ap).map(p=>p.id));
-    Object.keys(PROC).forEach(id=>{
+    const onR = new Set(pts.filter(p=>p.ap).map(p=>p.id)), dep0 = parseRte(ST.rte).dep;
+    (OTHER_AP ? Object.keys(PROC) : (dep0 && AP[dep0] ? [dep0] : [])).forEach(id=>{
       const a = AP[id]; if(!a || onR.has(id)) return;
       const c = P(a[0], a[1]);
-      if(c[0] < -20 || c[0] > W+20 || c[1] < -20 || c[1] > H+20) return;
+      if(c[0] < -20-OX || c[0] > W+20+OX || c[1] < -20-OY || c[1] > H+20+OY) return;
       occ([c[0]-5*US, c[1]-5*US, c[0]+5*US, c[1]+5*US]);
       fixS = apSym(c, "var(--dim)") + fixS;
       const w = tw(id, 10);
@@ -1528,7 +3184,7 @@ function drawMap(pts, res, dest){
     Object.entries(xo).forEach(([id, list])=>{
       const q0 = pts.find(q=>q.id===id); if(!q0) return;
       const c = P(q0.lat, q0.lon);
-      if(c[0] < -40 || c[0] > W+40 || c[1] < -20 || c[1] > H+20) return;
+      if(c[0] < -40-OX || c[0] > W+40+OX || c[1] < -20-OY || c[1] > H+20+OY) return;
       const raw = list.map(q=>q.a + (!rwSel && /RWY/.test(q.r||"") ? "(" + q.r.match(/\d{2}/)[0] + ")" : "")).join("/");
       const tx = raw.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");   // 「<FL150」(Below FL150)などを SVG に入れるので</>を逃がす
       const w = tw(raw, 11);
@@ -1544,7 +3200,7 @@ function drawMap(pts, res, dest){
   s += xferS + fixS;
   // MEA(区間の真ん中のそば。空いているときだけ)
   meaLab.forEach(m=>{
-    if(m.x < 0 || m.x > W || m.y < 0 || m.y > H) return;
+    if(m.x < -OX || m.x > W + OX || m.y < -OY || m.y > H + OY) return;
     const w = tw(m.t, 10), r = [m.x - w/2, m.y - 7*US, m.x + w/2, m.y + 6*US];
     if(hit(r)) return;
     occ(r);
@@ -1581,7 +3237,7 @@ function drawMap(pts, res, dest){
   if(SELFIX!=null && pts[SELFIX]){ const c = P(pts[SELFIX].lat, pts[SELFIX].lon); s += '<circle cx="'+f1(c[0])+'" cy="'+f1(c[1])+'" r="'+f1(10*US)+'" fill="none" stroke="var(--accent)" stroke-width="2.5"/>'; }
   if(DCTFROM!=null && pts[DCTFROM]){ const c = P(pts[DCTFROM].lat, pts[DCTFROM].lon); s += '<circle cx="'+f1(c[0])+'" cy="'+f1(c[1])+'" r="'+f1(10*US)+'" fill="none" stroke="var(--dct)" stroke-width="2.5"/>'; }
   if(DCTPICK!=null && pts[DCTPICK]){ const c = P(pts[DCTPICK].lat, pts[DCTPICK].lon); s += '<circle cx="'+f1(c[0])+'" cy="'+f1(c[1])+'" r="'+f1(10*US)+'" fill="none" stroke="var(--dct)" stroke-width="2.5" stroke-dasharray="3 3"/>'; }
-  pts.forEach((p, i)=>{ const c = P(p.lat, p.lon); if(c[0] < -20 || c[0] > W+20 || c[1] < -20 || c[1] > H+20) return; s += '<circle cx="'+f1(c[0])+'" cy="'+f1(c[1])+'" r="'+f1(15*US)+'" fill="transparent" class="hit" data-i="'+i+'" style="cursor:pointer"/>'; });
+  pts.forEach((p, i)=>{ const c = P(p.lat, p.lon); if(c[0] < -20-OX || c[0] > W+20+OX || c[1] < -20-OY || c[1] > H+20+OY) return; s += '<circle cx="'+f1(c[0])+'" cy="'+f1(c[1])+'" r="'+f1(15*US)+'" fill="transparent" class="hit" data-i="'+i+'" style="cursor:pointer"/>'; });
   if(PROBE){
     const tw = (t, a)=>[...t].reduce((q, ch)=>q + (ch.charCodeAt(0) > 255 ? 2*a : a), 0);   // 全角は 2 文字分
     const c = P(PROBE.lat, PROBE.lon), w = (Math.max(tw(PROBE.txt, 7.2), tw(PROBE.sub, 6.2)) + 18)*US;
@@ -1595,9 +3251,17 @@ function drawMap(pts, res, dest){
   // 縮尺(きりのいい NM)
   const nice = [1,2,5,10,20,50,100,200].find(n=>n*pxNM >= 50) || 200;
   s += '<line x1="12" y1="'+(H-14)+'" x2="'+f1(12+nice*pxNM)+'" y2="'+(H-14)+'" stroke="var(--dim)" stroke-width="2"/><text x="12" y="'+(H-20)+'" class="lbl sm" fill="var(--dim)">'+nice+'NM</text>';
+  if(WXI.on){ const T = wxiPick(), parts = [];   // v141 選んだ時刻のもの
+    if(WXI.sat && WXI.sat !== "NIR") parts.push("ひまわり " + wxiLab(T.sat)); if(WXI.rad) parts.push((T.radK === "r" ? "降水短時間予報 " : T.radK === "f" ? "レーダー予報 " : "レーダー ") + wxiLab(T.rad)); if(WXI.ltg) parts.push("雷 " + (WXOFF.jmeta && WXOFF.jmeta.ltg && WXOFF.jmeta.ltg.length ? wxiLab(T.n3) + "までの 30 分" : "なし")); const irTxt = WXI.sat === "NIR" ? "赤外 " + (IRC.t ? IRC.t.slice(11, 16) + "Z(ひまわり B13・NOAA)" : "なし") : "";
+    const hiTxt = (irTxt ? irTxt + (WXI.ho || WXI.ct ? "  " : "") : "") + (WXI.ho || WXI.ct ? (WXI.ct ? "雲の種類 " : "雲頂FL ") + (HIC.t && (WXI.ho || HIC.T) ? HIC.t.slice(11, 16) + "Z(ひまわり・NOAA の解析)" : "なし") : "");
+    s += '<text x="'+(W-6)+'" y="'+(H-18)+'" text-anchor="end" class="lbl sm" fill="var(--fg)" stroke="var(--panel2)" stroke-width="3" paint-order="stroke" font-size="10">'+(parts.length ? "気象庁 " + parts.join("・") : "")+(hiTxt ? (parts.length ? "  " : "") + hiTxt : "")+(WXI.err ? " " + WXI.err : WXI.busy ? " 読み込み中…" : "")+'</text>'; }   // v139
   if(TRK_CUR && ST.trk!==false && /adsb/.test(TRK_CUR.src || "")) s += '<text x="'+(W-6)+'" y="'+(H-6)+'" text-anchor="end" class="lbl sm" fill="var(--dim)" font-size="9">© adsb.lol contributors (ODbL)</text>';   // adsb.lol のデータの出典(利用条件)
+  s += sndLegendSvg(V, W, H); s += hiLegendSvg(W, H); s += irLegendSvg(W, H);   // v171 赤外の温度の色   // v147 雲頂強調の色 → FL
+  s += upLegendSvg(W, H);   // 上空の凡例は一番上に(空港の名前などに隠れないように)
   s += "</svg>";
+  $("map").style.height = H + "px";   // v137 のりしろの分は #map の外にはみ出させて隠す
   $("map").innerHTML = s;
+  upAttach(); wxiAttach();
   $("probeMk").hidden = !(PROBE && PROBE.tok);
 }
 // ---- 定規(長押しから指をすべらせて2点間の距離・方位) ----
@@ -1624,6 +3288,7 @@ function rulerSvg(){
   return s;
 }
 function drawRuler(){ const g = document.getElementById("rulerG"); if(g) g.innerHTML = rulerSvg(); }
+let MOX = 0, MOY = 0; const MAP_OV = 0.3;   // v137 地図ののりしろ(px、画面の幅・高さの 30%)
 let DRAW_MS = 50, LAST_DRAW = 0;   // 描き直しにかかった時間(端末の速さ)。速ければ指の操作中も描き直す
 function redrawMap(){ if(!lastMap) return; const t0 = performance.now(); drawMap(lastMap.pts, lastMap.res, lastMap.dest); LAST_DRAW = performance.now(); DRAW_MS = DRAW_MS*0.5 + (LAST_DRAW - t0)*0.5; }
 { let rt = null, lw = 0, lh = 0; window.addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ const w = $("map").clientWidth, h = window.innerHeight; if(w && (Math.abs(w-lw) > 2 || Math.abs(h-lh) > 2)){ lw = w; lh = h; redrawMap(); } }, 150); }); }
@@ -1633,7 +3298,7 @@ function zoomAt(f, sx, sy){
   const nk = Math.min(Math.max(VIEW.k*f, 20), 60*60);   // 緯度1°あたり 20px〜(1NM=60px)
   f = nk/VIEW.k;
   const wx = VIEW.cx + (sx - MW/2)/VIEW.k, wy = VIEW.cy - (sy - MH/2)/VIEW.k;
-  VIEW.cx = wx - (sx - MW/2)/nk; VIEW.cy = wy + (sy - MH/2)/nk; VIEW.k = nk;
+  VIEW.cx = wx - (sx - MW/2)/nk; VIEW.cy = wy + (sy - MH/2)/nk; VIEW.k = nk; clampView();
   redrawMap();
 }
 // 指の操作中は DOM を作り直さず、描いたときの図に transform をかけるだけ(軽い)。指を離したら描き直す
@@ -1641,11 +3306,19 @@ function zoomAt(f, sx, sy){
 // 画面の外にあった部分は次の描き直し(0.3秒ごと・指を離したとき)まで空白になる
 function previewView(){
   const sv = document.getElementById("mapSvg"); if(!sv || !RV){ redrawMap(); return; }
-  const s = VIEW.k/RV.k, px = sv.getBoundingClientRect().width/MW/(parseFloat(sv.dataset.s || "1"));
-  const tx = (MW/2 + (RV.cx - VIEW.cx)*VIEW.k - s*MW/2)*px, ty = (MH/2 + (VIEW.cy - RV.cy)*VIEW.k - s*MH/2)*px;
+  const s = VIEW.k/RV.k, px = sv.getBoundingClientRect().width/(MW + 2*MOX)/(parseFloat(sv.dataset.s || "1"));
+  // v137 図の左上は のりしろの分 (-MOX, -MOY) にあるので、その分を足す
+  const tx = (MW/2 + (RV.cx - VIEW.cx)*VIEW.k - s*MW/2 + MOX*(1 - s))*px, ty = (MH/2 + (VIEW.cy - RV.cy)*VIEW.k - s*MH/2 + MOY*(1 - s))*px;
   sv.dataset.s = String(s);
   sv.style.transformOrigin = "0 0"; sv.style.willChange = "transform";
   sv.style.transform = "translate(" + tx.toFixed(1) + "px," + ty.toFixed(1) + "px) scale(" + s.toFixed(5) + ")";
+}
+// v137 指の操作中に描き直すのは、のりしろを使い切りそうなとき(動かした量が のりしろの 8 割を超えた・縮小で外が見えてきた・大きく拡大して字が粗くなった)だけ
+function mapNeedsRedraw(){
+  if(!RV || !VIEW) return true;
+  const s = VIEW.k/RV.k, dx = Math.abs((RV.cx - VIEW.cx)*RV.k), dy = Math.abs((VIEW.cy - RV.cy)*RV.k);   // 描いたときの px で
+  const hx = (MW/2)*(1/s - 1), hy = (MH/2)*(1/s - 1);   // 縮小で見えてくる幅(描いたときの px。拡大なら負)
+  return dx + Math.max(0, hx) > MOX*0.8 || dy + Math.max(0, hy) > MOY*0.8 || s > 1.8;
 }
 (function(){
   const box = $("map");
@@ -1654,25 +3327,25 @@ function previewView(){
   const clampK = (k)=>Math.min(Math.max(k, 20), 3600);
   // 操作中: v109 描き直しがとても速い端末(1回 12ms 未満)だけ毎フレーム描き直す。それ以外は今の図を動かして(拡大縮小して)見せ、
   // 描き直しは 0.3秒に1回と指を離したとき。iPad で毎フレーム描き直すとフレームが落ちていた
-  let raf = 0; const preview = ()=>{ if(!raf) raf = requestAnimationFrame(()=>{ raf = 0;
-    if(DRAW_MS < 12 || performance.now() - LAST_DRAW > 300 + DRAW_MS*2) redrawMap(); else previewView(); }); };
+  let raf = 0; const preview = ()=>{ MAPACT = performance.now(); if(!raf) raf = requestAnimationFrame(()=>{ raf = 0;
+    if(DRAW_MS < 8 || mapNeedsRedraw()) redrawMap(); else previewView(); }); };
   let idle = 0; const settle = (ms)=>{ clearTimeout(idle); idle = setTimeout(()=>{ cancelAnimationFrame(raf); raf = 0; redrawMap(); }, ms); };
   // ホイール(PC)
   box.addEventListener("wheel", (e)=>{
     if(!VIEW) return; e.preventDefault();
     const [x,y] = toSvg(e), w = world(x, y);
     VIEW.k = clampK(VIEW.k*Math.exp(-e.deltaY*0.0015));
-    VIEW.cx = w[0] - (x - MW/2)/VIEW.k; VIEW.cy = w[1] + (y - MH/2)/VIEW.k;
+    VIEW.cx = w[0] - (x - MW/2)/VIEW.k; VIEW.cy = w[1] + (y - MH/2)/VIEW.k; clampView();
     preview(); settle(80);
   }, { passive:false });
   // 指・マウス
   const ptr = new Map(), ptrT = new Map(); let g = null, moved = false, startPx = null;
   // 指が全部離れたら必ず終わりにする(pointerup が来ないことがあるため)
-  window.addEventListener("touchend", (e)=>{ if(e.touches && e.touches.length===0 && ptr.size){ const was = moved; ptr.clear(); g = null; ruling = false; cancelLp(); if(was) settle(0); } }, { passive:true });
+  window.addEventListener("touchend", (e)=>{ if(e.touches && e.touches.length===0 && ptr.size){ const was = moved; ptr.clear(); g = null; if(ruling){ RULER = null; drawRuler(); } ruling = false; cancelLp(); if(was) settle(0); } }, { passive:true });
   window.addEventListener("touchcancel", (e)=>{ if(e.touches && e.touches.length===0){ ptr.clear(); g = null; cancelLp(); } }, { passive:true });
   const begin = ()=>{
     // 今の指の位置で操作を始め直す(1本: 移動、2本: 拡大縮小+移動)
-    const ps = [...ptr.values()];
+    const ps = [...ptr.values()].slice(0, 2);   // v163 3 本目の指は使わない(動かすときと同じ 2 本で)
     if(!VIEW || !ps.length){ g = null; return; }
     const mx = ps.reduce((a,p)=>a+p[0],0)/ps.length, my = ps.reduce((a,p)=>a+p[1],0)/ps.length;
     g = { w:world(mx, my), k:VIEW.k, d: ps.length>1 ? Math.hypot(ps[0][0]-ps[1][0], ps[0][1]-ps[1][1]) : 0 };
@@ -1707,7 +3380,7 @@ function previewView(){
         const a = pick(at[0], at[1]); RULER = { a, b:Object.assign({}, a) }; drawRuler();
         if(navigator.vibrate) try{ navigator.vibrate(12); }catch(_){}
       }, 500);
-    } else { cancelLp(); ruling = false; moved = true; try{ box.setPointerCapture(e.pointerId); }catch(_){} }   // 2本目: 必ず操作
+    } else { cancelLp(); if(ruling){ RULER = null; drawRuler(); } ruling = false; moved = true; try{ box.setPointerCapture(e.pointerId); }catch(_){} }   // 2本目: 必ず操作(v163 定規の途中なら定規を消す)
     begin();
   });
   box.addEventListener("pointermove", (e)=>{
@@ -1721,7 +3394,7 @@ function previewView(){
     const ps = [...ptr.values()].slice(0, 2);
     const mx = ps.reduce((a,p)=>a+p[0],0)/ps.length, my = ps.reduce((a,p)=>a+p[1],0)/ps.length;
     if(ps.length>1 && g.d > 0) VIEW.k = clampK(g.k * Math.hypot(ps[0][0]-ps[1][0], ps[0][1]-ps[1][1]) / g.d);
-    VIEW.cx = g.w[0] - (mx - MW/2)/VIEW.k; VIEW.cy = g.w[1] + (my - MH/2)/VIEW.k;
+    VIEW.cx = g.w[0] - (mx - MW/2)/VIEW.k; VIEW.cy = g.w[1] + (my - MH/2)/VIEW.k; clampView();
     preview();
   });
   const up = (e)=>{
@@ -1776,7 +3449,7 @@ $("map").addEventListener("click", (e)=>{
     }
     PROBE = { lat:A.lat + (B.lat-A.lat)*t, lon:A.lon + (B.lon-A.lon)*t,
       txt: q.v + "/" + (q.h!=null && q.h <= TOP_FT ? cduAlt(q.h) : ""), sub: B.id + " の手前 " + back.toFixed(1) + "NM", tok };
-  } else PROBE = null;
+  } else { PROBE = null; if(hiActive()) hiTap(VIEW.cy - (sy - MH/2)/VIEW.k, (VIEW.cx + (sx - MW/2)/VIEW.k)/VIEW.cl); else if(irActive()) irTap(VIEW.cy - (sy - MH/2)/VIEW.k, (VIEW.cx + (sx - MW/2)/VIEW.k)/VIEW.cl); else if(sndActive()) sndTap(VIEW.cy - (sy - MH/2)/VIEW.k, (VIEW.cx + (sx - MW/2)/VIEW.k)/VIEW.cl); }   // v147 雲頂強調のときは、押した所の雲頂
   if(!$("info").hidden && SELFIX==null) closeSheet(); else redrawMap();
 });
 // 方位(真)と距離 NM
@@ -1850,6 +3523,16 @@ function setPair(){
   if(list.length) setRte(list[0][1], true);
   else setRte([dep, ...rteBody(ST.rte).split(" ").filter(Boolean), arr].join(" "), true);   // 会社経路がなければ中身はそのまま(手で直す)
 }
+// v159 ユーザー「設定の中に出発地と到着地を入れ替えるボタン欲しい」→ 逆向きの会社経路があればその 1 つ目。無ければ今の経路を逆の順に並べる(確かめてもらう)
+$("pSwap").addEventListener("click", ()=>{
+  const R = parseRte(ST.rte), dep = R.dep || toIcao($("pDep").value), arr = R.dest || toIcao($("pArr").value);
+  if(!dep || !arr){ flash("出発と到着の両方を入れてください"); return; }
+  $("pDep").value = arr; $("pArr").value = dep;
+  const list = rtList(arr, dep);
+  if(list.length){ setRte(list[0][1], true); flash(arr + " → " + dep + "(会社経路 " + list[0][0] + ")"); }
+  // v163 「FIX/-10」や速度・高度の指定は向きが逆では意味がないので外す
+  else { setRte([arr, ...rteBody(ST.rte).split(" ").filter(t=>t && !ALONG_RE.test(t)).map(t=>t.split("/")[0]).filter(Boolean).reverse(), dep].join(" "), true); flash(arr + " → " + dep + ": 会社経路が無いので、経路を逆の順にしました。確かめてください"); }
+});
 ["pDep","pArr"].forEach(id=>{ $(id).addEventListener("change", setPair); $(id).addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); $(id).blur(); setPair(); } }); });
 
 $("rte").addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); setRte(rteFromInput()); } });
@@ -1870,11 +3553,19 @@ $("vAll").addEventListener("click", ()=>{ setView("all"); VIEW = null; render();
 $("vArr").addEventListener("click", ()=>{ setView("arr"); VIEW = null; render(); });
 $("mvaChk").checked = ST.mva!==false;
 $("airChk").checked = ST.air!==false;
-$("coastChk").checked = ST.coast!==false;
-$("coastChk").addEventListener("change", ()=>{ ST.coast = $("coastChk").checked; save(); redrawMap(); });
 $("fixChk").checked = !!ST.allFix;
 $("trkChk").checked = ST.trk!==false;
 $("trkChk").addEventListener("change", ()=>{ ST.trk = $("trkChk").checked; save(); render(); });
+// v123: Approach Planner の中で Map に切り替えたとき(iframe は読み込み直さず、隠れていたのがまた見えるだけ)も航跡はオフに戻す。
+// 見えなくなった → 見えた を IntersectionObserver で知る(親の画面で Map が display:none になると交差しなくなる)
+if(window.parent !== window && "IntersectionObserver" in window){
+  let seen = null;
+  new IntersectionObserver(es=>{
+    const v = es.some(e=>e.isIntersecting);
+    if(seen === false && v && ST.trk !== false){ ST.trk = false; $("trkChk").checked = false; save(); render(); }
+    seen = v;
+  }).observe($("mapwrap"));
+}
 $("trkB").value = ST.trkB || "";
 $("trkV").value = ST.trkV === "all" ? "all" : "flow";
 
@@ -1921,7 +3612,8 @@ function applyIns(pts, ids, dest, errs){
 }
 $("mvaChk").addEventListener("change", ()=>{ ST.mva = $("mvaChk").checked; save(); redrawMap(); });
 $("airChk").addEventListener("change", ()=>{ ST.air = $("airChk").checked; save(); redrawMap(); });
-setView(ST.view || "arr");
+// v169 ユーザー「MAP 開いたときは到着周辺じゃなくて経路全体を表示しよう」→ 開いたときは保存した設定に関係なく全体
+setView("all");
 $("dctClear").addEventListener("click", ()=>{ DCTS = []; render(); });
 // v108: 親(Approach Planner)から画面の端の余白をもらう { type:"dp-safe", t, b, l, r }(px)
 window.addEventListener("message", e=>{
@@ -1949,11 +3641,17 @@ $("probeMk").addEventListener("click", ()=>{
 (function(){
   // v101: 見出しの帯をやめて地図を大きく。☰ は地図の道具の先頭、引き出しは上から下まで(中に「閉じる」)
   const ctl = $("controls"), btn = $("menuBtn");
-  const setOpen = (open)=>{ ctl.classList.toggle("open", open); document.body.classList.toggle("drawer-open", open); btn.setAttribute("aria-expanded", open ? "true" : "false"); };
+  // v163 精査: 広い画面では引き出しを開くと地図の幅が変わるのに描き直していなかった(押した所・定規・ズームの中心がずれた)→ 動き終わったら描き直す
+  let rt = 0; const refit = ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ drawMap.bw = 0; redrawMap(); }, 280); };
+  const setOpen = (open)=>{ ctl.classList.toggle("open", open); document.body.classList.toggle("drawer-open", open); btn.setAttribute("aria-expanded", open ? "true" : "false"); refit(); };
   btn.addEventListener("click", ()=>setOpen(!ctl.classList.contains("open")));
   $("ctlClose").addEventListener("click", ()=>{ setOpen(false); try{ btn.focus(); }catch(e){} });
   document.addEventListener("keydown", (e)=>{ if(e.key==="Escape") setOpen(false); });
 })();
+$("vsdBtn").addEventListener("click", vsdOpen);
+$("wxSaveBtn").addEventListener("click", wxSaveClick); wxSaveRender();   // v144
+wxiBarRender();   // v176 気象の段は最初から出す
+upBarRender();   // v152 上空の段は最初から出す
 $("rte").value = rteBody(ST.rte); render();
 </script>
 
