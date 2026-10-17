@@ -428,7 +428,7 @@
 <header>
   <button id="menuBtn" class="menuBtn" aria-label="設定を開閉" aria-expanded="false">☰</button>
   <!-- build番号は更新の判定(sw.js・更新確認)に使うので非表示で残す(消すと既存の端末が更新を受け取れない) -->
-  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 308</span></h1>
+  <h1>APPROACH PLANNER <span id="appVer" style="color:var(--amber); font-size:11px;">Ver 1.0</span><span id="appBuild" style="display:none;">build 309</span></h1>
   <span class="sub" id="airportSub"></span>
   <button type="button" id="dpBtn" class="dpBtn" aria-label="Map（降下プランナー）を開く" aria-haspopup="dialog" hidden>Map</button>
   <button type="button" id="fltBtn" class="fltBtn" aria-label="TFC SEARCH（便名検索・空港検索・路線検索）を開く" aria-haspopup="dialog" hidden>✈<span class="fltBtnTx"> TFC SEARCH</span></button>
@@ -7329,32 +7329,43 @@ contTurnBoot = false;
 })();
 </script>
 <script>
-// build 308 ユーザー「古いアプリに引っ越し先を表示。2 カ月後に廃止。それまではお知らせは出るけど使える。URL を押すと新アプリへ」
-//   開くたびに(同じタブで読み込み直したときは出さない)お知らせを出す。閉じれば今まで通り使える
+// build 308 ユーザー「古いアプリに引っ越し先を表示。それまではお知らせは出るけど使える。URL を押すと新アプリへ」
+// build 309 ユーザー「12/31 までにしよう。23 時 59 分でアプリ廃止してお知らせだけ残して」
+//   〜2026-12-31 23:58 JST: 開くたび(同じタブの読み込み直しは除く)にお知らせ。閉じれば使える
+//   2026-12-31 23:59 JST〜: 閉じられないお知らせだけ(アプリは使えない)。端末の時計で判断するので、オフラインで開いても同じ。開いたまま時刻を過ぎても 1 分以内に切り替わる
 (function(){
-  const NEW_URL = "https://skai.b8tools.workers.dev/", END = "2026年12月17日(木)";
-  try{ if(window.top !== window) return; if(sessionStorage.getItem("ap:moveShown")) return; sessionStorage.setItem("ap:moveShown", "1"); }catch(e){}
+  const NEW_URL = "https://skai.b8tools.workers.dev/", END_TXT = "2026年12月31日(木) 23:59", END_MS = Date.parse("2026-12-31T23:59:00+09:00");
+  if(window.top !== window) return;
+  const ended = ()=>Date.now() >= END_MS;
   const show = ()=>{
-    if(document.getElementById("moveNotice")) return;
-    const ov = document.createElement("div"); ov.id = "moveNotice"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "アプリの引っ越しのお知らせ");
-    ov.style.cssText = "position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));";
+    const old = document.getElementById("moveNotice"), fin = ended();
+    if(old){ if(!fin || old.dataset.fin) return; old.remove(); }
+    const ov = document.createElement("div"); ov.id = "moveNotice"; if(fin) ov.dataset.fin = "1";
+    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "アプリの引っ越しのお知らせ");
+    ov.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:" + (fin ? "#0b0f14" : "rgba(0,0,0,.65)") + ";display:flex;align-items:center;justify-content:center;padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));";
     ov.innerHTML = '<div style="background:var(--panel,#1b1f27);color:var(--text,#e8e8e8);border:1px solid var(--line,#3a4150);border-radius:12px;max-width:440px;width:100%;max-height:100%;overflow-y:auto;padding:18px 18px 14px;box-shadow:0 8px 30px rgba(0,0,0,.6);font-size:14px;line-height:1.65;">'
-      + '<div style="font-size:18px;font-weight:700;margin-bottom:6px;">アプリが引っ越しました</div>'
-      + '<div>このアプリは新しいアドレスに引っ越しました。新しいアドレスでは、天気の AI 解析なども使えます。</div>'
+      + '<div style="font-size:18px;font-weight:700;margin-bottom:6px;">' + (fin ? "このアプリは終了しました" : "アプリが引っ越しました") + '</div>'
+      + '<div>' + (fin ? "このアプリは新しいアドレスに引っ越しました。新しいアドレスのアプリをお使いください。" : "このアプリは新しいアドレスに引っ越しました。新しいアドレスでは、天気の AI 解析なども使えます。") + '</div>'
       + '<a id="moveGo" href="' + NEW_URL + '" target="_blank" rel="noopener" style="display:block;text-align:center;margin:14px 0 6px;padding:12px;border-radius:9px;background:#017bc7;color:#fff;font-weight:700;font-size:16px;text-decoration:none;">新しいアプリを開く</a>'
       + '<div style="text-align:center;font-size:13px;word-break:break-all;"><a href="' + NEW_URL + '" target="_blank" rel="noopener" style="color:#3da5ef;">' + NEW_URL.replace(/\/$/, "") + '</a></div>'
       + '<ol style="margin:12px 0 4px;padding-left:20px;font-size:13px;">'
       + '<li>開いたページで、共有ボタン(またはブラウザのメニュー)→「ホーム画面に追加」。アプリの中の画面で開いたときは、まず Safari / Chrome で開き直してから。</li>'
-      + '<li>新しいアイコンから開いて、Wi-Fi で WX保存(保存した天気・設定は引き継がれません)。</li></ol>'
-      + '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,177,0,.12);color:var(--amber,#ffb100);font-size:13px;">このアプリは <b>' + END + '</b> で使えなくなります。それまでは今まで通り使えます。</div>'
-      + '<button type="button" id="moveLater" style="display:block;width:100%;margin-top:12px;padding:11px;border-radius:9px;border:1px solid var(--line,#3a4150);background:transparent;color:inherit;font:inherit;">閉じて、このまま使う</button>'
+      + '<li>新しいアイコンから開いて、Wi-Fi で WX保存(保存した天気・設定は引き継がれません)。</li>'
+      + (fin ? '<li>このアプリのアイコンは、ホーム画面から消してください。</li>' : '') + '</ol>'
+      + (fin ? '' : '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,177,0,.12);color:var(--amber,#ffb100);font-size:13px;">このアプリは <b>' + END_TXT + '</b> で使えなくなります。それまでは今まで通り使えます。</div>'
+      + '<button type="button" id="moveLater" style="display:block;width:100%;margin-top:12px;padding:11px;border-radius:9px;border:1px solid var(--line,#3a4150);background:transparent;color:inherit;font:inherit;">閉じて、このまま使う</button>')
       + '</div>';
     document.body.append(ov);
-    const close = ()=>ov.remove();
-    document.getElementById("moveLater").addEventListener("click", close);
-    ov.addEventListener("click", e=>{ if(e.target === ov) close(); });
+    if(!fin){ const close = ()=>ov.remove();
+      document.getElementById("moveLater").addEventListener("click", close);
+      ov.addEventListener("click", e=>{ if(e.target === ov) close(); }); }
   };
-  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", ()=>setTimeout(show, 300)); else setTimeout(show, 300);
+  const start = ()=>{
+    let first = true; try{ first = !sessionStorage.getItem("ap:moveShown"); sessionStorage.setItem("ap:moveShown", "1"); }catch(e){}
+    if(first || ended()) setTimeout(show, 300);
+    if(!ended()) setInterval(()=>{ if(ended()) show(); }, 60e3);
+  };
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();
 </script>
 </body>
